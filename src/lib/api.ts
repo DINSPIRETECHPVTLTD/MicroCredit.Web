@@ -1,15 +1,15 @@
-// API base URL - use Vite env in production
+// Backend base URL (no "api/" suffix). Set VITE_API_URL in .env e.g. https://localhost:7119
 const API_BASE =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
-    ? import.meta.env.VITE_API_URL
-    : "/api"
+    ? String(import.meta.env.VITE_API_URL).replace(/\/$/, "")
+    : "https://localhost:7119"
 
 export function getApiUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`
-  return `${API_BASE.replace(/\/$/, "")}${p}`
+  return `${API_BASE}${p}`
 }
 
-const base = API_BASE.replace(/\/$/, "")
+const base = API_BASE
 
 export const api = {
   auth: {
