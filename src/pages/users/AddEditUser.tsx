@@ -9,21 +9,25 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 
+const baseFields = {
+  firstName: z.string().min(1, "First name is required"),
+  surname: z.string().min(1, "Surname is required"),
+  email: z.string().min(1, "Email is required").email("Invalid email"),
+  role: z.string().min(1, "Role is required"),
+  phoneNumber: z.string().optional(),
+  address1: z.string().optional(),
+  address2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pinCode: z.string().optional(),
+  level: z.string().min(1, "Level is required"),
+}
+
 const createSchema = z
   .object({
-    firstName: z.string().min(1, "First name is required"),
-    surname: z.string().min(1, "Surname is required"),
-    email: z.string().min(1, "Email is required").email("Invalid email"),
-    role: z.string().min(1, "Role is required"),
-    phoneNumber: z.string().optional(),
+    ...baseFields,
     password: z.string().min(6, "Password must be at least 6 characters").optional(),
     confirmPassword: z.string().optional(),
-    address1: z.string().optional(),
-    address2: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    pinCode: z.string().optional(),
-    level: z.string().min(1, "Level is required"),
   })
   .refine(
     (data) =>
@@ -31,7 +35,7 @@ const createSchema = z
     { message: "Passwords do not match", path: ["confirmPassword"] }
   )
 
-const editSchema = createSchema.omit({ password: true, confirmPassword: true })
+const editSchema = z.object(baseFields)
 
 type CreateFormData = z.infer<typeof createSchema>
 

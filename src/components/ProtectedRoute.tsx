@@ -3,8 +3,15 @@ import { isAuthenticated } from "@/services/auth.service"
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation()
-  if (!isAuthenticated()) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+  const authenticated = isAuthenticated()
+  if (!authenticated) {
+    return (
+      <Navigate
+        to="/login"
+        state={{ from: location }}
+        replace
+      />
+    )
   }
   return <>{children}</>
 }

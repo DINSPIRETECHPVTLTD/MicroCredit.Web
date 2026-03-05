@@ -50,12 +50,24 @@ export function getToken(): string | null {
 
 export function isAuthenticated(): boolean {
   const token = getToken()
-  if (!token) return false
+  if (!token || typeof token !== "string") {
+    return false
+  }
   try {
-    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")))
+    const parts = token.split(".")
+    if (parts.length !== 3) {
+      clearSession()
+      return false
+    }
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+    )
     if (!payload?.exp) return true
-    return payload.exp > Math.floor(Date.now() / 1000)
+    const isValid = payload.exp > Math.floor(Date.now() / 1000)
+    if (!isValid) clearSession()
+    return isValid
   } catch {
+    clearSession()
     return false
   }
 }
