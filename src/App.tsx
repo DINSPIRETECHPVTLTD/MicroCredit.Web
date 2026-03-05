@@ -1,13 +1,52 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { GuestRoute } from "@/components/GuestRoute"
+import DashboardLayout from "@/components/DashboardLayout"
 import Home from "@/pages/Home"
 import Login from "@/pages/Login"
+import Placeholder from "@/pages/Placeholder"
+import UserList from "@/pages/users/UserList"
+import AddEditUser from "@/pages/users/AddEditUser"
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <Login />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Home />} />
+          <Route path="users" element={<UserList />} />
+          <Route path="users/new" element={<AddEditUser />} />
+          <Route path="users/:id/edit" element={<AddEditUser />} />
+          <Route path="org-info" element={<Placeholder />} />
+          <Route path="branches" element={<Placeholder />} />
+          <Route path="master/data" element={<Placeholder />} />
+          <Route path="master/payment-terms" element={<Placeholder />} />
+          <Route path="funds/investments" element={<Placeholder />} />
+          <Route path="funds/ledger-balances" element={<Placeholder />} />
+          <Route path="centers" element={<Placeholder />} />
+          <Route path="pocs" element={<Placeholder />} />
+          <Route path="staff" element={<Placeholder />} />
+          <Route path="members" element={<Placeholder />} />
+          <Route path="loans/add" element={<Placeholder />} />
+          <Route path="loans/manage" element={<Placeholder />} />
+          <Route path="recovery-posting" element={<Placeholder />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )
