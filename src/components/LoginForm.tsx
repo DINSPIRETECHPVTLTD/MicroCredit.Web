@@ -30,6 +30,7 @@ export default function LoginForm() {
       navigate("/", { replace: true })
     } catch (err: unknown) {
       const message =
+        (err as Error)?.message ??
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "Login failed. Please try again."
       setErrorMessage(message)

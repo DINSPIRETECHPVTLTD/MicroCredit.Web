@@ -1,26 +1,43 @@
-// Backend base URL (no "api/" suffix). Set VITE_API_URL in .env e.g. https://localhost:7119
-const API_BASE =
-  typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
-    ? String(import.meta.env.VITE_API_URL).replace(/\/$/, "")
-    : "https://localhost:7119"
+const VITE_API_URL_REQUIRED =
+  "VITE_API_URL is required. Set it in your .env file (e.g. VITE_API_URL=https://your-api.example.com)."
 
-export function getApiUrl(path: string): string {
-  const p = path.startsWith("/") ? path : `/${path}`
-  return `${API_BASE}${p}`
+function getApiBase(): string {
+  const raw = typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_URL : undefined
+  const trimmed = typeof raw === "string" ? raw.trim() : ""
+  if (!trimmed) {
+    throw new Error(VITE_API_URL_REQUIRED)
+  }
+  return trimmed.replace(/\/$/, "")
 }
 
-const base = API_BASE
+export function getApiUrl(path: string): string {
+  const base = getApiBase()
+  const p = path.startsWith("/") ? path : `/${path}`
+  return `${base}${p}`
+}
 
 export const api = {
   auth: {
-    login: `${base}/auth/login`,
-    refresh: `${base}/auth/refresh`,
-    navigateToBranch: `${base}/auth/navigate-to-branch`,
-    navigateToOrg: `${base}/auth/navigate-to-org`,
+    get login() {
+      return `${getApiBase()}/auth/login`
+    },
+    get refresh() {
+      return `${getApiBase()}/auth/refresh`
+    },
+    get navigateToBranch() {
+      return `${getApiBase()}/auth/navigate-to-branch`
+    },
+    get navigateToOrg() {
+      return `${getApiBase()}/auth/navigate-to-org`
+    },
   },
   users: {
-    list: `${base}/Users/Org`,
-    create: `${base}/api/users`,
-    update: (id: number) => `${base}/api/users/${id}`,
+    get list() {
+      return `${getApiBase()}/Users/Org`
+    },
+    get create() {
+      return `${getApiBase()}/api/users`
+    },
+    update: (id: number) => `${getApiBase()}/api/users/${id}`,
   },
 }
