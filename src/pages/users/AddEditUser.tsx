@@ -151,129 +151,137 @@ function AddEditUser() {
       </h1>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <section>
-          <h2 className="text-lg font-medium mb-4">Basic information</h2>
-          <div className="grid gap-4 max-w-xl">
-            <div>
-              <label className="text-sm font-medium mb-1 block">First name</label>
-              <input
-                {...form.register("firstName")}
-                className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
-              />
-              {form.formState.errors.firstName && (
-                <p className="text-xs text-destructive mt-1">
-                  {form.formState.errors.firstName.message}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Surname</label>
-              <input
-                {...form.register("surname")}
-                className={cn(inputClass, form.formState.errors.surname && "border-destructive")}
-              />
-              {form.formState.errors.surname && (
-                <p className="text-xs text-destructive mt-1">
-                  {form.formState.errors.surname.message}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Email</label>
-              <input
-                {...form.register("email")}
-                type="email"
-                className={cn(inputClass, form.formState.errors.email && "border-destructive")}
-              />
-              {form.formState.errors.email && (
-                <p className="text-xs text-destructive mt-1">
-                  {form.formState.errors.email.message}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Phone number</label>
-              <input {...form.register("phoneNumber")} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Role</label>
-              <select {...form.register("role")} className={inputClass}>
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Level</label>
-              <input {...form.register("level")} className={inputClass} />
-            </div>
-          </div>
-        </section>
-
-        {!isEdit && (
-          <section>
-            <h2 className="text-lg font-medium mb-4">Security</h2>
-            <div className="grid gap-4 max-w-xl">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Password</label>
-                <input
-                  {...form.register("password")}
-                  type="password"
-                  className={cn(inputClass, form.formState.errors.password && "border-destructive")}
-                />
-                {form.formState.errors.password && (
-                  <p className="text-xs text-destructive mt-1">
-                    {form.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Confirm password</label>
-                <input
-                  {...form.register("confirmPassword")}
-                  type="password"
-                  className={cn(
-                    inputClass,
-                    form.formState.errors.confirmPassword && "border-destructive"
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          {/* Left column: Basic info + Security */}
+          <div className="space-y-8">
+            <section>
+              <h2 className="text-lg font-medium mb-4">Basic information</h2>
+              <div className="grid gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">First name</label>
+                  <input
+                    {...form.register("firstName")}
+                    className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
+                  />
+                  {form.formState.errors.firstName && (
+                    <p className="text-xs text-destructive mt-1">
+                      {form.formState.errors.firstName.message}
+                    </p>
                   )}
-                />
-                {form.formState.errors.confirmPassword && (
-                  <p className="text-xs text-destructive mt-1">
-                    {form.formState.errors.confirmPassword.message}
-                  </p>
-                )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Surname</label>
+                  <input
+                    {...form.register("surname")}
+                    className={cn(inputClass, form.formState.errors.surname && "border-destructive")}
+                  />
+                  {form.formState.errors.surname && (
+                    <p className="text-xs text-destructive mt-1">
+                      {form.formState.errors.surname.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Email</label>
+                  <input
+                    {...form.register("email")}
+                    type="email"
+                    className={cn(inputClass, form.formState.errors.email && "border-destructive")}
+                  />
+                  {form.formState.errors.email && (
+                    <p className="text-xs text-destructive mt-1">
+                      {form.formState.errors.email.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Phone number</label>
+                  <input {...form.register("phoneNumber")} className={inputClass} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Role</label>
+                  <select {...form.register("role")} className={inputClass}>
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Level</label>
+                  <input {...form.register("level")} className={inputClass} />
+                </div>
               </div>
-            </div>
-          </section>
-        )}
+            </section>
 
-        <section>
-          <h2 className="text-lg font-medium mb-4">Address Details</h2>
-          <div className="grid gap-4 max-w-xl">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Address 1</label>
-              <input {...form.register("address1")} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Address 2</label>
-              <input {...form.register("address2")} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">City</label>
-              <input {...form.register("city")} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">State</label>
-              <input {...form.register("state")} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Pin code</label>
-              <input {...form.register("pinCode")} className={inputClass} />
-            </div>
+            {!isEdit && (
+              <section>
+                <h2 className="text-lg font-medium mb-4">Security</h2>
+                <div className="grid gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Password</label>
+                    <input
+                      {...form.register("password")}
+                      type="password"
+                      className={cn(inputClass, form.formState.errors.password && "border-destructive")}
+                    />
+                    {form.formState.errors.password && (
+                      <p className="text-xs text-destructive mt-1">
+                        {form.formState.errors.password.message}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Confirm password</label>
+                    <input
+                      {...form.register("confirmPassword")}
+                      type="password"
+                      className={cn(
+                        inputClass,
+                        form.formState.errors.confirmPassword && "border-destructive"
+                      )}
+                    />
+                    {form.formState.errors.confirmPassword && (
+                      <p className="text-xs text-destructive mt-1">
+                        {form.formState.errors.confirmPassword.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
-        </section>
+
+          {/* Right column: Address */}
+          <div>
+            <section>
+              <h2 className="text-lg font-medium mb-4">Address Details</h2>
+              <div className="grid gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Address 1</label>
+                  <input {...form.register("address1")} className={inputClass} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Address 2</label>
+                  <input {...form.register("address2")} className={inputClass} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">City</label>
+                  <input {...form.register("city")} className={inputClass} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">State</label>
+                  <input {...form.register("state")} className={inputClass} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Pin code</label>
+                  <input {...form.register("pinCode")} className={inputClass} />
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
 
         {errorMessage && (
           <p className="text-sm text-destructive">{errorMessage}</p>

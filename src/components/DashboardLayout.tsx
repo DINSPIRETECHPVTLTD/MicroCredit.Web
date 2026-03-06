@@ -24,7 +24,49 @@ import {
   Building2,
   MapPin,
   User,
+  LayoutDashboard,
+  Info,
+  Users,
+  GitBranch,
+  Database,
+  Table,
+  CreditCard,
+  Wallet,
+  TrendingUp,
+  BookOpen,
+  Building,
+  UserCheck,
+  Banknote,
+  Plus,
+  List,
+  RefreshCw,
+  type LucideIcon,
 } from "lucide-react"
+
+const MENU_ICONS: Record<string, LucideIcon> = {
+  Dashboard: LayoutDashboard,
+  Info: Info,
+  Users: Users,
+  Branches: GitBranch,
+  Master: Database,
+  "Master Data": Table,
+  "Payment Terms": CreditCard,
+  Funds: Wallet,
+  Investments: TrendingUp,
+  "Ledger Balances": BookOpen,
+  Centers: Building,
+  POCs: UserCheck,
+  Staff: Users,
+  Members: Users,
+  Loan: Banknote,
+  "Add Loan": Plus,
+  "Manage Loan": List,
+  "Recovery Posting": RefreshCw,
+}
+
+function getMenuIcon(key: string): LucideIcon | null {
+  return MENU_ICONS[key] ?? null
+}
 
 export default function DashboardLayout() {
   const navigate = useNavigate()
@@ -73,103 +115,174 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
+    <div className="flex h-screen min-h-screen w-full bg-muted/40">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-card flex flex-col">
-        <div className="p-4 border-b">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            {organization?.name ?? "MCS"}
+      <aside className="flex w-64 flex-col border-r border-border bg-card shadow-sm">
+        <div className="flex flex-col gap-1 border-b border-border px-4 py-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {organization?.name ?? "MCS"}
+              </p>
+              {selectedBranch && (
+                <p className="truncate text-xs font-medium text-primary">
+                  {selectedBranch.name}
+                </p>
+              )}
+            </div>
           </div>
-          {organization && (
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {organization.address} • {organization.phoneNumber}
-            </p>
-          )}
-          {selectedBranch && (
-            <p className="text-xs text-primary mt-1 font-medium">
-              {selectedBranch.name}
+          {organization?.address && (
+            <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="line-clamp-2">
+                {organization.address}
+                {organization.phoneNumber ? ` • ${organization.phoneNumber}` : ""}
+              </span>
             </p>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {filteredMenu.map((item) =>
-            item.route !== undefined && !item.children?.length ? (
-              <NavLink
-                key={item.key}
-                to={getLink(item.route)}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-2 px-4 py-2 text-sm",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted"
-                  )
-                }
-              >
-                {item.label}
-              </NavLink>
-            ) : item.children?.length ? (
-              <div key={item.key}>
-                <button
-                  type="button"
-                  onClick={() => toggleExpanded(item.key)}
-                  className="flex w-full items-center justify-between gap-2 px-4 py-2 text-sm hover:bg-muted"
-                >
-                  {item.label}
-                  {isExpanded(item.key) ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
+
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
+          <ul className="space-y-0.5">
+            {filteredMenu.map((item) =>
+              item.route !== undefined && !item.children?.length ? (
+                <li key={item.key}>
+                  <NavLink
+                    to={getLink(item.route)}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )
+                    }
+                  >
+                    {(() => {
+                      const Icon = getMenuIcon(item.key)
+                      return (
+                        <>
+                          {Icon ? (
+                            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                          ) : (
+                            <span className="h-4 w-4 shrink-0" />
+                          )}
+                          <span className="truncate">{item.label}</span>
+                        </>
+                      )
+                    })()}
+                  </NavLink>
+                </li>
+              ) : item.children?.length ? (
+                <li key={item.key}>
+                  {(() => {
+                    const ParentIcon = getMenuIcon(item.key)
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(item.key)}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <span className="flex items-center gap-3">
+                          {ParentIcon ? (
+                            <ParentIcon className="h-4 w-4 shrink-0" aria-hidden />
+                          ) : (
+                            <span className="h-4 w-4 shrink-0" />
+                          )}
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        {isExpanded(item.key) ? (
+                          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+                        )}
+                      </button>
+                    )
+                  })()}
+                  {isExpanded(item.key) && (
+                    <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
+                      {item.children?.map((child) => (
+                        <li key={child.key}>
+                          <NavLink
+                            to={getLink(child.route)}
+                            className={({ isActive }) =>
+                              cn(
+                                "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
+                                isActive
+                                  ? "bg-primary/10 font-medium text-primary"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              )
+                            }
+                          >
+                            {(() => {
+                              const Icon = getMenuIcon(child.key)
+                              return (
+                                <>
+                                  {Icon ? (
+                                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                  ) : (
+                                    <span className="h-3.5 w-3.5 shrink-0" />
+                                  )}
+                                  <span className="truncate">{child.label}</span>
+                                </>
+                              )
+                            })()}
+                          </NavLink>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                </button>
-                {isExpanded(item.key) &&
-                  item.children?.map((child) => (
-                    <NavLink
-                      key={child.key}
-                      to={getLink(child.route)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex pl-8 pr-4 py-2 text-sm",
-                          isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted"
-                        )
-                      }
-                    >
-                      {child.label}
-                    </NavLink>
-                  ))}
-              </div>
-            ) : null
-          )}
-        </div>
+                </li>
+              ) : null
+            )}
+          </ul>
+        </nav>
       </aside>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b bg-card flex items-center justify-between px-4 gap-4">
-          <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            {mode === "ORG" ? "ORG MODE" : "BRANCH MODE"}
-          </span>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-2 text-sm">
-              <User className="h-4 w-4 text-muted-foreground" />
-              {userDisplayName}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider",
+                mode === "ORG"
+                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+              )}
+            >
+              {mode === "ORG" ? "Org" : "Branch"}
             </span>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 sm:flex">
+              <User className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <span className="max-w-[140px] truncate text-sm font-medium text-foreground">
+                {userDisplayName}
+              </span>
+            </div>
             {mode === "BRANCH" && role === "OWNER" && (
               <Button variant="outline" size="sm" onClick={handleReturnToOrg}>
-                Return back to Org Mode
+                Back to Org
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-1" />
-              LOG OUT
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4 sm:mr-1.5" aria-hidden />
+              <span className="hidden sm:inline">Log out</span>
             </Button>
           </div>
         </header>
-        <main className="flex-1 p-6 overflow-auto">
+
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>
