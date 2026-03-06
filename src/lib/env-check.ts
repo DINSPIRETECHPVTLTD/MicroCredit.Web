@@ -2,8 +2,17 @@
 export function getViteApiUrl(): string {
   const raw =
     typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_URL : undefined
-  const trimmed = typeof raw === "string" ? raw.trim() : ""
-  return trimmed
+  return typeof raw === "string" ? raw.trim() : ""
+}
+
+/** Returns the raw value (for showing on error screen). */
+export function getViteApiUrlDebug(): string {
+  const raw =
+    typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_URL : undefined
+  if (raw === undefined) return "(not set)"
+  if (typeof raw !== "string") return `(invalid type: ${typeof raw})`
+  if (raw.trim() === "") return "(empty or whitespace)"
+  return raw
 }
 
 export const VITE_API_URL_REQUIRED_MESSAGE =

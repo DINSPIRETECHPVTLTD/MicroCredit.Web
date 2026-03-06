@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "build:dev": "tsc -b && vite build --mode development",
+    "dev": "node scripts/ensure-env.js && vite",
+    "build": "node scripts/ensure-env.js && tsc -b && vite build",
+    "build:dev": "node scripts/ensure-env.js && tsc -b && vite build --mode development",
+    "build:test": "node scripts/ensure-env.js && tsc -b && vite build --mode test",
     "lint": "eslint .",
     "preview": "vite preview"
   },
