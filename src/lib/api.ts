@@ -36,9 +36,10 @@ export const api = {
       return `${getApiBase()}/Users/Org`
     },
     get create() {
-      return `${getApiBase()}/api/users`
+      return `${getApiBase()}/users`
     },
-    update: (id: number) => `${getApiBase()}/api/users/${id}`,
-    resetPassword: (id: number) => `${getApiBase()}/api/users/${id}/reset-password`,
+    update: (id: number) => `${getApiBase()}/users/${id}`,
+    resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
+    setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
   },
 }

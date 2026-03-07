@@ -6,7 +6,6 @@ import Home from "@/pages/Home"
 import Login from "@/pages/Login"
 import Placeholder from "@/pages/Placeholder"
 import UserList from "@/pages/users/UserList"
-import AddEditUser from "@/pages/users/AddEditUser"
 
 function App() {
   return (
@@ -30,8 +29,8 @@ function App() {
         >
           <Route index element={<Home />} />
           <Route path="users" element={<UserList />} />
-          <Route path="users/new" element={<AddEditUser />} />
-          <Route path="users/:id/edit" element={<AddEditUser />} />
+          <Route path="users/new" element={<Navigate to="/users" replace />} />
+          <Route path="users/:id/edit" element={<Navigate to="/users" replace />} />
           <Route path="org-info" element={<Placeholder />} />
           <Route path="branches" element={<Placeholder />} />
           <Route path="master/data" element={<Placeholder />} />

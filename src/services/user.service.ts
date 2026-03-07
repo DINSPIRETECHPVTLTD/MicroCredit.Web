@@ -25,4 +25,9 @@ export const userService = {
     const { data } = await axios.post(api.users.resetPassword(id), request)
     return data
   },
+
+  async setInactive(id: number) {
+    const { data } = await axios.put(api.users.setInactive(id), {})
+    return data
+  },
 }

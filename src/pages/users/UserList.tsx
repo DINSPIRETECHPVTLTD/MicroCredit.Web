@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -12,6 +11,7 @@ import {
 import { userService } from "@/services/user.service"
 import type { UserResponse } from "@/types/user"
 import { Button } from "@/components/ui/button"
+import { AddEditUserDialog, type AddEditUserDialogMode } from "@/pages/users/AddEditUserDialog"
 import { Plus, Pencil, Key, UserX } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
@@ -33,6 +33,8 @@ const inputClass =
 
 function UserList() {
   const [resetPasswordUser, setResetPasswordUser] = useState<UserResponse | null>(null)
+  const [setInactiveUser, setSetInactiveUser] = useState<UserResponse | null>(null)
+  const [addEditDialog, setAddEditDialog] = useState<AddEditUserDialogMode | null>(null)
   const {
     data: users = [],
     isLoading,
@@ -75,8 +77,9 @@ function UserList() {
         Cell: ({ row }) => (
           <UserRowActions
             user={row.original}
-            onUpdated={refetch}
             onOpenResetPassword={setResetPasswordUser}
+            onOpenEdit={setAddEditDialog}
+            onOpenSetInactive={setSetInactiveUser}
           />
         ),
       },
@@ -99,11 +102,9 @@ function UserList() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">All Users</h1>
-        <Button asChild>
-          <Link to="/users/new">
-            <Plus className="h-4 w-4 mr-2" />
-            ADD USER
-          </Link>
+        <Button onClick={() => setAddEditDialog({ mode: "add" })}>
+          <Plus className="h-4 w-4 mr-2" />
+          ADD USER
         </Button>
       </div>
 
@@ -111,8 +112,8 @@ function UserList() {
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
           <p>No users found</p>
           <p className="text-sm mt-1">Click &quot;Add User&quot; to create a new user</p>
-          <Button asChild className="mt-4">
-            <Link to="/users/new">Add User</Link>
+          <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
+            Add User
           </Button>
         </div>
       ) : (
@@ -129,6 +130,26 @@ function UserList() {
           }}
         />
       )}
+
+      {setInactiveUser && (
+        <SetInactiveDialog
+          user={setInactiveUser}
+          onClose={() => setSetInactiveUser(null)}
+          onSuccess={() => {
+            refetch()
+            setSetInactiveUser(null)
+          }}
+        />
+      )}
+
+      <AddEditUserDialog
+        value={addEditDialog}
+        onClose={() => setAddEditDialog(null)}
+        onSuccess={() => {
+          refetch()
+          setAddEditDialog(null)
+        }}
+      />
     </div>
   )
 }
@@ -239,44 +260,101 @@ function ResetPasswordDialog({
   )
 }
 
-function UserRowActions({
+function SetInactiveDialog({
   user,
-  onUpdated,
-  onOpenResetPassword,
+  onClose,
+  onSuccess,
 }: {
   user: UserResponse
-  onUpdated: () => void
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    dialogRef.current?.showModal()
+  }, [user.id])
+
+  const close = () => {
+    dialogRef.current?.close()
+    onClose()
+  }
+
+  const handleConfirm = async () => {
+    setSubmitting(true)
+    try {
+      await userService.setInactive(user.id)
+      toast.success("User set inactive")
+      onSuccess()
+        close()
+      } catch (err) {
+        toast.error(
+          err && typeof err === "object" && "response" in err
+            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Failed to set user inactive"
+            : "Failed to set user inactive"
+        )
+      } finally {
+        setSubmitting(false)
+      }
+  }
+
+  const fullName = [user.firstName, user.surname].filter(Boolean).join(" ") || user.email
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onCancel={close}
+      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-md w-full"
+      aria-labelledby="set-inactive-title"
+      aria-describedby="set-inactive-desc"
+    >
+      <div className="p-6">
+        <h2 id="set-inactive-title" className="text-lg font-semibold">
+          Set user inactive
+        </h2>
+        <p id="set-inactive-desc" className="text-sm text-muted-foreground mt-1 mb-6">
+          Set <strong>{fullName}</strong> as inactive? They will no longer be able to sign in.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={close}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleConfirm} disabled={submitting}>
+            {submitting ? "Setting…" : "Set inactive"}
+          </Button>
+        </div>
+      </div>
+    </dialog>
+  )
+}
+
+function UserRowActions({
+  user,
+  onOpenResetPassword,
+  onOpenEdit,
+  onOpenSetInactive,
+}: {
+  user: UserResponse
   onOpenResetPassword: (user: UserResponse) => void
+  onOpenEdit: (mode: AddEditUserDialogMode) => void
+  onOpenSetInactive: (user: UserResponse) => void
 }) {
   const handleResetPassword = () => {
     onOpenResetPassword(user)
   }
 
-  const handleSetInactive = () => {
-    if (
-      window.confirm(
-        `Set ${user.firstName} ${user.surname} as inactive? They will no longer be able to sign in.`
-      )
-    ) {
-      // TODO: PUT /api/users/{id}/inactive
-      toast.success("User set inactive")
-      onUpdated()
-    }
-  }
-
   return (
     <div className="flex items-center justify-end gap-2">
-      <Button variant="ghost" size="sm" asChild>
-        <Link to={`/users/${user.id}/edit`}>
-          <Pencil className="h-4 w-4 mr-1" />
-          Edit
-        </Link>
+      <Button variant="ghost" size="sm" onClick={() => onOpenEdit({ mode: "edit", user })}>
+        <Pencil className="h-4 w-4 mr-1" />
+        Edit
       </Button>
       <Button variant="ghost" size="sm" onClick={handleResetPassword}>
         <Key className="h-4 w-4 mr-1" />
         Reset password
       </Button>
-      <Button variant="ghost" size="sm" onClick={handleSetInactive}>
+      <Button variant="ghost" size="sm" onClick={() => onOpenSetInactive(user)}>
         <UserX className="h-4 w-4 mr-1" />
         Set inactive
       </Button>
