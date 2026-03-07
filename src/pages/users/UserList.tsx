@@ -193,7 +193,7 @@ function ResetPasswordDialog({
         onSubmit={form.handleSubmit(async (data) => {
           setSubmitting(true)
           try {
-            await userService.resetPassword(user.id, { newPassword: data.password })
+            await userService.resetPassword(user.id, { password: data.password })
             toast.success("Password has been reset.")
             onSuccess()
             close()

@@ -20,14 +20,14 @@ export const userService = {
 
   async resetPassword(
     id: number,
-    request: { newPassword: string }
+    request: { password: string }
   ): Promise<unknown> {
     const { data } = await axios.post(api.users.resetPassword(id), request)
     return data
   },
 
   async setInactive(id: number) {
-    const { data } = await axios.put(api.users.setInactive(id), {})
+    const { data } = await axios.delete(api.users.setInactive(id), {})
     return data
   },
 }
