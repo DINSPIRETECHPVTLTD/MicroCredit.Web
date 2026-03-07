@@ -2,7 +2,7 @@ const VITE_API_URL_REQUIRED =
   "VITE_API_URL is required. Set it in your .env file (e.g. VITE_API_URL=https://your-api.example.com)."
 
 function getApiBase(): string {
-  const raw = typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_URL : undefined
+    const raw = typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_URL : undefined
   const trimmed = typeof raw === "string" ? raw.trim() : ""
   if (!trimmed) {
     throw new Error(VITE_API_URL_REQUIRED)
@@ -41,5 +41,15 @@ export const api = {
     update: (id: number) => `${getApiBase()}/users/${id}`,
     resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
     setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
+  },
+  branches: {
+    get list() {
+      return `${getApiBase()}/branchs`
+    },
+    get create() {
+      return `${getApiBase()}/branches`
+    },
+    update: (id: number) => `${getApiBase()}/branches/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/branches/${id}/inactive`,
   },
 }

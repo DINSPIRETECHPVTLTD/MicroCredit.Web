@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout"
 import Home from "@/pages/Home"
 import Login from "@/pages/Login"
 import Placeholder from "@/pages/Placeholder"
+import BranchList from "@/pages/branches/BranchList"
 import UserList from "@/pages/users/UserList"
 
 function App() {
@@ -32,7 +33,7 @@ function App() {
           <Route path="users/new" element={<Navigate to="/users" replace />} />
           <Route path="users/:id/edit" element={<Navigate to="/users" replace />} />
           <Route path="org-info" element={<Placeholder />} />
-          <Route path="branches" element={<Placeholder />} />
+          <Route path="branches" element={<BranchList />} />
           <Route path="master/data" element={<Placeholder />} />
           <Route path="master/payment-terms" element={<Placeholder />} />
           <Route path="funds/investments" element={<Placeholder />} />
