@@ -39,5 +39,6 @@ export const api = {
       return `${getApiBase()}/api/users`
     },
     update: (id: number) => `${getApiBase()}/api/users/${id}`,
+    resetPassword: (id: number) => `${getApiBase()}/api/users/${id}/reset-password`,
   },
 }

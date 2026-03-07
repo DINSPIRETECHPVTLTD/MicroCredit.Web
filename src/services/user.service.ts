@@ -17,4 +17,12 @@ export const userService = {
     const { data } = await axios.put(api.users.update(id), request)
     return data
   },
+
+  async resetPassword(
+    id: number,
+    request: { newPassword: string }
+  ): Promise<unknown> {
+    const { data } = await axios.post(api.users.resetPassword(id), request)
+    return data
+  },
 }
