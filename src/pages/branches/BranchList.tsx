@@ -27,7 +27,7 @@ function BranchList() {
       {
         id: "address",
         header: "Address",
-        accessorFn: (row) => row.address ?? "—",
+        accessorFn: (row) => row.address ?? "ï¿½",
       },
       {
         accessorKey: "phoneNumber",

@@ -54,6 +54,7 @@ const MENU_ICONS: Record<string, LucideIcon> = {
   Funds: Wallet,
   Investments: TrendingUp,
   "Ledger Balances": BookOpen,
+  Expenses: CreditCard,
   Centers: Building,
   POCs: UserCheck,
   Staff: Users,
