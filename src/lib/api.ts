@@ -47,9 +47,20 @@ export const api = {
       return `${getApiBase()}/branchs`
     },
     get create() {
-      return `${getApiBase()}/branches`
+      return `${getApiBase()}/branchs`
     },
-    update: (id: number) => `${getApiBase()}/branches/${id}`,
-    setInactive: (id: number) => `${getApiBase()}/branches/${id}/inactive`,
-  },
+    update: (id: number) => `${getApiBase()}/branchs/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/branchs/${id}/inactive`,
+    },
+    masterLookups: {
+        get list() {
+            return `${getApiBase()}/masterLookups`
+        },
+    },
+    paymentTerms: {
+        get list() {
+            return `${getApiBase()}/paymentTerm`
+        },
+    },
+
 }
