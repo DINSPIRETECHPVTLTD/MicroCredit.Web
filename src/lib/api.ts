@@ -52,4 +52,19 @@ export const api = {
     update: (id: number) => `${getApiBase()}/branches/${id}`,
     setInactive: (id: number) => `${getApiBase()}/branches/${id}/inactive`,
   },
+  investments: {
+    get list() {
+      return `${getApiBase()}/investments`
+    }
+  },
+  ledgerBalances: {
+    get list() {
+      return `${getApiBase()}/ledger-balances`
+    }
+  },
+  ledgerTransactions: {
+    get expenses() {
+      return `${getApiBase()}/ledger-transactions/expenses`
+    }
+  }
 }

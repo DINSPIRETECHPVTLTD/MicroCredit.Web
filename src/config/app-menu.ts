@@ -23,6 +23,7 @@ export const APP_MENU: AppMenuItem[] = [
     children: [
       { label: "Investments", key: "Investments", route: "funds/investments" },
       { label: "Ledger Balances", key: "Ledger Balances", route: "funds/ledger-balances" },
+      { label: "Expenses", key: "Expenses", route: "funds/expenses" },
     ],
   },
   { label: "Dashboard", key: "Dashboard", route: "", modes: ["BRANCH"] },
