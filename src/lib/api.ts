@@ -47,6 +47,26 @@ export const api = {
       return `${getApiBase()}/branchs`
     },
     get create() {
+      return `${getApiBase()}/branches`
+    },
+    update: (id: number) => `${getApiBase()}/branches/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/branches/${id}/inactive`,
+  },
+  investments: {
+    get list() {
+      return `${getApiBase()}/investments`
+    }
+  },
+  ledgerBalances: {
+    get list() {
+      return `${getApiBase()}/ledger-balances`
+    }
+  },
+  ledgerTransactions: {
+    get expenses() {
+      return `${getApiBase()}/ledger-transactions/expenses`
+    }
+  }
       return `${getApiBase()}/branchs`
     },
     update: (id: number) => `${getApiBase()}/branchs/${id}`,

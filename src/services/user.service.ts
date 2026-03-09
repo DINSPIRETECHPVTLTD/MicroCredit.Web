@@ -5,6 +5,7 @@ import type { UserResponse, CreateUserRequest, UpdateUserRequest } from "@/types
 export const userService = {
   async getUsers(): Promise<UserResponse[]> {
     const { data } = await axios.get<UserResponse[]>(api.users.list)
+    console.log("Fetched users:", data) // Debug log to check fetched data
     return data
   },
 
