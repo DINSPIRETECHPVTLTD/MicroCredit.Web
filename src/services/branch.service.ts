@@ -8,12 +8,12 @@ export const branchService = {
         return data
     },
 
-    async createBranch(request: { name: string; address?: string | null; phoneNumber?: string | null }): Promise<BranchResponse> {
+    async createBranch(request: { name: string; address1?: string | null; address2?: string | null; city?: string | null; state?: string | null; country?: string | null; zipcode?: string | null; phoneNumber?: string | null }): Promise<BranchResponse> {
         const { data } = await axios.post<BranchResponse>(api.branches.create, request)
         return data
     },
 
-    async updateBranch(id: number, request: { name?: string; address?: string | null; phoneNumber?: string | null }): Promise<BranchResponse> {
+    async updateBranch(id: number, request: { name: string; address1?: string | null; address2?: string | null; city?: string | null; state?: string | null; country?: string | null; zipcode?: string | null; phoneNumber?: string | null }): Promise<BranchResponse> {
         const { data } = await axios.put<BranchResponse>(api.branches.update(id), request)
         return data
     },
