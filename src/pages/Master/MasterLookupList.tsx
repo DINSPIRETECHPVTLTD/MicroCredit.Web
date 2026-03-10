@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type MRT_ColumnDef, MaterialReactTable } from "material-react-table"
 import type { MasterLookupResponse } from "../../types/masterLookup"
@@ -6,10 +6,23 @@ import { masterlookupService } from "../../services/masterLookup.service"
 import { Button } from "../../components/ui/button"
 import { Plus, Pencil, Trash } from "lucide-react"
 import toast from "react-hot-toast"
+import AddMasterLookupDialog, { type AddEditMasterLookupDialogMode } from "./AddMasterLookupDialog"
+
+function getApiErrorMessage(err: unknown, fallback: string): string {
+    const data = (err as { response?: { data?: unknown } })?.response?.data
+    if (typeof data === "string") return data
+    if (data && typeof data === "object") {
+        const obj = data as { message?: string; error?: string; title?: string }
+        return obj.message ?? obj.error ?? obj.title ?? fallback
+    }
+    return fallback
+}
 
 // Use MasterLookupResponse from types
 function MasterLookupList() {
-    const { data: masterLookups = [], isLoading } = useQuery({
+    const [addEditDialog, setAddEditDialog] = useState<AddEditMasterLookupDialogMode | null>(null)
+    const [inactiveLookup, setInactiveLookup] = useState<MasterLookupResponse | null>(null)
+    const { data: masterLookups = [], isLoading, refetch } = useQuery({
         queryKey: ["masterLookups"],
         queryFn: () => masterlookupService.getMasterLookups(),
     })
@@ -56,43 +69,46 @@ function MasterLookupList() {
                 Cell: ({ row }) => {
                     return (
                         <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => toast("Edit not implemented")}>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setAddEditDialog({ mode: "edit", lookup: row.original })}
+                            >
                                 <Pencil className="h-4 w-4 mr-1" />
                                 Edit
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => toast("Delete not implemented")}>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setInactiveLookup(row.original)}
+                            >
                                 <Trash className="h-4 w-4 mr-1" />
-                                Delete
+                                Set inactive
                             </Button>
                         </div>
                     )
                 },
             },
         ],
-        []
+        [refetch]
     )
 
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-semibold">All Master Lookups</h1>
-                <Button onClick={() => toast("Add Master Lookup not implemented")}>
+                <Button onClick={() => setAddEditDialog({ mode: "add" })}>
                     <Plus className="h-4 w-4 mr-2" />
-                    ADD
+                    Add LookUp
                 </Button>
             </div>
-
-       
-
-
-          
 
             {!isLoading && masterLookups.length === 0 ? (
                 <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
                     <p>No masterLookups found</p>
-                    <p className="text-sm mt-1">Click &quot;Add Branch&quot; to create a new branch</p>
-                    <Button className="mt-4" onClick={() => toast("Add Branch not implemented")}>
-                        Add Branch
+                    <p className="text-sm mt-1">Click &quot;Add LookUp&quot; to create a new lookup.</p>
+                    <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
+                        Add LookUp
                     </Button>
                 </div>
             ) : (
@@ -107,7 +123,95 @@ function MasterLookupList() {
                     enableColumnPinning
                 />
             )}
+            <AddMasterLookupDialog
+                value={addEditDialog}
+                onClose={() => setAddEditDialog(null)}
+                onSuccess={() => {
+                    setAddEditDialog(null)
+                }}
+                onSubmit={async (payload, mode, id) => {
+                    if (mode === "add") {
+                        await masterlookupService.createMasterLookup(payload)
+                    } else if (mode === "edit" && id) {
+                        await masterlookupService.updateMasterLookup(id, payload)
+                    }
+                    await refetch()
+                }}
+            />
+            {inactiveLookup && (
+                <SetInactiveDialog
+                    lookup={inactiveLookup}
+                    onClose={() => setInactiveLookup(null)}
+                    onSuccess={async () => {
+                        await refetch()
+                        setInactiveLookup(null)
+                    }}
+                />
+            )}
         </div>
+    )
+}
+
+function SetInactiveDialog({
+    lookup,
+    onClose,
+    onSuccess,
+}: {
+    lookup: MasterLookupResponse
+    onClose: () => void
+    onSuccess: () => void | Promise<void>
+}) {
+    const dialogRef = useRef<HTMLDialogElement>(null)
+    const [submitting, setSubmitting] = useState(false)
+
+    useEffect(() => {
+        dialogRef.current?.showModal()
+    }, [lookup.id])
+
+    const close = () => {
+        dialogRef.current?.close()
+        onClose()
+    }
+
+    const handleConfirm = async () => {
+        setSubmitting(true)
+        try {
+            await masterlookupService.setInactive(lookup.id)
+            toast.success("Lookup set inactive successfully")
+            await onSuccess()
+            close()
+        } catch (err) {
+            toast.error(getApiErrorMessage(err, "Failed to set lookup inactive"))
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    return (
+        <dialog
+            ref={dialogRef}
+            onCancel={close}
+            className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-md w-full"
+            aria-labelledby="set-inactive-title"
+            aria-describedby="set-inactive-desc"
+        >
+            <div className="p-6">
+                <h2 id="set-inactive-title" className="text-lg font-semibold">
+                    Set lookup inactive
+                </h2>
+                <p id="set-inactive-desc" className="text-sm text-muted-foreground mt-1 mb-6">
+                    Set <strong>{lookup.lookupValue}</strong> as inactive? It will no longer be available.
+                </p>
+                <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={close}>
+                        Cancel
+                    </Button>
+                    <Button type="button" onClick={handleConfirm} disabled={submitting}>
+                        {submitting ? "Setting..." : "Set inactive"}
+                    </Button>
+                </div>
+            </div>
+        </dialog>
     )
 }
 

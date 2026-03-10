@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type MRT_ColumnDef, MaterialReactTable, useMaterialReactTable } from "material-react-table"
 import { branchService } from "../../services/branch.service"
@@ -8,10 +8,20 @@ import { Button } from "../../components/ui/button"
 import { Plus, Pencil, UserX } from "lucide-react"
 import toast from "react-hot-toast"
 
+function getApiErrorMessage(err: unknown, fallback: string): string {
+    const data = (err as { response?: { data?: unknown } })?.response?.data
+    if (typeof data === "string") return data
+    if (data && typeof data === "object") {
+        const obj = data as { message?: string; error?: string; title?: string }
+        return obj.message ?? obj.error ?? obj.title ?? fallback
+    }
+    return fallback
+}
+
 
 
 function BranchList() {
-    const [setInactiveBranch, setSetInactiveBranch] = useState<BranchResponse | null>(null)
+    const [inactiveBranch, setInactiveBranch] = useState<BranchResponse | null>(null)
     const [addEditDialog, setAddEditDialog] = useState<AddEditBranchDialogMode | null>(null)
     const { data: branches = [], isLoading, refetch, } = useQuery({
         queryKey: ["branches"],
@@ -51,7 +61,7 @@ function BranchList() {
                     <UserRowActions
                         branch={row.original}
                         onOpenEdit={() => setAddEditDialog({ mode: "edit", branch: row.original })}
-                        onOpenSetInactive={() => setSetInactiveBranch(row.original)}
+                        onOpenSetInactive={() => setInactiveBranch(row.original)}
                     />
                 )
 
@@ -93,13 +103,13 @@ function BranchList() {
                     table={table}
                 />
             )}
-            {setInactiveBranch && (
+            {inactiveBranch && (
                 <SetInactiveDialog
-                    branch={setInactiveBranch}
-                    onClose={() => setSetInactiveBranch(null)}
+                    branch={inactiveBranch}
+                    onClose={() => setInactiveBranch(null)}
                     onSuccess={() => {
                         refetch()
-                        setSetInactiveBranch(null)
+                        setInactiveBranch(null)
                     }}
                 />
             )}
@@ -144,11 +154,7 @@ function SetInactiveDialog({
             onSuccess()
             close()
         } catch (err) {
-            toast.error(
-                err && typeof err === "object" && "response" in err
-                    ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Failed to set branch inactive"
-                    : "Failed to set branch inactive"
-            )
+            toast.error(getApiErrorMessage(err, "Failed to set branch inactive"))
         } finally {
             setSubmitting(false)
         }
