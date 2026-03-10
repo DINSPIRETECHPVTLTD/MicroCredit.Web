@@ -51,7 +51,7 @@ function BranchList() {
                     <UserRowActions
                         branch={row.original}
                         onOpenEdit={() => setAddEditDialog({ mode: "edit", branch: row.original })}
-                        onSetInactive={() => setSetInactiveBranch(row.original)}
+                        onOpenSetInactive={() => setSetInactiveBranch(row.original)}
                     />
                 )
 
