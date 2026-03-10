@@ -40,8 +40,7 @@ function App() {
           <Route path="org-info" element={<Placeholder />} />
           <Route path="branches" element={<BranchList />} />
           <Route path="master/data" element={<MasterLookupList />} />
-          <Route path="master/payment-terms" element={<PaymentTermList />} />
-          
+          <Route path="master/payment-terms" element={<PaymentTermList />} />        
           <Route path="funds/investments" element={<InvestmentsList />} />
           <Route path="funds/ledger-balances" element={<LedgerBalancesList />} />
           <Route path="funds/expenses" element={<ExpenseList />} />

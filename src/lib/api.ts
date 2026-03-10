@@ -84,6 +84,11 @@ export const api = {
         get list() {
             return `${getApiBase()}/paymentTerm`
         },
+        get create() {
+            return `${getApiBase()}/paymentTerm`
+        },
+        update: (id: number) => `${getApiBase()}/paymentTerm/${id}`,
+        delete: (id: number) => `${getApiBase()}/paymentTerm/${id}`,
     },
 
 }

@@ -8,3 +8,12 @@ export interface PaymentTermResponse {
     insuranceFee: number
 }
 
+export interface SavePaymentTermRequest {
+    paymentTerm: string
+    paymentType: string
+    noOfTerms: number
+    processingFee: number
+    rateOfInterest: number
+    insuranceFee: number
+}
+
