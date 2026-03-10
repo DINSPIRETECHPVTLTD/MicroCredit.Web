@@ -67,4 +67,20 @@ export const api = {
       return `${getApiBase()}/ledger-transactions/expenses`
     }
   }
+      return `${getApiBase()}/branchs`
+    },
+    update: (id: number) => `${getApiBase()}/branchs/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/branchs/${id}/inactive`,
+    },
+    masterLookups: {
+        get list() {
+            return `${getApiBase()}/masterLookups`
+        },
+    },
+    paymentTerms: {
+        get list() {
+            return `${getApiBase()}/paymentTerm`
+        },
+    },
+
 }
