@@ -65,8 +65,11 @@ export const api = {
   ledgerTransactions: {
     get expenses() {
       return `${getApiBase()}/ledger-transactions/expenses`
-    }
-  }
+    },
+    },
+
+    branchs: {
+        get list() {
       return `${getApiBase()}/branchs`
     },
     update: (id: number) => `${getApiBase()}/branchs/${id}`,
