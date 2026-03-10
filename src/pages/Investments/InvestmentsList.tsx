@@ -3,7 +3,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { investmentService } from "../../services/investment.service"
 import type { InvestmentResponse } from "../../types/investment"
 import { useQuery } from "@tanstack/react-query"
@@ -78,9 +78,9 @@ function InvestmentsList() {
     })
 
     return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Investments</h1>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">All Investments</h1>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
           ADD Investment
@@ -88,15 +88,19 @@ function InvestmentsList() {
       </div>
 
       {!isDataLoading && investments.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+        <div className="card-empty">
           <p>No investments found</p>
-          <p className="text-sm mt-1">Click &quot;Add Investment&quot; to create a new investment</p>
+          <p>Click &quot;Add Investment&quot; to create a new investment</p>
           <Button className="mt-4">
             Add Investment
           </Button>
         </div>
       ) : (
-        <MaterialReactTable table={table} />
+        <div className="table-wrapper">
+          <div className="table table-row-hover">
+            <MaterialReactTable table={table} />
+          </div>
+        </div>
       )}
     </div>
   )

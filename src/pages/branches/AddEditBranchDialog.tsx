@@ -1,9 +1,7 @@
-import * as React from "react"
 import { useRef, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import * as React from "react"
 import { Button } from "../../components/ui/button"
 import { cn } from "../../lib/utils"
 import toast from "react-hot-toast"
@@ -27,9 +25,6 @@ type Props = {
   onClose: () => void
   onSuccess: () => void
 }
-
-const inputClass =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
 export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -105,22 +100,22 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
         </h2>
 
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-1 block">Name</label>
-            <input {...form.register("name")} className={cn(inputClass, form.formState.errors.name && "border-destructive")} />
+          <div className="form-group">
+            <label className="form-label">Name</label>
+            <input {...form.register("name")} className={cn("input", form.formState.errors.name && "border-destructive")} />
             {form.formState.errors.name && (
-              <p className="text-xs text-destructive mt-1">{form.formState.errors.name.message}</p>
+              <p className="form-error">{form.formState.errors.name.message}</p>
             )}
           </div>
 
-          <div>
-            <label className="text-sm font-medium mb-1 block">Address</label>
-            <input {...form.register("address")} className={inputClass} />
+          <div className="form-group">
+            <label className="form-label">Address</label>
+            <input {...form.register("address")} className="input" />
           </div>
 
-          <div>
-            <label className="text-sm font-medium mb-1 block">Phone</label>
-            <input {...form.register("phoneNumber")} className={inputClass} />
+          <div className="form-group">
+            <label className="form-label">Phone</label>
+            <input {...form.register("phoneNumber")} className="input" />
           </div>
         </div>
 

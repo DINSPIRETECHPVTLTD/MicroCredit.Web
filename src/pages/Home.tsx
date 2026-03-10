@@ -1,7 +1,9 @@
 function Home() {
   return (
-    <div>
-      <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">Dashboard</h1>
+      </div>
       <p className="text-muted-foreground">Welcome to MicroCredit (MCS).</p>
     </div>
   )

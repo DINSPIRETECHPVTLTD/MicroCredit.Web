@@ -28,7 +28,7 @@ function Login() {
             </h1>
             <p className="mt-1.5 text-muted-foreground">Sign in to continue</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <div className="card rounded-xl p-6 sm:p-8">
             <LoginForm />
           </div>
         </div>

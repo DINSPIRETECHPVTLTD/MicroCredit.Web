@@ -41,32 +41,30 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {errorMessage && (
-        <p className="text-sm text-destructive mb-2 px-1">{errorMessage}</p>
-      )}
-      <div className="space-y-2">
+      {errorMessage && <p className="form-error mb-2 px-1">{errorMessage}</p>}
+      <div className="form-group">
+        <label htmlFor="login-email" className="form-label">Email</label>
         <input
+          id="login-email"
           {...register("email")}
           type="email"
           placeholder="Email"
           autoComplete="email"
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className={errors.email ? "input border-destructive" : "input"}
         />
-        {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="form-error">{errors.email.message}</p>}
       </div>
-      <div className="space-y-2">
+      <div className="form-group">
+        <label htmlFor="login-password" className="form-label">Password</label>
         <input
+          id="login-password"
           {...register("password")}
           type="password"
           placeholder="Password"
           autoComplete="current-password"
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className={errors.password ? "input border-destructive" : "input"}
         />
-        {errors.password && (
-          <p className="text-xs text-destructive">{errors.password.message}</p>
-        )}
+        {errors.password && <p className="form-error">{errors.password.message}</p>}
       </div>
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "Signing in..." : "Login"}

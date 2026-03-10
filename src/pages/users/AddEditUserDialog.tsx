@@ -37,9 +37,6 @@ const editSchema = z.object(baseFields)
 
 type CreateFormData = z.infer<typeof createSchema>
 
-const inputClass =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-
 const ROLES = ["Owner", "Investor", "BRANCH_ADMIN", "STAFF", "BRANCH_USER"]
 
 export type AddEditUserDialogMode = { mode: "add" } | { mode: "edit"; user: UserResponse }
@@ -187,52 +184,52 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
           <section>
             <h3 className="text-sm font-medium mb-3">Basic information</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium mb-1 block">First name</label>
+              <div className="form-group">
+                <label className="form-label">First name</label>
                 <input
                   {...form.register("firstName")}
-                  className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
+                  className={cn("input", form.formState.errors.firstName && "border-destructive")}
                 />
                 {form.formState.errors.firstName && (
-                  <p className="text-xs text-destructive mt-1">{form.formState.errors.firstName.message}</p>
+                  <p className="form-error">{form.formState.errors.firstName.message}</p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Surname</label>
+              <div className="form-group">
+                <label className="form-label">Surname</label>
                 <input
                   {...form.register("surname")}
-                  className={cn(inputClass, form.formState.errors.surname && "border-destructive")}
+                  className={cn("input", form.formState.errors.surname && "border-destructive")}
                 />
                 {form.formState.errors.surname && (
-                  <p className="text-xs text-destructive mt-1">{form.formState.errors.surname.message}</p>
+                  <p className="form-error">{form.formState.errors.surname.message}</p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Email</label>
+              <div className="form-group">
+                <label className="form-label">Email</label>
                 <input
                   {...form.register("email")}
                   type="email"
-                  className={cn(inputClass, form.formState.errors.email && "border-destructive")}
+                  className={cn("input", form.formState.errors.email && "border-destructive")}
                 />
                 {form.formState.errors.email && (
-                  <p className="text-xs text-destructive mt-1">{form.formState.errors.email.message}</p>
+                  <p className="form-error">{form.formState.errors.email.message}</p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Phone</label>
-                <input {...form.register("phoneNumber")} className={inputClass} />
+              <div className="form-group">
+                <label className="form-label">Phone</label>
+                <input {...form.register("phoneNumber")} className="input" />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Role</label>
-                <select {...form.register("role")} className={inputClass}>
+              <div className="form-group">
+                <label className="form-label">Role</label>
+                <select {...form.register("role")} className="input">
                   {ROLES.map((r) => (
                     <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Level</label>
-                <input {...form.register("level")} className={inputClass} />
+              <div className="form-group">
+                <label className="form-label">Level</label>
+                <input {...form.register("level")} className="input" />
               </div>
             </div>
           </section>
@@ -241,28 +238,28 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
             <section>
               <h3 className="text-sm font-medium mb-3">Security</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Password</label>
+                <div className="form-group">
+                  <label className="form-label">Password</label>
                   <input
                     {...form.register("password")}
                     type="password"
                     autoComplete="new-password"
-                    className={cn(inputClass, form.formState.errors.password && "border-destructive")}
+                    className={cn("input", form.formState.errors.password && "border-destructive")}
                   />
                   {form.formState.errors.password && (
-                    <p className="text-xs text-destructive mt-1">{form.formState.errors.password.message}</p>
+                    <p className="form-error">{form.formState.errors.password.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Confirm password</label>
+                <div className="form-group">
+                  <label className="form-label">Confirm password</label>
                   <input
                     {...form.register("confirmPassword")}
                     type="password"
                     autoComplete="new-password"
-                    className={cn(inputClass, form.formState.errors.confirmPassword && "border-destructive")}
+                    className={cn("input", form.formState.errors.confirmPassword && "border-destructive")}
                   />
                   {form.formState.errors.confirmPassword && (
-                    <p className="text-xs text-destructive mt-1">{form.formState.errors.confirmPassword.message}</p>
+                    <p className="form-error">{form.formState.errors.confirmPassword.message}</p>
                   )}
                 </div>
               </div>
@@ -272,32 +269,30 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
           <section>
             <h3 className="text-sm font-medium mb-3">Address</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Address 1</label>
-                <input {...form.register("address1")} className={inputClass} />
+              <div className="form-group">
+                <label className="form-label">Address 1</label>
+                <input {...form.register("address1")} className="input" />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Address 2</label>
-                <input {...form.register("address2")} className={inputClass} />
+              <div className="form-group">
+                <label className="form-label">Address 2</label>
+                <input {...form.register("address2")} className="input" />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">City</label>
-                <input {...form.register("city")} className={inputClass} />
+              <div className="form-group">
+                <label className="form-label">City</label>
+                <input {...form.register("city")} className="input" />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">State</label>
-                <input {...form.register("state")} className={inputClass} />
+              <div className="form-group">
+                <label className="form-label">State</label>
+                <input {...form.register("state")} className="input" />
               </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium mb-1 block">Zip code</label>
-                <input {...form.register("pinCode")} className={inputClass} />
+              <div className="form-group sm:col-span-2">
+                <label className="form-label">Zip code</label>
+                <input {...form.register("pinCode")} className="input" />
               </div>
             </div>
           </section>
 
-          {errorMessage && (
-            <p className="text-sm text-destructive">{errorMessage}</p>
-          )}
+          {errorMessage && <p className="form-error">{errorMessage}</p>}
         </div>
 
         <div className="flex justify-end gap-2 p-6 border-t shrink-0">

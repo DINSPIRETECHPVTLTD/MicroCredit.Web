@@ -185,7 +185,7 @@ export default function DashboardLayout() {
                       <button
                         type="button"
                         onClick={() => toggleExpanded(item.key)}
-                        className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        className="btn btn-secondary flex w-full justify-between px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
                         <span className="flex items-center gap-3">
                           {ParentIcon ? (

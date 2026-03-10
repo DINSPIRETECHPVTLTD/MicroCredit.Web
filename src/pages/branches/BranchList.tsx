@@ -1,4 +1,4 @@
-import React, { useMemo } from "react"
+import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type MRT_ColumnDef, MaterialReactTable } from "material-react-table"
 import { branchService } from "../../services/branch.service"
@@ -38,7 +38,7 @@ function BranchList() {
         header: "Actions",
         enableSorting: false,
         enableColumnFilter: false,
-        Cell: ({ row }) => {
+        Cell: () => {
           return (
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => toast("Edit not implemented")}>
@@ -62,9 +62,9 @@ function BranchList() {
   )
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Branches</h1>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">All Branches</h1>
         <Button onClick={() => toast("Add Branch not implemented")}>
           <Plus className="h-4 w-4 mr-2" />
           ADD Branch
@@ -72,24 +72,28 @@ function BranchList() {
       </div>
 
       {!isLoading && branches.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+        <div className="card-empty">
           <p>No branches found</p>
-          <p className="text-sm mt-1">Click &quot;Add Branch&quot; to create a new branch</p>
+          <p>Click &quot;Add Branch&quot; to create a new branch</p>
           <Button className="mt-4" onClick={() => toast("Add Branch not implemented")}>
             Add Branch
           </Button>
         </div>
       ) : (
-        <MaterialReactTable
-          columns={columns}
-          data={branches}
-          state={{ isLoading }}
-          enableSorting
-          enableColumnFilters
-          enableGrouping
-          enableExpanding={false}
-          enableColumnPinning
-        />
+        <div className="table-wrapper">
+          <div className="table table-row-hover">
+            <MaterialReactTable
+              columns={columns}
+              data={branches}
+              state={{ isLoading }}
+              enableSorting
+              enableColumnFilters
+              enableGrouping
+              enableExpanding={false}
+              enableColumnPinning
+            />
+          </div>
+        </div>
       )}
     </div>
   )

@@ -19,8 +19,6 @@ const baseFields = {
   const schema = z.object(baseFields)  
   type FormInput = z.input<typeof schema>
   type FormOutput = z.output<typeof schema>
-  const inputClass =
-    "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
   export type AddEditPaymentTermMode =
     | { mode: "add" }
     | { mode: "edit"; paymentTerm: PaymentTermResponse }
@@ -102,59 +100,59 @@ const baseFields = {
         </h2>
       </div>
       <form onSubmit={form.handleSubmit(submit)} className="p-6 space-y-4">
-        <div>
-          <label className="text-sm font-medium mb-1 block">Payment Term</label>
+        <div className="form-group">
+          <label className="form-label">Payment Term</label>
           <input
             {...form.register("paymentTerm")}
-            className={cn(inputClass, form.formState.errors.paymentTerm && "border-destructive")}
+            className={cn("input", form.formState.errors.paymentTerm && "border-destructive")}
           />
           {form.formState.errors.paymentTerm && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.paymentTerm.message}</p>
+            <p className="form-error">{form.formState.errors.paymentTerm.message}</p>
           )}
         </div>
-        <div>
-          <label className="text-sm font-medium mb-1 block">Payment Type</label>
+        <div className="form-group">
+          <label className="form-label">Payment Type</label>
           <input
             {...form.register("paymentType")}
-            className={cn(inputClass, form.formState.errors.paymentType && "border-destructive")}
+            className={cn("input", form.formState.errors.paymentType && "border-destructive")}
           />
           {form.formState.errors.paymentType && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.paymentType.message}</p>
+            <p className="form-error">{form.formState.errors.paymentType.message}</p>
           )}
         </div>
-        <div>
-          <label className="text-sm font-medium mb-1 block">No of Terms</label>
+        <div className="form-group">
+          <label className="form-label">No of Terms</label>
           <input
             type="number"
             {...form.register("noOfTerms")}
-            className={cn(inputClass, form.formState.errors.noOfTerms && "border-destructive")}
+            className={cn("input", form.formState.errors.noOfTerms && "border-destructive")}
           />
         </div>
-        <div>
-          <label className="text-sm font-medium mb-1 block">Processing Fee</label>
+        <div className="form-group">
+          <label className="form-label">Processing Fee</label>
           <input
             type="number"
             step="0.01"
             {...form.register("processingFee")}
-            className={cn(inputClass, form.formState.errors.processingFee && "border-destructive")}
+            className={cn("input", form.formState.errors.processingFee && "border-destructive")}
           />
         </div>
-        <div>
-          <label className="text-sm font-medium mb-1 block">Rate Of Interest</label>
+        <div className="form-group">
+          <label className="form-label">Rate Of Interest</label>
           <input
             type="number"
             step="0.01"
             {...form.register("rateOfInterest")}
-            className={cn(inputClass, form.formState.errors.rateOfInterest && "border-destructive")}
+            className={cn("input", form.formState.errors.rateOfInterest && "border-destructive")}
           />
         </div>
-        <div>
-          <label className="text-sm font-medium mb-1 block">Insurance Fee</label>
+        <div className="form-group">
+          <label className="form-label">Insurance Fee</label>
           <input
             type="number"
             step="0.01"
             {...form.register("insuranceFee")}
-            className={cn(inputClass, form.formState.errors.insuranceFee && "border-destructive")}
+            className={cn("input", form.formState.errors.insuranceFee && "border-destructive")}
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">

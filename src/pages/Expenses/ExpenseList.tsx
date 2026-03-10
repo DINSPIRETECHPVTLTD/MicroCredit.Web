@@ -3,7 +3,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { ledgerTransactionService } from "@/services/ledgerTransaction.service"
 import type { LedgerTransactionResponse } from "@/types/ledgerTransaction"
 import { useQuery } from "@tanstack/react-query"
@@ -84,17 +84,21 @@ function ExpenseList() {
     })
 
     return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Expenses</h1>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">All Expenses</h1>
       </div>
 
       {!isLoading && expenses.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+        <div className="card-empty">
           <p>No expenses found</p>
         </div>
       ) : (
-        <MaterialReactTable table={table} />
+        <div className="table-wrapper">
+          <div className="table table-row-hover">
+            <MaterialReactTable table={table} />
+          </div>
+        </div>
       )}
     </div>
   )

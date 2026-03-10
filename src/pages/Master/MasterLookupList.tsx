@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from "react"
+import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type MRT_ColumnDef, MaterialReactTable } from "material-react-table"
 import type { MasterLookupResponse } from "../../types/masterLookup"
@@ -53,7 +53,7 @@ function MasterLookupList() {
                 header: "Actions",
                 enableSorting: false,
                 enableColumnFilter: false,
-                Cell: ({ row }) => {
+                Cell: () => {
                     return (
                         <div className="flex items-center justify-end gap-2">
                             <Button variant="ghost" size="sm" onClick={() => toast("Edit not implemented")}>
@@ -73,9 +73,9 @@ function MasterLookupList() {
     )
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-semibold">All Master Lookups</h1>
+        <div className="page-container">
+            <div className="page-header">
+                <h1 className="page-title">All Master Lookups</h1>
                 <Button onClick={() => toast("Add Master Lookup not implemented")}>
                     <Plus className="h-4 w-4 mr-2" />
                     ADD
@@ -88,7 +88,7 @@ function MasterLookupList() {
           
 
             {!isLoading && masterLookups.length === 0 ? (
-                <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+                <div className="card-empty">
                     <p>No masterLookups found</p>
                     <p className="text-sm mt-1">Click &quot;Add Branch&quot; to create a new branch</p>
                     <Button className="mt-4" onClick={() => toast("Add Branch not implemented")}>
@@ -96,16 +96,20 @@ function MasterLookupList() {
                     </Button>
                 </div>
             ) : (
-                <MaterialReactTable
-                    columns={columns}
-                        data={masterLookups}
-                    state={{ isLoading }}
-                    enableSorting
-                    enableColumnFilters
-                    enableGrouping
-                    enableExpanding={false}
-                    enableColumnPinning
-                />
+                <div className="table-wrapper">
+                    <div className="table table-row-hover">
+                        <MaterialReactTable
+                            columns={columns}
+                                data={masterLookups}
+                            state={{ isLoading }}
+                            enableSorting
+                            enableColumnFilters
+                            enableGrouping
+                            enableExpanding={false}
+                            enableColumnPinning
+                        />
+                    </div>
+                </div>
             )}
         </div>
     )

@@ -3,7 +3,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { ledgerBalanceService } from "../../services/ledgerBalance.service"
 import type { LedgerBalanceResponse } from "../../types/ledgerBalance"
 import { useQuery } from "@tanstack/react-query"
@@ -63,17 +63,21 @@ function LedgerBalancesList() {
     })
 
     return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Ledger Balances</h1>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">All Ledger Balances</h1>
       </div>
 
       {!isLoading && ledgerBalances.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+        <div className="card-empty">
           <p>No ledger balances found</p>
         </div>
       ) : (
-        <MaterialReactTable table={table} />
+        <div className="table-wrapper">
+          <div className="table table-row-hover">
+            <MaterialReactTable table={table} />
+          </div>
+        </div>
       )}
     </div>
   )

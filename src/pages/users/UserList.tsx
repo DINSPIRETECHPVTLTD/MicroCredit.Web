@@ -28,9 +28,6 @@ const resetPasswordSchema = z
 
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 
-const inputClass =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-
 function UserList() {
   const [resetPasswordUser, setResetPasswordUser] = useState<UserResponse | null>(null)
   const [setInactiveUser, setSetInactiveUser] = useState<UserResponse | null>(null)
@@ -99,9 +96,9 @@ function UserList() {
   })
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Users</h1>
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">All Users</h1>
         <Button onClick={() => setAddEditDialog({ mode: "add" })}>
           <Plus className="h-4 w-4 mr-2" />
           ADD USER
@@ -109,15 +106,19 @@ function UserList() {
       </div>
 
       {!isLoading && users.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+        <div className="card-empty">
           <p>No users found</p>
-          <p className="text-sm mt-1">Click &quot;Add User&quot; to create a new user</p>
+          <p>Click &quot;Add User&quot; to create a new user</p>
           <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
             Add User
           </Button>
         </div>
       ) : (
-        <MaterialReactTable table={table} />
+        <div className="table-wrapper">
+          <div className="table table-row-hover">
+            <MaterialReactTable table={table} />
+          </div>
+        </div>
       )}
 
       {resetPasswordUser && (
@@ -216,34 +217,34 @@ function ResetPasswordDialog({
           Set a new password for {user.firstName} {user.surname} ({user.email}).
         </p>
         <div className="space-y-4">
-          <div>
-            <label htmlFor="reset-password-new" className="text-sm font-medium mb-1 block">
+          <div className="form-group">
+            <label htmlFor="reset-password-new" className="form-label">
               New password
             </label>
             <input
               id="reset-password-new"
               type="password"
               autoComplete="new-password"
-              className={cn(inputClass, form.formState.errors.password && "border-destructive")}
+              className={cn("input", form.formState.errors.password && "border-destructive")}
               {...form.register("password")}
             />
             {form.formState.errors.password && (
-              <p className="text-xs text-destructive mt-1">{form.formState.errors.password.message}</p>
+              <p className="form-error">{form.formState.errors.password.message}</p>
             )}
           </div>
-          <div>
-            <label htmlFor="reset-password-confirm" className="text-sm font-medium mb-1 block">
+          <div className="form-group">
+            <label htmlFor="reset-password-confirm" className="form-label">
               Confirm password
             </label>
             <input
               id="reset-password-confirm"
               type="password"
               autoComplete="new-password"
-              className={cn(inputClass, form.formState.errors.confirmPassword && "border-destructive")}
+              className={cn("input", form.formState.errors.confirmPassword && "border-destructive")}
               {...form.register("confirmPassword")}
             />
             {form.formState.errors.confirmPassword && (
-              <p className="text-xs text-destructive mt-1">{form.formState.errors.confirmPassword.message}</p>
+              <p className="form-error">{form.formState.errors.confirmPassword.message}</p>
             )}
           </div>
         </div>

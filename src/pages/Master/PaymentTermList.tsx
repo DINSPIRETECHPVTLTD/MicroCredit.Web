@@ -85,9 +85,9 @@ function PaymentTermList() {
     )
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-semibold">All Payment Terms</h1>
+        <div className="page-container">
+            <div className="page-header">
+                <h1 className="page-title">All Payment Terms</h1>
                 <Button onClick={() => setAddEditDialog({ mode: "add" })}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Payment Term
@@ -111,24 +111,28 @@ function PaymentTermList() {
             
 
             {!isLoading && paymentTerms.length === 0 ? (
-                <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+                <div className="card-empty">
                     <p>No payment terms found</p>
-                    <p className="text-sm mt-1">Click &quot;Add Payment Term&quot; to create a new Payment Term</p>
+                    <p>Click &quot;Add Payment Term&quot; to create a new Payment Term</p>
                     <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
                         Add Payment Term
                     </Button>
                 </div>
             ) : (
-                <MaterialReactTable
-                    columns={columns}
-                        data={paymentTerms}
-                    state={{ isLoading }}
-                    enableSorting
-                    enableColumnFilters
-                    enableGrouping
-                    enableExpanding={false}
-                    enableColumnPinning
-                />
+                <div className="table-wrapper">
+                    <div className="table table-row-hover">
+                        <MaterialReactTable
+                            columns={columns}
+                                data={paymentTerms}
+                            state={{ isLoading }}
+                            enableSorting
+                            enableColumnFilters
+                            enableGrouping
+                            enableExpanding={false}
+                            enableColumnPinning
+                        />
+                    </div>
+                </div>
             )}
         </div>
     )
