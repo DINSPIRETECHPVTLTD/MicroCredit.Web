@@ -47,10 +47,10 @@ export const api = {
       return `${getApiBase()}/branchs`
     },
     get create() {
-      return `${getApiBase()}/branches`
+      return `${getApiBase()}/branchs`
     },
-    update: (id: number) => `${getApiBase()}/branches/${id}`,
-    setInactive: (id: number) => `${getApiBase()}/branches/${id}/inactive`,
+    update: (id: number) => `${getApiBase()}/branchs/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/branchs/${id}/inactive`,
   },
   investments: {
     get list() {
@@ -63,22 +63,17 @@ export const api = {
     }
   },
   ledgerTransactions: {
-    get expenses() {
-      return `${getApiBase()}/ledger-transactions/expenses`
+        get expenses() {
+          return `${getApiBase()}/ledger-transactions/expenses`
+        },
     },
-    },
-
-    branchs: {
-        get list() {
-      return `${getApiBase()}/branchs`
-    },
-    update: (id: number) => `${getApiBase()}/branchs/${id}`,
-    setInactive: (id: number) => `${getApiBase()}/branchs/${id}/inactive`,
-    },
-    masterLookups: {
+    
+   masterLookups: {
         get list() {
             return `${getApiBase()}/masterLookups`
         },
+        update: (id: number) => `${getApiBase()}/masterLookups/${id}`,
+        setInactive: (id: number) => `${getApiBase()}/masterLookups/${id}/inactive`,
     },
     paymentTerms: {
         get list() {
