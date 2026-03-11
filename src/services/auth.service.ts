@@ -117,7 +117,11 @@ export const authService = {
   },
 
   async navigateToBranch(branchId: number): Promise<AuthResponse> {
-    const { data } = await axios.post<AuthResponse>(api.auth.navigateToBranch, { branchId })
+    const { data } = await axios.post<AuthResponse>(
+      api.auth.navigateToBranch,
+      null,
+      { params: { branchId } }
+    )
     setSession(data)
     return data
   },

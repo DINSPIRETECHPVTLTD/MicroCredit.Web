@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import toast from "react-hot-toast"
 import { Outlet, useNavigate, useLocation, NavLink } from "react-router-dom"
 import {
   APP_MENU,
@@ -72,7 +73,7 @@ function getMenuIcon(key: string): LucideIcon | null {
 export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const session = getSession()
+  const [session, setSession] = useState(getSession())
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
   const mode: AppMode =
@@ -92,11 +93,17 @@ export default function DashboardLayout() {
   const userDisplayName = getDisplayName()
   const filteredMenu = getFilteredMenu(APP_MENU, mode, role)
 
+
   useEffect(() => {
     const key = getExpandedKeyForUrl(filteredMenu, location.pathname, DASHBOARD_BASE)
     if (key) setExpandedKey(key)
   }, [location.pathname, filteredMenu])
 
+
+  useEffect(() => {
+    setSession(getSession())
+  }, [location.pathname])
+  
   const getLink = (route: string | undefined) => {
     if (route == null || route === "") return "/"
     return `/${route}`
@@ -106,8 +113,21 @@ export default function DashboardLayout() {
   const toggleExpanded = (key: string) =>
     setExpandedKey((k) => (k === key ? null : key))
 
-  const handleReturnToOrg = () => {
-    authService.navigateToOrg().catch(() => {})
+  const handleReturnToOrg = async () => {
+    try {
+      await authService.navigateToOrg()
+      setSession(getSession())
+      toast.success("Successfully switched to Org mode")
+      navigate("/", { replace: true })
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
+            "Failed to switch to Org mode"
+          : "Failed to switch to Org mode"
+  
+      toast.error(message)
+    }
   }
 
   const handleLogout = () => {

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type MRT_ColumnDef, MaterialReactTable, useMaterialReactTable } from "material-react-table"
 import { branchService } from "../../services/branch.service"
@@ -7,10 +7,12 @@ import { AddEditBranchDialog, type AddEditBranchDialogMode } from "@/pages/branc
 import { Button } from "../../components/ui/button"
 import { Plus, Pencil, UserX } from "lucide-react"
 import toast from "react-hot-toast"
-
+import { useNavigate } from "react-router-dom"
+import { authService } from "@/services/auth.service"
 
 
 function BranchList() {
+    const navigate = useNavigate()
     const [setInactiveBranch, setSetInactiveBranch] = useState<BranchResponse | null>(null)
     const [addEditDialog, setAddEditDialog] = useState<AddEditBranchDialogMode | null>(null)
     const { data: branches = [], isLoading, refetch, } = useQuery({
@@ -52,6 +54,7 @@ function BranchList() {
                         branch={row.original}
                         onOpenEdit={() => setAddEditDialog({ mode: "edit", branch: row.original })}
                         onOpenSetInactive={() => setSetInactiveBranch(row.original)}
+                        onNavigate={() => handleNavigateToBranch(row.original)}
                     />
                 )
 
@@ -69,6 +72,21 @@ function BranchList() {
         enableExpanding: false,
         enableColumnPinning: true,
     })
+    const handleNavigateToBranch = async (branch: BranchResponse) => {
+        try {
+          await authService.navigateToBranch(branch.id)
+          toast.success(`Switched to ${branch.name}`)
+          navigate("/", { replace: true })
+        } catch (err) {
+          toast.error(
+            err && typeof err === "object" && "response" in err
+              ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
+                "Failed to switch branch"
+              : "Failed to switch branch"
+          )
+        }
+      }
+    
 
     return (
         <div>
@@ -188,11 +206,15 @@ function UserRowActions({
     branch,
     onOpenEdit,
     onOpenSetInactive,
+    onNavigate,
 }: {
     branch: BranchResponse
     onOpenEdit: (mode: AddEditBranchDialogMode) => void
     onOpenSetInactive: (branch: BranchResponse) => void
-}) {
+    onNavigate: (branch: BranchResponse) => void | Promise<void>
+}) 
+
+{
 
 
     return (
@@ -205,7 +227,7 @@ function UserRowActions({
                 <UserX className="h-4 w-4 mr-1" />
                 Set inactive
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => toast("Not implemented")}>
+            <Button variant="ghost" size="sm" onClick={() => onNavigate(branch)}>
                 <UserX className="h-4 w-4 mr-1" />
                 Navigate
             </Button>

@@ -3,7 +3,7 @@ import type { AppMenuItem, AppMode, AppRole } from "@/types/menu"
 export const DASHBOARD_BASE = ""
 
 export const APP_MENU: AppMenuItem[] = [
-  { label: "Dashboard", key: "Dashboard", route: "", modes: ["ORG", "BRANCH"] },
+  { label: "Dashboard", key: "Dashboard", route: "", modes: ["ORG"] },
   { label: "Org Info", key: "Info", route: "org-info", modes: ["ORG"] },
   { label: "Users", key: "Users", route: "users", modes: ["ORG"], roles: ["OWNER"] },
   { label: "Branches", key: "Branches", route: "branches", modes: ["ORG"], roles: ["OWNER"] },
