@@ -66,15 +66,15 @@ function PaymentTermList() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={async () => {
-                                    const ok = window.confirm("Are you sure you want to deactivate this payment term?")
+                                    const ok = window.confirm("Are you sure you want to set this payment term inactive?")
                                     if (!ok) return
                                     await paymentTermService.deletePaymentTerm(row.original.id)
-                                    toast.success("Payment term deactivated successfully")
+                                    toast.success("Payment term set inactive successfully")
                                     await refetch()
                                 }}
                             >
                                 <Trash className="h-4 w-4 mr-1" />
-                                Deactivate
+                                Set inactive
                             </Button>
                         </div>
                     )
