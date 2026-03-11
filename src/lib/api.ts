@@ -72,6 +72,8 @@ export const api = {
         get list() {
             return `${getApiBase()}/masterLookups`
         },
+        update: (id: number) => `${getApiBase()}/masterLookups/${id}`,
+        setInactive: (id: number) => `${getApiBase()}/masterLookups/${id}/inactive`,
     },
     paymentTerms: {
         get list() {
