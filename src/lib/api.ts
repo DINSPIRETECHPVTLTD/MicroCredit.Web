@@ -83,5 +83,12 @@ export const api = {
         update: (id: number) => `${getApiBase()}/paymentTerm/${id}`,
         delete: (id: number) => `${getApiBase()}/paymentTerm/${id}`,
     },
-
+    pocs: {
+      listByBranch: (branchId: number) => `${getApiBase()}/POC/${branchId}`,
+     // create: `${getApiBase()}/POC`,
+    // update: (id: number) => `${getApiBase()}/POC/${id}`,
+    // setInactive: (id: number) => `${getApiBase()}/POC/${id}/inactive`,
+    },
+    
+    
 }
