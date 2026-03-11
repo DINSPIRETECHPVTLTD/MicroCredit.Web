@@ -4,7 +4,7 @@ import { type MRT_ColumnDef, MaterialReactTable, useMaterialReactTable } from "m
 import { branchService } from "../../services/branch.service"
 import type { BranchResponse } from "../../types/branch"
 import { AddEditBranchDialog, type AddEditBranchDialogMode } from "@/pages/branches/AddEditBranchDialog"
-import { Button } from "../../components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Plus, Pencil, UserX } from "lucide-react"
 import toast from "react-hot-toast"
 

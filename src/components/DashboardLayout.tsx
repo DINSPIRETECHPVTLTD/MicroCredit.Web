@@ -116,10 +116,10 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex h-screen min-h-screen w-full bg-muted/40">
+    <div className="flex h-screen min-h-screen w-full bg-transparent">
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-1 border-b border-border px-4 py-4">
+      <aside className="flex w-64 flex-col border-r border-border/80 bg-card/95 shadow-md backdrop-blur-sm">
+        <div className="flex flex-col gap-1 border-b border-border/80 bg-gradient-to-br from-primary/10 via-transparent to-transparent px-4 py-4">
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Building2 className="h-5 w-5" />
@@ -182,10 +182,11 @@ export default function DashboardLayout() {
                   {(() => {
                     const ParentIcon = getMenuIcon(item.key)
                     return (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
                         onClick={() => toggleExpanded(item.key)}
-                        className="btn btn-secondary flex w-full justify-between px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="flex w-full justify-between px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
                         <span className="flex items-center gap-3">
                           {ParentIcon ? (
@@ -200,7 +201,7 @@ export default function DashboardLayout() {
                         ) : (
                           <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
                         )}
-                      </button>
+                      </Button>
                     )
                   })()}
                   {isExpanded(item.key) && (
@@ -249,10 +250,10 @@ export default function DashboardLayout() {
           <div className="flex min-w-0 items-center gap-3">
             <span
               className={cn(
-                "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider",
+                "rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wider",
                 mode === "ORG"
-                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
-                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                  ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/40 dark:text-blue-300"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/40 dark:text-emerald-300"
               )}
             >
               {mode === "ORG" ? "Org" : "Branch"}
