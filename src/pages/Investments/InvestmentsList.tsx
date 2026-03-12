@@ -3,7 +3,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { investmentService } from "../../services/investment.service"
 import type { InvestmentResponse } from "../../types/investment"
 import { useQuery } from "@tanstack/react-query"
