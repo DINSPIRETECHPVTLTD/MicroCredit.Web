@@ -55,18 +55,27 @@ export const api = {
   investments: {
     get list() {
       return `${getApiBase()}/investments`
-    }
+    },
+    get create() {
+      return `${getApiBase()}/investments`
+    },
   },
   ledgerBalances: {
     get list() {
       return `${getApiBase()}/ledger-balances`
-    }
+    },
+
+    fundTransfer: `${getApiBase()}/ledger-balances/fund-transfer`
   },
   ledgerTransactions: {
-        get expenses() {
-          return `${getApiBase()}/ledger-transactions/expenses`
-        },
+    get expenses() {
+      return `${getApiBase()}/ledger-transactions/expenses`
     },
+    transactions: (userId: number) => `${getApiBase()}/ledger-transactions/user-transactions/${userId}`,
+    get create() {
+      return `${getApiBase()}/ledger-transactions/add-expense`
+    },
+  },
     
    masterLookups: {
         get list() {

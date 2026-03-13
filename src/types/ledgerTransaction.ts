@@ -10,3 +10,11 @@ export interface LedgerTransactionResponse {
   referenceId: number
   comments: string
 }
+
+export interface CreateExpenseRequest {
+  paidFromUserId: number
+  amount: number
+  paymentDate: string
+  createdDate: string
+  comments: string | null
+}

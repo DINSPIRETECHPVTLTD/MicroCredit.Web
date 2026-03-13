@@ -12,6 +12,7 @@ import LedgerBalancesList from "./pages/ledgerBalances/ledgerBalanceList"
 import ExpenseList from "./pages/Expenses/ExpenseList"
 import MasterLookupList from "@/pages/Master/MasterLookupList"
 import PaymentTermList from "@/pages/Master/PaymentTermList"
+import UserLedgerTransactions from "./pages/ledgerBalances/UserLedgerTransactions"
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
           <Route path="loans/add" element={<Placeholder />} />
           <Route path="loans/manage" element={<Placeholder />} />
           <Route path="recovery-posting" element={<Placeholder />} />
+          <Route path="ledger-transactions/:userId" element={<UserLedgerTransactions />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
