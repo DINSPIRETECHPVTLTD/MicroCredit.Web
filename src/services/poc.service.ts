@@ -1,22 +1,51 @@
+// src/services/poc.service.ts
 import axios from "axios"
 import { api } from "@/lib/api"
-import type { PocResponse ,PocRequest} from "@/types/poc"
+import type { PocResponse } from "@/types/poc"
+
+// This matches the backend UpdatePocRequest / CreatePocRequest shape.
+export interface PocSaveRequest {
+  centerId: number
+  firstName: string
+  middleName?: string | null
+  lastName: string
+  phoneNumber: string
+  altPhone?: string | null
+  address1?: string | null
+  address2?: string | null
+  city?: string | null
+  state?: string | null
+  zipCode?: string | null
+  collectionDay?: string | null
+  collectionFrequency: string
+  collectionBy: number
+}
 
 export const pocService = {
-  async getPocsByBranch(branchId: number): Promise<PocResponse[]> {
-    const { data } = await axios.get<PocResponse[]>(api.pocs.listByBranch(branchId))
-    return data
+  // GET /POC/{branchId}
+  async getByBranch(branchId: number): Promise<PocResponse[]> {
+    const { data } = await axios.get<PocResponse | PocResponse[]>(
+      api.pocs.listByBranch(branchId)
+    )
+  
+    // If backend returns a single object, wrap it; if it returns an array, use as-is.
+    return Array.isArray(data) ? data : [data]
   },
-  async createPoc(request: PocRequest): Promise<PocResponse> {
+  
+  // POST /POC
+  async createPoc(request: PocSaveRequest): Promise<PocResponse> {
     const { data } = await axios.post<PocResponse>(api.pocs.create(), request)
     return data
   },
-  async updatePoc(id: number, request: PocRequest): Promise<PocResponse> {
+
+  // PUT /POC/{id}
+  async updatePoc(id: number, request: PocSaveRequest): Promise<PocResponse> {
     const { data } = await axios.put<PocResponse>(api.pocs.update(id), request)
     return data
   },
-  async setInactivePoc(id: number): Promise<unknown> {
-    const { data } = await axios.delete(api.pocs.setInactive(id))
-    return data
+
+  // DELETE /POC/{id}/inactive
+  async setInactive(id: number): Promise<void> {
+    await axios.delete(api.pocs.setInactive(id))
   },
 }
