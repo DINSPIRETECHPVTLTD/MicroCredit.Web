@@ -85,9 +85,9 @@ export const api = {
     },
     pocs: {
       listByBranch: (branchId: number) => `${getApiBase()}/POC/${branchId}`,
-     // create: `${getApiBase()}/POC`,
-    // update: (id: number) => `${getApiBase()}/POC/${id}`,
-    // setInactive: (id: number) => `${getApiBase()}/POC/${id}/inactive`,
+      create: () => `${getApiBase()}/POC`,
+      update: (id: number) => `${getApiBase()}/POC/${id}`,
+      setInactive: (id: number) => `${getApiBase()}/POC/${id}/inactive`,
     },
     
     

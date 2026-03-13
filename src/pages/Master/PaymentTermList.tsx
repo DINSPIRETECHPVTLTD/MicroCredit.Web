@@ -16,74 +16,71 @@ function PaymentTermList() {
     })
     const [addEditDialog, setAddEditDialog] = useState<AddEditPaymentTermMode | null>(null)
 
-
     const columns = useMemo<MRT_ColumnDef<PaymentTermResponse>[]>(
         () => [
-            {
-                accessorKey: "id",
-                header: "PaymentTerm Id",
-                size: 80,
+          {
+            accessorKey: "id",
+            header: "PaymentTerm Id",
+            size: 80,
+          },
+          {
+            header: "Payment Term",
+            accessorKey: "paymentTerm",
+          },
+          {
+            header: "Payment Type",
+            accessorKey: "paymentType",
+          },
+          {
+            header: "No Of Terms",
+            accessorFn: (row) => row.noOfTerms ?? "_",
+          },
+          {
+            header: "Processing Fee",
+            accessorFn: (row) => (row.processingFee ?? "_"),
+          },
+          {
+            header: "Rate Of Interest",
+            accessorKey: "rateOfInterest",
+          },
+          {
+            header: "Insurance Fee",
+            accessorKey: "insuranceFee",
+          },
+          {
+            id: "actions",
+            header: "Actions",
+            enableSorting: false,
+            enableColumnFilter: false,
+            Cell: ({ row })  => {
+              return (
+                <div className="flex items-center justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setAddEditDialog({ mode: "edit", paymentTerm: row.original })}>
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const ok = window.confirm("Are you sure you want to deactivate this payment term?")
+                      if (!ok) return
+                      await paymentTermService.deletePaymentTerm(row.original.id)
+                      toast.success("Payment term deactivated successfully")
+                      await refetch()
+                    }}
+                  >
+                    <Trash className="h-4 w-4 mr-1" />
+                    Deactivate
+                  </Button>
+                </div>
+              )
             },
-            {
-                header: "Payment Term",
-                accessorKey: "paymentTerm",                
-            },
-            {
-                header: "Payment Type",
-                accessorKey: "paymentType",                
-            },
-            {
-                header: "No Of Terms",
-                accessorFn: (row) => row.noOfTerms ?? "_",
-            },
-
-            {
-                header: "Processing Fee",
-                accessorFn: (row) => (row.processingFee ?? "_"),
-            },
-            {
-                header: "Rate Of Interest",
-                accessorKey: "rateOfInterest",                
-            },
-            {                
-                header: "Insurance Fee",
-                accessorKey: "insuranceFee",
-            },
-
-            {
-                id: "actions",
-                header: "Actions",
-                enableSorting: false,
-                enableColumnFilter: false,
-                Cell: ({ row })  => {
-                    return (
-                        <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => setAddEditDialog({ mode: "edit", paymentTerm: row.original })}>
-                                <Pencil className="h-4 w-4 mr-1" />
-                                Edit
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                    const ok = window.confirm("Are you sure you want to deactivate this payment term?")
-                                    if (!ok) return
-                                    await paymentTermService.deletePaymentTerm(row.original.id)
-                                    toast.success("Payment term deactivated successfully")
-                                    await refetch()
-                                }}
-                            >
-                                <Trash className="h-4 w-4 mr-1" />
-                                Deactivate
-                            </Button>
-                        </div>
-                    )
-                },
-            },
+          },
         ],
-        []
-    )
-
+        [refetch]   // ✅ new dependency
+      )
+   
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
