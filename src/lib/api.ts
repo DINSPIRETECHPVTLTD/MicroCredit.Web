@@ -55,23 +55,34 @@ export const api = {
   investments: {
     get list() {
       return `${getApiBase()}/investments`
-    }
+    },
+    get create() {
+      return `${getApiBase()}/investments`
+    },
   },
   ledgerBalances: {
     get list() {
       return `${getApiBase()}/ledger-balances`
-    }
+    },
+
+    fundTransfer: `${getApiBase()}/ledger-balances/fund-transfer`
   },
   ledgerTransactions: {
-        get expenses() {
-          return `${getApiBase()}/ledger-transactions/expenses`
-        },
+    get expenses() {
+      return `${getApiBase()}/ledger-transactions/expenses`
     },
+    transactions: (userId: number) => `${getApiBase()}/ledger-transactions/user-transactions/${userId}`,
+    get create() {
+      return `${getApiBase()}/ledger-transactions/add-expense`
+    },
+  },
     
    masterLookups: {
         get list() {
             return `${getApiBase()}/masterLookups`
         },
+        update: (id: number) => `${getApiBase()}/masterLookups/${id}`,
+        setInactive: (id: number) => `${getApiBase()}/masterLookups/${id}/inactive`,
     },
     paymentTerms: {
         get list() {
@@ -89,6 +100,14 @@ export const api = {
       update: (id: number) => `${getApiBase()}/POC/${id}`,
       setInactive: (id: number) => `${getApiBase()}/POC/${id}/inactive`,
     },
-    
-    
+    centers: {
+      get list() {
+        return `${getApiBase()}/center`
+      },
+      get create() {
+        return `${getApiBase()}/center`
+      },
+      update: (id: number) => `${getApiBase()}/center/${id}`,
+      setInactive: (id: number) => `${getApiBase()}/center/${id}/inactive`,
+    },
 }

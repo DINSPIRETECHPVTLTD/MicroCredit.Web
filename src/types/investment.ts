@@ -6,3 +6,10 @@ export interface InvestmentResponse {
   createdById: number
   createdDate: Date
 }
+
+export interface CreateInvestmentRequest {
+  userId: number
+  amount: number
+  investmentDate: string
+  createdDate: string
+}

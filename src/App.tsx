@@ -13,7 +13,8 @@ import ExpenseList from "./pages/Expenses/ExpenseList"
 import MasterLookupList from "@/pages/Master/MasterLookupList"
 import PaymentTermList from "@/pages/Master/PaymentTermList"
 import PocList from "@/pages/pocs/PocList"
-
+import UserLedgerTransactions from "./pages/ledgerBalances/UserLedgerTransactions"
+import CenterList from "./pages/center/CenterList"
 
 function App() {
   return (
@@ -46,13 +47,14 @@ function App() {
           <Route path="funds/investments" element={<InvestmentsList />} />
           <Route path="funds/ledger-balances" element={<LedgerBalancesList />} />
           <Route path="funds/expenses" element={<ExpenseList />} />
-          <Route path="centers" element={<Placeholder />} />
+          <Route path="centers" element={<CenterList />} />
           <Route path="pocs" element={<PocList />} />
           <Route path="staff" element={<Placeholder />} />
           <Route path="members" element={<Placeholder />} />
           <Route path="loans/add" element={<Placeholder />} />
           <Route path="loans/manage" element={<Placeholder />} />
           <Route path="recovery-posting" element={<Placeholder />} />
+          <Route path="ledger-transactions/:userId" element={<UserLedgerTransactions />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -35,6 +35,16 @@ type Props = {
 const inputClass =
     "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
+function getApiErrorMessage(err: unknown, fallback: string): string {
+    const data = (err as { response?: { data?: unknown } })?.response?.data
+    if (typeof data === "string") return data
+    if (data && typeof data === "object") {
+        const obj = data as { message?: string; error?: string; title?: string }
+        return obj.message ?? obj.error ?? obj.title ?? fallback
+    }
+    return fallback
+}
+
 export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
     const dialogRef = useRef<HTMLDialogElement>(null)
     const [saving, setSaving] = useState(false)
@@ -103,9 +113,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
             onSuccess()
             close()
         } catch (err: unknown) {
-            const msg = (err as unknown as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-                "Failed to save branch"
-            toast.error(msg)
+            toast.error(getApiErrorMessage(err, "Failed to save branch"))
         } finally {
             setSaving(false)
         }
