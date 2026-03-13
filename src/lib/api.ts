@@ -94,5 +94,15 @@ export const api = {
         update: (id: number) => `${getApiBase()}/paymentTerm/${id}`,
         delete: (id: number) => `${getApiBase()}/paymentTerm/${id}`,
     },
+    centers: {
+        get list() {
+            return `${getApiBase()}/center`
+        },
+        get create() {
+            return `${getApiBase()}/center`
+        },
+        update: (id: number) => `${getApiBase()}/center/${id}`,
+        setInactive: (id: number) => `${getApiBase()}/center/${id}/inactive`,
+    },
 
 }
