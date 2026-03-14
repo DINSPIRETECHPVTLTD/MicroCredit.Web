@@ -12,6 +12,7 @@ import LedgerBalancesList from "./pages/ledgerBalances/ledgerBalanceList"
 import ExpenseList from "./pages/Expenses/ExpenseList"
 import MasterLookupList from "@/pages/Master/MasterLookupList"
 import PaymentTermList from "@/pages/Master/PaymentTermList"
+import PocList from "@/pages/pocs/PocList"
 import UserLedgerTransactions from "./pages/ledgerBalances/UserLedgerTransactions"
 import CenterList from "./pages/center/CenterList"
 
@@ -47,7 +48,7 @@ function App() {
           <Route path="funds/ledger-balances" element={<LedgerBalancesList />} />
           <Route path="funds/expenses" element={<ExpenseList />} />
           <Route path="centers" element={<CenterList />} />
-          <Route path="pocs" element={<Placeholder />} />
+          <Route path="pocs" element={<PocList />} />
           <Route path="staff" element={<Placeholder />} />
           <Route path="members" element={<Placeholder />} />
           <Route path="loans/add" element={<Placeholder />} />

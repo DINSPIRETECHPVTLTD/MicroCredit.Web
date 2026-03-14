@@ -7,6 +7,12 @@ export const masterlookupService = {
         const { data } = await axios.get<MasterLookupResponse[]>(api.masterLookups.list)
         return data
     },
+    async getMasterLookupsByKey(lookupKey: string): Promise<MasterLookupResponse[]> {
+        const all = await this.getMasterLookups()
+        return all.filter(
+          (x) => x.lookupKey?.toLowerCase() === lookupKey.toLowerCase()
+        )
+    },
 
     async createMasterLookup(request: CreateMasterLookupRequest): Promise<number> {
         const { data } = await axios.post<number>(api.masterLookups.list, request)

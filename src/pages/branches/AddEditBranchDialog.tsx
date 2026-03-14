@@ -66,7 +66,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                 address2: editBranch.address2 ?? "",
                 city: editBranch.city ?? "",
                 state: editBranch.state ?? "",
-                country: editBranch.country ?? "",
+               // country: editBranch.country ?? "",
                 zipcode: editBranch.zipCode ?? "",
                 phoneNumber: editBranch.phoneNumber ?? "",
             })
@@ -176,7 +176,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                         Cancel
                     </Button>
                     <Button type="submit" disabled={saving}>
-                        {saving ? (isEdit ? "Updating…" : "Creating…") : isEdit ? "Update branch" : "Create branch"}
+                        {saving ? (isEdit ? "Updatingï¿½" : "Creatingï¿½") : isEdit ? "Update branch" : "Create branch"}
                     </Button>
                 </div>
             </form>
