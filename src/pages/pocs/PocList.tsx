@@ -1,4 +1,8 @@
-// src/pages/pocs/PocList.tsx
+/**
+ * PocList.tsx
+ * POC (Point of Contact) list page: shows a table of POCs for the current branch.
+ * User can Add POC, Edit a row, or Set a POC Inactive. Dialogs are rendered here and controlled by state.
+ */
 import { useMemo, useRef, useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -10,17 +14,19 @@ import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import type { PocResponse } from "@/types/poc"
 import { pocService } from "@/services/poc.service"
-import { AddEditPocDialog, type AddEditPocDialogMode } from "@/pages/pocs/AddEditBranchDialog"
+import { AddEditPocDialog, type AddEditPocDialogMode } from "@/pages/pocs/AddEditPocDialog"
 import { getBranch } from "@/services/auth.service"
 
 function PocList() {
   const branch = getBranch()
   const branchId = branch?.id
 
+  // Dialog state: which dialog is open (null = none). addEditDialog drives Add/Edit modal; inactivePoc drives Set Inactive modal.
   const [addEditDialog, setAddEditDialog] =
     useState<AddEditPocDialogMode | null>(null)
   const [inactivePoc, setInactivePoc] = useState<PocResponse | null>(null)
 
+  // Fetch POCs for current branch. Only runs when branchId is set (user is in branch context).
   const {
     data: pocs = [],
     isLoading,
@@ -31,6 +37,7 @@ function PocList() {
     queryFn: () => pocService.getByBranch(branchId!),
   })
 
+  // Table column definitions. "name", "centerName", "fullAddress" come from backend response.
   const columns = useMemo<MRT_ColumnDef<PocResponse>[]>(
     () => [
       { accessorKey: "id", header: "Id", size: 60 },
@@ -55,6 +62,7 @@ function PocList() {
     []
   )
 
+  // MaterialReactTable config: columns, data, loading state, and table features.
   const table = useMaterialReactTable({
     columns,
     data: pocs,
@@ -73,6 +81,7 @@ function PocList() {
         <Button onClick={() => setAddEditDialog({ mode: "add" })}>Add POC</Button>
       </div>
 
+      {/* Empty state when no POCs; otherwise show the data table. */}
       {!isLoading && pocs.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
           <p>No POCs found</p>
@@ -85,6 +94,7 @@ function PocList() {
         <MaterialReactTable table={table} />
       )}
 
+      {/* Set Inactive confirmation dialog: only rendered when user clicks Inactive on a row. */}
       {inactivePoc && (
         <SetInactiveDialog
           poc={inactivePoc}
@@ -96,7 +106,9 @@ function PocList() {
         />
       )}
 
+      {/* Add/Edit POC dialog: open when addEditDialog is set (add or edit mode). Key forces remount when switching Add <-> Edit so Add always shows empty form. */}
       <AddEditPocDialog
+        key={addEditDialog ? (addEditDialog.mode === "edit" ? `edit-${addEditDialog.poc.id}` : "add") : "closed"}
         value={addEditDialog}
         onClose={() => setAddEditDialog(null)}
         onSuccess={() => {
@@ -108,6 +120,7 @@ function PocList() {
   )
 }
 
+/** Action buttons for each POC row: Edit opens AddEditPocDialog in edit mode; Inactive opens SetInactiveDialog. */
 function PocRowActions({
   poc,
   onOpenEdit,
@@ -129,6 +142,7 @@ function PocRowActions({
   )
 }
 
+/** Confirmation dialog to set a POC as inactive. Calls pocService.setInactive and refetches list on success. */
 function SetInactiveDialog({
   poc,
   onClose,

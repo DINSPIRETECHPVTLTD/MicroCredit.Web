@@ -1,4 +1,8 @@
-// src/pages/pocs/AddEditPocDialog.tsx
+/**
+ * AddEditPocDialog.tsx
+ * Modal dialog to create a new POC (Point of Contact) or edit an existing one.
+ * Used from PocList when user clicks "Add POC" or "Edit" on a row.
+ */
 import { useRef, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -10,42 +14,61 @@ import type { PocResponse } from "@/types/poc"
 import { pocService, type PocSaveRequest } from "@/services/poc.service"
 import { userService } from "@/services/user.service"
 import type { UserResponse } from "@/types/user"
+import { centerService } from "@/services/center.service"
+import type { CenterResponse } from "@/types/center"
+import { masterlookupService } from "@/services/masterLookup.service"
+import type { MasterLookupResponse } from "@/types/masterLookup"
 
-
-
-// Validation schema for the POC form
+// -----------------------------------------------------------------------------
+// Validation schema (Zod): defines required/optional fields and rules for the form.
+// phoneRegex: exactly 10 digits (used for Phone and Alt phone).
+// -----------------------------------------------------------------------------
+const phoneRegex = /^\d{10}$/
 const baseFields = z.object({
   centerId: z.number({ message: "Center is required" }).min(1, "Center is required"),
-  firstName: z.string().min(1, "First name is required"),
-  middleName: z.string().optional(),
-  lastName: z.string().min(1, "Last name is required"),
-  phoneNumber: z.string().min(1, "Phone is required"),
-  altPhone: z.string().optional(),
-  address1: z.string().optional(),
-  address2: z.string().optional(),
-  city: z.string().optional(),
+  firstName: z.string().min(1, "First name is required").max(100, "First name must be 100 characters or less"),
+  middleName: z.string().max(100, "Middle name must be 100 characters or less").optional(),
+  lastName: z.string().min(1, "Last name is required").max(100, "Last name must be 100 characters or less"),
+  phoneNumber: z
+    .string()
+    .min(1, "Phone is required")
+    .transform((s) => s.trim())
+    .refine((s) => phoneRegex.test(s), "Phone must be exactly 10 digits"),
+  altPhone: z
+    .string()
+    .optional()
+    .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Alt phone must be exactly 10 digits"),
+  address1: z.string().max(200, "Address must be 200 characters or less").optional(),
+  address2: z.string().max(200, "Address must be 200 characters or less").optional(),
+  city: z.string().max(100, "City must be 100 characters or less").optional(),
   state: z.string().optional(),
-  zipCode: z.string().optional(),
-  collectionDay: z.string().optional(),
+  zipCode: z.string().max(10, "Zip code must be 10 characters or less").optional(),
+  collectionDay: z.string().min(1, "Collection day is required"),
   collectionFrequency: z.string().min(1, "Frequency is required"),
   collectionBy: z
-  .number({ message: "Collection by is required" })
-  .min(1, "Collection by is required"),
+    .number({ message: "Collection by is required" })
+    .min(1, "Collection by is required"),
 })
 
+/** Form values type inferred from the schema (used by react-hook-form). */
 type CreateFormData = z.infer<typeof baseFields>
 
-// Mode: add OR edit
+/**
+ * Dialog mode: either adding a new POC or editing an existing one.
+ * When "edit", we pass the existing poc so the form can be pre-filled.
+ */
 export type AddEditPocDialogMode =
   | { mode: "add" }
   | { mode: "edit"; poc: PocResponse }
 
+/** Props for AddEditPocDialog. value=null means dialog is closed. */
 type Props = {
   value: AddEditPocDialogMode | null
   onClose: () => void
   onSuccess: () => void
 }
 
+/** Shared CSS class for all form inputs and selects (consistent look). */
 const inputClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 " +
@@ -55,25 +78,16 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = useState(false)
 
-  // 1) local state for users
-const [users, setUsers] = useState<UserResponse[]>([])
-// 2) fetch users on mount/open (or just once)
-useEffect(() => {
-  async function loadUsers() {
-    try {
-      const data = await userService.getUsers()
-      setUsers(data)
-    } catch (e) {
-      toast.error("Failed to load users for Collection By")
-    }
-  }
-  loadUsers()
-}, [])
+  // Dropdown options: loaded when dialog opens. Form is reset only after these load so State, Center, Collection by display correctly.
+  const [users, setUsers] = useState<UserResponse[]>([])
+  const [centers, setCenters] = useState<CenterResponse[]>([])
+  const [stateLookups, setStateLookups] = useState<MasterLookupResponse[]>([])
 
-
+  // Whether we are editing (vs adding). editPoc is the existing POC when in edit mode.
   const isEdit = value?.mode === "edit"
   const editPoc = isEdit && value ? value.poc : null
 
+  // React Hook Form: handles form state, validation (via zodResolver + baseFields), and submit.
   const form = useForm<CreateFormData>({
     resolver: zodResolver(baseFields),
     defaultValues: {
@@ -94,32 +108,64 @@ useEffect(() => {
     },
   })
 
-  // Open dialog and fill values when editing
+  // When dialog opens: show modal, load dropdowns, then reset form (after options exist so State/Center/Collection by show correctly).
   useEffect(() => {
     if (value === null) return
 
     dialogRef.current?.showModal()
 
-    if (editPoc) {
-      form.reset({
-        centerId: editPoc.centerId,
-        firstName: editPoc.firstName,
-        middleName: editPoc.middleName ?? "",
-        lastName: editPoc.lastName,
-        phoneNumber: editPoc.phoneNumber,
-        altPhone: editPoc.altPhone ?? "",
-        address1: editPoc.address1 ?? "",
-        address2: editPoc.address2 ?? "",
-        city: editPoc.city ?? "",
-        state: editPoc.state ?? "",
-        zipCode: editPoc.zipCode ?? "",
-        collectionDay: editPoc.collectionDay ?? "",
-        collectionFrequency: editPoc.collectionFrequency,
-        collectionBy: editPoc.collectionBy,
-      })
-    } else {
-      form.reset()
+    const loadAndReset = async () => {
+      try {
+        const [usersData, centersData, statesData] = await Promise.all([
+          userService.getUsers(),
+          centerService.getCenters(),
+          masterlookupService.getMasterLookupsByKey("State"),
+        ])
+        setUsers(usersData)
+        setCenters(centersData)
+        setStateLookups(statesData)
+
+        // Reset form after dropdown options are set so selects display the right value
+        if (editPoc) {
+          form.reset({
+            centerId: editPoc.centerId,
+            firstName: editPoc.firstName,
+            middleName: editPoc.middleName ?? "",
+            lastName: editPoc.lastName,
+            phoneNumber: editPoc.phoneNumber,
+            altPhone: editPoc.altPhone ?? "",
+            address1: editPoc.address1 ?? "",
+            address2: editPoc.address2 ?? "",
+            city: editPoc.city ?? "",
+            state: editPoc.state ?? "",
+            zipCode: editPoc.zipCode ?? "",
+            collectionDay: editPoc.collectionDay ?? "",
+            collectionFrequency: editPoc.collectionFrequency,
+            collectionBy: editPoc.collectionBy,
+          })
+        } else {
+          form.reset({
+            centerId: 0,
+            firstName: "",
+            middleName: "",
+            lastName: "",
+            phoneNumber: "",
+            altPhone: "",
+            address1: "",
+            address2: "",
+            city: "",
+            state: "",
+            zipCode: "",
+            collectionDay: "",
+            collectionFrequency: "",
+            collectionBy: 0,
+          })
+        }
+      } catch (e) {
+        toast.error("Failed to load form options")
+      }
     }
+    loadAndReset()
   }, [value, editPoc?.id, form])
 
   if (value === null) return null
@@ -129,7 +175,7 @@ useEffect(() => {
     onClose()
   }
 
-  // Map form data to backend request
+  // Converts form data to the shape expected by the POC API (create/update).
   const buildRequest = (data: CreateFormData): PocSaveRequest => ({
     centerId: data.centerId,
     firstName: data.firstName,
@@ -147,6 +193,7 @@ useEffect(() => {
     collectionBy: data.collectionBy,
   })
 
+  // On submit: call create or update API, show toast, then close and notify parent to refresh list.
   const onSubmit = async (data: CreateFormData) => {
     setSaving(true)
     const request = buildRequest(data)
@@ -171,9 +218,7 @@ useEffect(() => {
     }
   }
 
-  if (value === null) return null
-
-return (
+  return (
   <dialog
     ref={dialogRef}
     onCancel={close}
@@ -188,15 +233,16 @@ return (
 
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col min-h-0 overflow-hidden">
       <div className="p-6 overflow-y-auto space-y-6 flex-1">
-        {/* Basic information */}
+        {/* Section 1: Name and phone (mandatory fields marked with *). */}
         <section>
           <h3 className="text-sm font-medium mb-3">Basic information</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-sm font-medium mb-1 block">First name</label>
+              <label className="text-sm font-medium mb-1 block">First name <span className="text-destructive">*</span></label>
               <input
                 {...form.register("firstName")}
                 className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
+                maxLength={100}
               />
               {form.formState.errors.firstName && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.firstName.message}</p>
@@ -204,23 +250,27 @@ return (
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Middle name</label>
-              <input {...form.register("middleName")} className={inputClass} />
+              <input {...form.register("middleName")} className={inputClass} maxLength={100} />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Last name</label>
+              <label className="text-sm font-medium mb-1 block">Last name <span className="text-destructive">*</span></label>
               <input
                 {...form.register("lastName")}
                 className={cn(inputClass, form.formState.errors.lastName && "border-destructive")}
+                maxLength={100}
               />
               {form.formState.errors.lastName && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.lastName.message}</p>
               )}
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Phone</label>
+              <label className="text-sm font-medium mb-1 block">Phone <span className="text-destructive">*</span></label>
               <input
                 {...form.register("phoneNumber")}
                 className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="10 digits"
               />
               {form.formState.errors.phoneNumber && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
@@ -228,56 +278,76 @@ return (
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Alt phone</label>
-              <input {...form.register("altPhone")} className={inputClass} />
+              <input
+                {...form.register("altPhone")}
+                className={cn(inputClass, form.formState.errors.altPhone && "border-destructive")}
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="10 digits"
+              />
+              {form.formState.errors.altPhone && (
+                <p className="text-xs text-destructive mt-1">{form.formState.errors.altPhone.message}</p>
+              )}
             </div>
           </div>
         </section>
 
-        {/* Address */}
+        {/* Section 2: Address (optional). State options come from MasterLookup. */}
         <section>
           <h3 className="text-sm font-medium mb-3">Address</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium mb-1 block">Address 1</label>
-              <input {...form.register("address1")} className={inputClass} />
+              <input {...form.register("address1")} className={inputClass} maxLength={200} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Address 2</label>
-              <input {...form.register("address2")} className={inputClass} />
+              <input {...form.register("address2")} className={inputClass} maxLength={200} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">City</label>
-              <input {...form.register("city")} className={inputClass} />
+              <input {...form.register("city")} className={inputClass} maxLength={100} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">State</label>
-              <input {...form.register("state")} className={inputClass} />
+              <select {...form.register("state")} className={inputClass}>
+                <option value="">Select state</option>
+                {stateLookups.map((s) => (
+                  <option key={s.id} value={s.lookupValue}>
+                    {s.lookupValue}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-medium mb-1 block">Zip code</label>
-              <input {...form.register("zipCode")} className={inputClass} />
+              <input {...form.register("zipCode")} className={inputClass} maxLength={10} />
             </div>
           </div>
         </section>
-        {/* Collection details */}
+        {/* Section 3: Center, frequency, day, and collection-by user (all mandatory). */}
         <section>
           <h3 className="text-sm font-medium mb-3">Collection details</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-sm font-medium mb-1 block">Center</label>
+              <label className="text-sm font-medium mb-1 block">Center <span className="text-destructive">*</span></label>
               <select
                 {...form.register("centerId", { valueAsNumber: true })}
                 className={cn(inputClass, form.formState.errors.centerId && "border-destructive")}
               >
                 <option value={0}>Select center</option>
-                {/* TODO: bind actual centers here */}
+                {centers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
               {form.formState.errors.centerId && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.centerId.message}</p>
               )}
             </div>
             <div>
-  <label className="text-sm font-medium mb-1 block">Collection frequency</label>
+  <label className="text-sm font-medium mb-1 block">Collection frequency <span className="text-destructive">*</span></label>
   <select
     {...form.register("collectionFrequency")}
     className={cn(inputClass, form.formState.errors.collectionFrequency && "border-destructive")}
@@ -295,10 +365,10 @@ return (
 </div>
 
 <div>
-  <label className="text-sm font-medium mb-1 block">Collection day</label>
+  <label className="text-sm font-medium mb-1 block">Collection day <span className="text-destructive">*</span></label>
   <select
     {...form.register("collectionDay")}
-    className={inputClass}
+    className={cn(inputClass, form.formState.errors.collectionDay && "border-destructive")}
   >
     <option value="">Select day</option>
     <option value="Monday">Monday</option>
@@ -309,9 +379,12 @@ return (
     <option value="Saturday">Saturday</option>
     <option value="Sunday">Sunday</option>
   </select>
+  {form.formState.errors.collectionDay && (
+    <p className="text-xs text-destructive mt-1">{form.formState.errors.collectionDay.message}</p>
+  )}
 </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Collection by</label>
+              <label className="text-sm font-medium mb-1 block">Collection by <span className="text-destructive">*</span></label>
               <select
                 {...form.register("collectionBy", { valueAsNumber: true })}
                 className={cn(inputClass, form.formState.errors.collectionBy && "border-destructive")}
