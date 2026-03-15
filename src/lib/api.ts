@@ -110,4 +110,16 @@ export const api = {
       update: (id: number) => `${getApiBase()}/center/${id}`,
       setInactive: (id: number) => `${getApiBase()}/center/${id}/inactive`,
     },
+    staff: {
+        get list() {
+            return `${getApiBase()}/Users/branch`
+        },
+        get create() {
+            return `${getApiBase()}/users`
+        },
+        update: (id: number) => `${getApiBase()}/users/${id}`,
+        resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
+        setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
+    },
+
 }
