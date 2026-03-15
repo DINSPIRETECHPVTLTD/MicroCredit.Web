@@ -6,11 +6,9 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  /* Force consistent light theme text/background to avoid OS-specific dark mode issues */
+  color: #213547;
+  background-color: #ffffff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -133,4 +131,12 @@ button:focus-visible {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+}
+
+/* Ensure form control text is always visible */
+input,
+textarea,
+select {
+  color: #213547; /* dark text */
+  background-color: #ffffff; /* light background */
 }

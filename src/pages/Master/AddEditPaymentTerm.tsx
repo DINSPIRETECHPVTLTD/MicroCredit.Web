@@ -139,7 +139,9 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
       </div>
       <form onSubmit={form.handleSubmit(submit)} className="p-6 space-y-4">
         <div>
-          <label className="text-sm font-medium mb-1 block">Payment Term</label>
+          <label className="text-sm font-medium mb-1 block">
+            Payment Term <span className="text-destructive">*</span>
+          </label>
           <input
             {...form.register("paymentTerm")}
             className={cn(inputClass, form.formState.errors.paymentTerm && "border-destructive")}
@@ -152,7 +154,9 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">Payment Type</label>
+          <label className="text-sm font-medium mb-1 block">
+            Payment Type <span className="text-destructive">*</span>
+          </label>
           <input
             {...form.register("paymentType")}
             className={cn(inputClass, form.formState.errors.paymentType && "border-destructive")}
@@ -165,7 +169,9 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">No of Terms</label>
+          <label className="text-sm font-medium mb-1 block">
+            No of Terms <span className="text-destructive">*</span>
+          </label>
           <input
             type="number"
             {...form.register("noOfTerms")}
@@ -179,7 +185,9 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">Processing Fee</label>
+          <label className="text-sm font-medium mb-1 block">
+            Processing Fee <span className="text-destructive">*</span>
+          </label>
           <input
             type="number"
             step="0.01"
@@ -194,7 +202,9 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">Rate Of Interest</label>
+          <label className="text-sm font-medium mb-1 block">
+            Rate Of Interest <span className="text-destructive">*</span>
+          </label>
           <input
             type="number"
             step="0.01"
@@ -209,7 +219,9 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">Insurance Fee</label>
+          <label className="text-sm font-medium mb-1 block">
+            Insurance Fee <span className="text-destructive">*</span>
+          </label>
           <input
             type="number"
             step="0.01"

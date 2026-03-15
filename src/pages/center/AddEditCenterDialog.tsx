@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react"
+import { useRef, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -135,7 +135,7 @@ export function AddEditCenterDialog({ value, onClose, onSuccess }: Props) {
                         Cancel
                     </Button>
                     <Button type="submit" disabled={saving}>
-                        {saving ? (isEdit ? "Updating…" : "Creating…") : isEdit ? "Update center" : "Create center"}
+                        {saving ? (isEdit ? "Updatingï¿½" : "Creatingï¿½") : isEdit ? "Update center" : "Create center"}
                     </Button>
                 </div>
             </form>
