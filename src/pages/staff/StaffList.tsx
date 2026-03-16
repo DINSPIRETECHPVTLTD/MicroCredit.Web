@@ -14,7 +14,7 @@ import { AddEditStaffDialog, type AddEditStaffDialogMode } from "@/pages/staff/A
 import { Plus, Pencil, Key, UserX } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 const resetPasswordSchema = z
     .object({
