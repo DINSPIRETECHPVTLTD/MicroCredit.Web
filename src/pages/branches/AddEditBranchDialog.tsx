@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -66,7 +65,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                 address2: editBranch.address2 ?? "",
                 city: editBranch.city ?? "",
                 state: editBranch.state ?? "",
-               // country: editBranch.country ?? "",
+                country: editBranch.country ?? "",
                 zipcode: editBranch.zipCode ?? "",
                 phoneNumber: editBranch.phoneNumber ?? "",
             })
@@ -88,25 +87,25 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
             if (isEdit && editBranch) {
                 await branchService.updateBranch(editBranch.id, {
                     name: data.name,
-                    address1: data.address1 || null,
-                    address2: data.address2 || null,
-                    city: data.city || null,
-                    state: data.state || null,
-                    country: data.country || null,
-                    zipcode: data.zipcode || null,
-                    phoneNumber: data.phoneNumber || null,
+                    address1: data.address1 || "",
+                    address2: data.address2 || "",
+                    city: data.city || "",
+                    state: data.state || "",
+                    country: data.country || "",
+                    zipcode: data.zipcode || "",
+                    phoneNumber: data.phoneNumber || "",
                 })
                 toast.success("Branch updated")
             } else {
                 await branchService.createBranch({
                     name: data.name,
-                    address1: data.address1 || null,
-                    address2: data.address2 || null,
-                    city: data.city || null,
-                    state: data.state || null,
-                    country: data.country || null,
-                    zipcode: data.zipcode || null,                    
-                    phoneNumber: data.phoneNumber || null,
+                    address1: data.address1 || "",
+                    address2: data.address2 || "",
+                    city: data.city || "",
+                    state: data.state || "",
+                    country: data.country || "",
+                    zipcode: data.zipcode || "",                    
+                    phoneNumber: data.phoneNumber || "",
                 })
                 toast.success("Branch created")
             }
@@ -126,12 +125,19 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
             className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-lg w-full"
             aria-labelledby="add-edit-branch-title"
         >
-            <form onSubmit={form.handleSubmit(onSubmit)} className="p-6">
+            <div className="p-6 border-b shrink-0">
                 <h2 id="add-edit-branch-title" className="text-lg font-semibold mb-4">
-                    {isEdit ? "Update branch" : "Create branch"}
+                {isEdit ? "Update branch" : "Create branch"}
                 </h2>
+            </div>
+            <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="flex flex-col min-h-0 overflow-hidden"
+            >
+                <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                    <section>
 
-                <div className="space-y-4">
+                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label className="text-sm font-medium mb-1 block">Branch Name</label>
                         <input {...form.register("name")} className={cn(inputClass, form.formState.errors.name && "border-destructive")} />
@@ -178,6 +184,8 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                     <Button type="submit" disabled={saving}>
                         {saving ? (isEdit ? "Updating�" : "Creating�") : isEdit ? "Update branch" : "Create branch"}
                     </Button>
+                        </div>
+                    </section>
                 </div>
             </form>
         </dialog>
