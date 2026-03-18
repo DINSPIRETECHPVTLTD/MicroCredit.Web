@@ -160,10 +160,11 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                 className="flex flex-col min-h-0 overflow-hidden"
             >
                 <div className="p-6 overflow-y-auto space-y-6 flex-1">
-                    <section>
+                 <section>
 
-                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                        <div>
                         <label className="text-sm font-medium mb-1 block">Branch Name <span className="text-destructive">*</span></label>
                         <input
                             {...form.register("name")}
@@ -174,9 +175,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                         {form.formState.errors.name && (
                             <p className="text-xs text-destructive mt-1">{form.formState.errors.name.message}</p>
                         )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+                    </div>                    
                         <div>
                             <label className="text-sm font-medium mb-1 block">Address 1</label>
                             <input
@@ -200,9 +199,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                             {form.formState.errors.address2 && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.address2.message}</p>
                             )}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+                        </div>              
                         <div>
                             <label className="text-sm font-medium mb-1 block">City</label>
                             <input
@@ -267,10 +264,11 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
                             )}
                         </div>
-                        <div />
+                       
                     </div>
-                </div>
-
+                
+                    </section>
+                    
                 <div className="flex justify-end gap-2 mt-6">
                     <Button type="button" variant="outline" onClick={close}>
                         Cancel
@@ -278,9 +276,9 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                     <Button type="submit" disabled={saving}>
                         {saving ? (isEdit ? "Updating�" : "Creating�") : isEdit ? "Update branch" : "Create branch"}
                     </Button>
-                        </div>
-                    </section>
-                </div>
+                       
+                    </div>
+                </div>  
             </form>
         </dialog>
     )
