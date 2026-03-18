@@ -44,13 +44,13 @@ export const api = {
   },
   branches: {
     get list() {
-      return `${getApiBase()}/branchs`
+      return `${getApiBase()}/branches`
     },
     get create() {
-      return `${getApiBase()}/branchs`
+      return `${getApiBase()}/branches`
     },
-    update: (id: number) => `${getApiBase()}/branchs/${id}`,
-    setInactive: (id: number) => `${getApiBase()}/branchs/${id}/inactive`,
+    update: (id: number) => `${getApiBase()}/branches/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/branches/${id}/inactive`,
   },
   investments: {
     get list() {
