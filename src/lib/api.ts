@@ -121,5 +121,12 @@ export const api = {
         resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
         setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
     },
-
+    loans: {
+        get list() {
+            return `${getApiBase()}/loans`
+        },
+    },
+    loanScheduler: {
+      list: (loanId: number) => `${getApiBase()}/LoanSchedulers/${loanId}`,
+    },
 }
