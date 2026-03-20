@@ -110,4 +110,13 @@ export const api = {
       update: (id: number) => `${getApiBase()}/center/${id}`,
       setInactive: (id: number) => `${getApiBase()}/center/${id}/inactive`,
     },
+  members: {
+    listByBranch: (branchId: number) => `${getApiBase()}/Member/by-branch/${branchId}`,
+    create: () => `${getApiBase()}/Member`,
+    update: (id: number) => `${getApiBase()}/Member/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/Member/${id}/inactive`,
+  },
+  memberFees: {
+    create: () => `${getApiBase()}/MemberMembershipFees`,
+  },
 }
