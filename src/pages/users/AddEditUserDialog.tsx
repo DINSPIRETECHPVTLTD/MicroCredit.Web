@@ -8,17 +8,65 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 
+const nameRegex = /^[A-Za-z ]+$/
+
+const sanitizeName = (value: string) => value.replace(/[^A-Za-z ]/g, "")
+const sanitizePhone = (value: string) => value.replace(/\D/g, "")
+const sanitizeZip = (value: string) => value.replace(/\D/g, "")
+
 const baseFields = {
-  firstName: z.string().min(1, "First name is required"),
-  surname: z.string().min(1, "Surname is required"),
-  email: z.string().min(1, "Email is required").email("Invalid email"),
+  firstName: z
+    .string()
+    .min(1, "First name is required")
+    .max(225, "First name must be at most 225 characters")
+    .regex(nameRegex, "First name can contain only letters and spaces"),
+  surname: z
+    .string()
+    .min(1, "Surname is required")
+    .max(225, "Surname must be at most 225 characters")
+    .regex(nameRegex, "Surname can contain only letters and spaces"),
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .max(225, "Email must be at most 225 characters")
+    .email("Invalid email"),
   role: z.string().min(1, "Role is required"),
-  phoneNumber: z.string().optional(),
-  address1: z.string().optional(),
-  address2: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  pinCode: z.string().optional(),
+  phoneNumber: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || /^\d+$/.test(val),
+      { message: "Phone can contain digits only" }
+    )
+    .refine(
+      (val) => !val || val.length <= 15,
+      { message: "Phone must be at most 15 digits" }
+    ),
+  address1: z.string().max(225, "Address 1 must be at most 225 characters").optional(),
+  address2: z.string().max(225, "Address 2 must be at most 225 characters").optional(),
+  city: z
+    .string()
+    .optional()
+    .refine((val) => !val || nameRegex.test(val), {
+      message: "City can contain only letters and spaces",
+    }),
+  state: z
+    .string()
+    .optional()
+    .refine((val) => !val || nameRegex.test(val), {
+      message: "State can contain only letters and spaces",
+    }),
+  pinCode: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || /^\d+$/.test(val),
+      { message: "Zip code can contain digits only" }
+    )
+    .refine(
+      (val) => !val || val.length <= 10,
+      { message: "Zip code must be at most 10 digits" }
+    ),
   level: z.string().min(1, "Level is required"),
 }
 
@@ -158,8 +206,9 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Something went wrong."
+          ?.message ?? "Something went wrong while creating/updating the user."
       setErrorMessage(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -190,7 +239,12 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">First name</label>
                 <input
-                  {...form.register("firstName")}
+                  {...form.register("firstName", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeName(e.target.value)
+                    },
+                  })}
+                  maxLength={225}
                   className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
                 />
                 {form.formState.errors.firstName && (
@@ -200,7 +254,12 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">Surname</label>
                 <input
-                  {...form.register("surname")}
+                  {...form.register("surname", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeName(e.target.value)
+                    },
+                  })}
+                  maxLength={225}
                   className={cn(inputClass, form.formState.errors.surname && "border-destructive")}
                 />
                 {form.formState.errors.surname && (
@@ -212,6 +271,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("email")}
                   type="email"
+                  maxLength={225}
                   className={cn(inputClass, form.formState.errors.email && "border-destructive")}
                 />
                 {form.formState.errors.email && (
@@ -220,7 +280,18 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Phone</label>
-                <input {...form.register("phoneNumber")} className={inputClass} />
+                <input
+                  {...form.register("phoneNumber", {
+                    onChange: (e) => {
+                      e.target.value = sanitizePhone(e.target.value)
+                    },
+                  })}
+                  maxLength={15}
+                  className={inputClass}
+                />
+                {form.formState.errors.phoneNumber && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Role</label>
@@ -229,10 +300,6 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                     <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Level</label>
-                <input {...form.register("level")} className={inputClass} />
               </div>
             </div>
           </section>
@@ -274,23 +341,68 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-medium mb-1 block">Address 1</label>
-                <input {...form.register("address1")} className={inputClass} />
+                <input
+                  {...form.register("address1")}
+                  maxLength={225}
+                  className={cn(inputClass, form.formState.errors.address1 && "border-destructive")}
+                />
+                {form.formState.errors.address1 && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.address1.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Address 2</label>
-                <input {...form.register("address2")} className={inputClass} />
+                <input
+                  {...form.register("address2")}
+                  maxLength={225}
+                  className={cn(inputClass, form.formState.errors.address2 && "border-destructive")}
+                />
+                {form.formState.errors.address2 && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.address2.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">City</label>
-                <input {...form.register("city")} className={inputClass} />
+                <input
+                  {...form.register("city", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeName(e.target.value)
+                    },
+                  })}
+                  className={cn(inputClass, form.formState.errors.city && "border-destructive")}
+                />
+                {form.formState.errors.city && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.city.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">State</label>
-                <input {...form.register("state")} className={inputClass} />
+                <input
+                  {...form.register("state", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeName(e.target.value)
+                    },
+                  })}
+                  className={cn(inputClass, form.formState.errors.state && "border-destructive")}
+                />
+                {form.formState.errors.state && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.state.message}</p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium mb-1 block">Zip code</label>
-                <input {...form.register("pinCode")} className={inputClass} />
+                <input
+                  {...form.register("pinCode", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeZip(e.target.value)
+                    },
+                  })}
+                  maxLength={10}
+                  className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
+                />
+                {form.formState.errors.pinCode && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.pinCode.message}</p>
+                )}
               </div>
             </div>
           </section>

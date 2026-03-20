@@ -44,13 +44,13 @@ export const api = {
   },
   branches: {
     get list() {
-      return `${getApiBase()}/branchs`
+      return `${getApiBase()}/branches`
     },
     get create() {
-      return `${getApiBase()}/branchs`
+      return `${getApiBase()}/branches`
     },
-    update: (id: number) => `${getApiBase()}/branchs/${id}`,
-    setInactive: (id: number) => `${getApiBase()}/branchs/${id}/inactive`,
+    update: (id: number) => `${getApiBase()}/branches/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/branches/${id}/inactive`,
   },
   investments: {
     get list() {
@@ -118,5 +118,24 @@ export const api = {
   },
   memberFees: {
     create: () => `${getApiBase()}/MemberMembershipFees`,
+  },
+  staff: {
+    get list() {
+      return `${getApiBase()}/Users/branch`
+    },
+    get create() {
+      return `${getApiBase()}/users`
+    },
+    update: (id: number) => `${getApiBase()}/users/${id}`,
+    resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
+    setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
+  },
+  loans: {
+    get list() {
+      return `${getApiBase()}/loans`
+    },
+  },
+  loanScheduler: {
+    list: (loanId: number) => `${getApiBase()}/LoanSchedulers/${loanId}`,
   },
 }
