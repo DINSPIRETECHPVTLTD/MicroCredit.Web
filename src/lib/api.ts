@@ -125,6 +125,9 @@ export const api = {
         get list() {
             return `${getApiBase()}/loans`
         },
+        get activeList() {
+            return `${getApiBase()}/loans/ActiveLoans`
+        },
     },
     loanScheduler: {
       list: (loanId: number) => `${getApiBase()}/LoanSchedulers/${loanId}`,
