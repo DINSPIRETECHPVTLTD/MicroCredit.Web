@@ -15,6 +15,7 @@ import PaymentTermList from "@/pages/Master/PaymentTermList"
 import PocList from "@/pages/pocs/PocList"
 import UserLedgerTransactions from "./pages/ledgerBalances/UserLedgerTransactions"
 import CenterList from "./pages/center/CenterList"
+import MemberList from "./pages/members/MemberList"
 import StaffList from "./pages/staff/StaffList"
 import ManageLoanList from "./pages/loan/ManageLoanList"
 import LoanSchedulerList from "./pages/loanScheduler/LoanSchedulerList"
@@ -53,7 +54,7 @@ function App() {
           <Route path="centers" element={<CenterList />} />
           <Route path="pocs" element={<PocList />} />
           <Route path="staff" element={<StaffList />} />
-          <Route path="members" element={<Placeholder />} />
+          <Route path="members" element={<MemberList />} />
           <Route path="loans/add" element={<Placeholder />} />
           <Route path="loans/manage" element={<ManageLoanList />} />
           <Route path="loans/:loanId/scheduler" element={<LoanSchedulerList />} />
