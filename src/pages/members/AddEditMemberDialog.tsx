@@ -4,7 +4,7 @@
  * Used from MemberList when user clicks "Add Member" or "Edit" on a row.
  */
 import React, { useRef, useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, type FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import toast from "react-hot-toast"
@@ -22,9 +22,25 @@ import { masterlookupService } from "@/services/masterLookup.service"
 import type { MasterLookupResponse } from "@/types/masterLookup"
 import { userService } from "@/services/user.service"
 import type { UserResponse } from "@/types/user"
+import Autocomplete from "@mui/material/Autocomplete"
+import TextField from "@mui/material/TextField"
 
 const phoneRegex = /^\d{10}$/
 const aadhaarRegex = /^\d{12}$/
+
+/** API dates are often ISO strings; `<input type="date">` needs yyyy-MM-dd (leading segment avoids timezone day shifts). */
+function toDateInputValue(value: string | null | undefined): string {
+  if (value == null || String(value).trim() === "") return ""
+  const s = String(value).trim()
+  const isoDate = /^(\d{4}-\d{2}-\d{2})/.exec(s)
+  if (isoDate) return isoDate[1]!
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return ""
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${mo}-${day}`
+}
 
 function calculateAgeFromIso(dobIso: string): number | null {
   if (!dobIso) return null
@@ -39,74 +55,106 @@ function calculateAgeFromIso(dobIso: string): number | null {
   return years
 }
 
-const baseFields = z.object({
-  // Assignment Details
-  centerId: z.number({ message: "Center is required" }).min(1, "Center is required"),
-  pocId: z.number().min(0).optional(), // 0 = not selected, empty dropdown for now
-  // Member Personal Details
-  firstName: z.string().min(1, "First name is required").max(100, "First name must be 100 characters or less"),
-  middleName: z.string().max(100, "Middle name must be 100 characters or less").optional(),
-  lastName: z.string().min(1, "Last name is required").max(100, "Last name must be 100 characters or less"),
-  occupation: z.string().min(1, "Occupation is required").max(100, "Occupation must be 100 characters or less"),
-  dob: z
-    .string()
-    .min(1, "Date of birth is required")
-    .refine((value) => {
-      const age = calculateAgeFromIso(value)
-      return age !== null && age >= 18
-    }, "Age must be at least 18 years"),
-  age: z.union([z.string(), z.number()]).optional(),
-  phoneNumber: z
-    .string()
-    .min(1, "Phone is required")
-    .transform((s) => s.trim())
-    .refine((s) => phoneRegex.test(s), "Phone must be exactly 10 digits"),
-  aadhaar: z
-    .string()
-    .min(1, "Aadhaar is required")
-    .transform((s) => s.trim())
-    .refine((s) => aadhaarRegex.test(s), "Aadhaar must be exactly 12 digits"),
-  altPhone: z
-    .string()
-    .optional()
-    .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Alt phone must be exactly 10 digits"),
-  // Address Details
-  address1: z.string().max(200, "Address must be 200 characters or less").optional(),
-  address2: z.string().max(200, "Address must be 200 characters or less").optional(),
-  city: z.string().max(100, "City must be 100 characters or less").optional(),
-  state: z.string().optional(),
-  zipCode: z.string().max(10, "Zip code must be 10 characters or less").optional(),
-  // Member Entry Joining Fee (required)
-  paymentMode: z.string().min(1, "Payment mode is required"),
-  joiningFeeAmount: z
-    .union([z.string(), z.number()])
-    .refine((val) => {
-      if (val === "" || val == null) return false
-      const n = typeof val === "string" ? parseFloat(val) : val
-      return !Number.isNaN(n) && n > 0
-    }, "Amount is required and must be greater than 0"),
-  paidDate: z.string().min(1, "Paid date is required"),
-  collectedBy: z.number({ message: "Collected by is required" }).min(1, "Collected by is required"),
-  comments: z.string().max(500).optional(),
-  // Guardian Details (required)
-  guardianFirstName: z.string().min(1, "Guardian first name is required").max(100),
-  guardianLastName: z.string().min(1, "Guardian surname is required").max(100),
-  guardianPhone: z.string().optional(),
-  relationship: z.string().min(1, "Relationship is required"),
-  relationshipOther: z.string().max(100, "Relationship must be 100 characters or less").optional(),
-  guardianDOB: z.string().min(1, "Guardian DOB is required"),
-  guardianAge: z.union([z.string(), z.number()]).optional(),
-}).superRefine((data, ctx) => {
-  if (data.relationship === "Other") {
-    if (!data.relationshipOther || !data.relationshipOther.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please specify relationship",
-        path: ["relationshipOther"],
-      })
+/** `formMode` drives validation: joining fee is required only for create, not for update. */
+const baseFields = z
+  .object({
+    formMode: z.enum(["add", "edit"]),
+    // Assignment Details
+    centerId: z.number({ message: "Center is required" }).min(1, "Center is required"),
+    pocId: z.number({ message: "POC is required" }).min(1, "POC is required"),
+    // Member Personal Details
+    firstName: z.string().min(1, "First name is required").max(100, "First name must be 100 characters or less"),
+    middleName: z.string().max(100, "Middle name must be 100 characters or less").optional(),
+    lastName: z.string().min(1, "Last name is required").max(100, "Last name must be 100 characters or less"),
+    occupation: z.string().min(1, "Occupation is required").max(100, "Occupation must be 100 characters or less"),
+    dob: z
+      .string()
+      .min(1, "Date of birth is required")
+      .refine((value) => {
+        const age = calculateAgeFromIso(value)
+        return age !== null && age >= 18
+      }, "Age must be at least 18 years"),
+    age: z.union([z.string(), z.number()]).optional(),
+    phoneNumber: z
+      .string()
+      .min(1, "Phone is required")
+      .transform((s) => s.trim())
+      .refine((s) => phoneRegex.test(s), "Phone must be exactly 10 digits"),
+    aadhaar: z
+      .string()
+      .min(1, "Aadhaar is required")
+      .transform((s) => s.trim())
+      .refine((s) => aadhaarRegex.test(s), "Aadhaar must be exactly 12 digits"),
+    altPhone: z
+      .string()
+      .optional()
+      .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Alt phone must be exactly 10 digits"),
+    // Address Details
+    address1: z.string().min(1, "Address line 1 is required").max(200, "Address must be 200 characters or less"),
+    address2: z.string().max(200, "Address must be 200 characters or less").optional(),
+    city: z.string().min(1, "City is required").max(100, "City must be 100 characters or less"),
+    state: z.string().min(1, "State is required"),
+    zipCode: z.string().min(1, "Pincode is required").max(10, "Zip code must be 10 characters or less"),
+    // Member Entry Joining Fee — validated in superRefine only when formMode === "add"
+    paymentMode: z.string().optional(),
+    joiningFeeAmount: z.union([z.string(), z.number()]).optional(),
+    paidDate: z.string().optional(),
+    collectedBy: z.number().optional(),
+    comments: z.string().max(500).optional(),
+    // Guardian Details (required)
+    guardianFirstName: z.string().min(1, "Guardian first name is required").max(100),
+    guardianLastName: z.string().min(1, "Guardian surname is required").max(100),
+    guardianPhone: z.string().optional(),
+    relationship: z.string().min(1, "Relationship is required"),
+    relationshipOther: z.string().max(100, "Relationship must be 100 characters or less").optional(),
+    guardianDOB: z.string().min(1, "Guardian DOB is required"),
+    guardianAge: z.union([z.string(), z.number()]).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.relationship === "Other") {
+      if (!data.relationshipOther || !data.relationshipOther.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please specify relationship",
+          path: ["relationshipOther"],
+        })
+      }
     }
-  }
-})
+    if (data.formMode === "add") {
+      if (!data.paymentMode || !String(data.paymentMode).trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Payment mode is required",
+          path: ["paymentMode"],
+        })
+      }
+      const feeVal = data.joiningFeeAmount
+      const feeNum =
+        feeVal === "" || feeVal == null ? NaN : typeof feeVal === "string" ? parseFloat(feeVal) : feeVal
+      if (Number.isNaN(feeNum) || feeNum <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Amount is required and must be greater than 0",
+          path: ["joiningFeeAmount"],
+        })
+      }
+      if (!data.paidDate || !String(data.paidDate).trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Paid date is required",
+          path: ["paidDate"],
+        })
+      }
+      const col = data.collectedBy ?? 0
+      if (!col || col < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Collected by is required",
+          path: ["collectedBy"],
+        })
+      }
+    }
+  })
 
 type CreateFormData = z.infer<typeof baseFields>
 
@@ -133,6 +181,35 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
     return obj.message ?? obj.error ?? obj.title ?? fallback
   }
   return fallback
+}
+
+function firstFieldErrorMessage(errors: FieldErrors<CreateFormData>): string | undefined {
+  for (const v of Object.values(errors)) {
+    if (v == null) continue
+    if (typeof v === "object" && "message" in v && typeof (v as { message?: string }).message === "string") {
+      const m = (v as { message: string }).message
+      if (m) return m
+    }
+    if (typeof v === "object" && v !== null && !("ref" in v)) {
+      const nested = firstFieldErrorMessage(v as FieldErrors<CreateFormData>)
+      if (nested) return nested
+    }
+  }
+  return undefined
+}
+
+/** Map API relationship (code or display value or custom text) to form state; matches State dropdown pattern (lookupCode as value). */
+function normalizeRelationshipForForm(
+  stored: string | null | undefined,
+  lookups: MasterLookupResponse[]
+): { relationship: string; relationshipOther: string } {
+  if (!stored || !String(stored).trim()) return { relationship: "", relationshipOther: "" }
+  const s = String(stored).trim()
+  const byCode = lookups.find((l) => l.lookupCode === s)
+  if (byCode) return { relationship: byCode.lookupCode, relationshipOther: "" }
+  const byValue = lookups.find((l) => l.lookupValue === s)
+  if (byValue) return { relationship: byValue.lookupCode, relationshipOther: "" }
+  return { relationship: "Other", relationshipOther: s }
 }
 
 export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
@@ -193,6 +270,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   const form = useForm<CreateFormData>({
     resolver: zodResolver(baseFields),
     defaultValues: {
+      formMode: "add",
       centerId: 0,
       pocId: 0,
       firstName: "",
@@ -225,7 +303,10 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   })
 
   // Center selection drives POC loading and filtering
-  const selectedCenterId = form.watch("centerId") ?? 0
+  // `react-hook-form` values may come in as strings depending on how they were set/reset.
+  // Coerce to number so Autocomplete `find()` / filtering works reliably with numeric ids.
+  const selectedCenterId = Number(form.watch("centerId") ?? 0) || 0
+  const selectedPocId = Number(form.watch("pocId") ?? 0) || 0
   const dobValue = form.watch("dob") ?? ""
   const guardianDobValue = form.watch("guardianDOB") ?? ""
   const relationshipValue = form.watch("relationship") ?? ""
@@ -242,6 +323,42 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     if (!selectedCenterId) return []
     return pocsByBranch.filter((p) => p.centerId === selectedCenterId)
   }, [pocsByBranch, selectedCenterId])
+
+  // In edit mode, ensure the saved POC appears in the list while branch POCs load or if the API row is missing it.
+  const pocsForAutocomplete = React.useMemo<PocResponse[]>(() => {
+    const list = [...pocsForCenter]
+    const savedPocId = editMember?.pocId != null ? Number(editMember.pocId) : 0
+    if (
+      isEdit &&
+      savedPocId > 0 &&
+      selectedCenterId &&
+      !list.some((p) => p.id === savedPocId)
+    ) {
+      list.push({
+        id: savedPocId,
+        firstName: "",
+        middleName: null,
+        lastName: "",
+        phoneNumber: "",
+        altPhone: null,
+        address1: null,
+        address2: null,
+        city: null,
+        state: null,
+        zipCode: null,
+        centerId: selectedCenterId,
+        createdBy: 0,
+        collectionDay: null,
+        collectionFrequency: "",
+        collectionBy: 0,
+        createdAt: "",
+        name: editMember?.poc?.trim() ? editMember.poc : `POC #${savedPocId}`,
+        fullAddress: "",
+        centerName: "",
+      })
+    }
+    return list
+  }, [pocsForCenter, isEdit, editMember, selectedCenterId])
 
   // When member DOB changes, auto-calculate age in years and populate Age field (read-only in UI).
   useEffect(() => {
@@ -270,14 +387,19 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
     // Once centers and lookups are available, reset the form for add/edit.
     if (editMember) {
+      const { relationship, relationshipOther } = normalizeRelationshipForForm(
+        editMember.relationship,
+        relationshipLookups
+      )
       form.reset({
-        centerId: editMember.centerId ?? 0,
-        pocId: editMember.pocId ?? 0,
+        formMode: "edit",
+        centerId: Number(editMember.centerId) || 0,
+        pocId: Number(editMember.pocId) || 0,
         firstName: editMember.firstName ?? "",
         middleName: editMember.middleName ?? "",
         lastName: editMember.lastName ?? "",
         occupation: editMember.occupation ?? "",
-        dob: editMember.dob ?? "",
+        dob: toDateInputValue(editMember.dob),
         age: editMember.age != null ? String(editMember.age) : "",
         phoneNumber: editMember.phoneNumber ?? editMember.memberPhone ?? "",
         aadhaar: editMember.aadhaar ?? "",
@@ -295,13 +417,14 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         guardianFirstName: editMember.guardianFirstName ?? "",
         guardianLastName: editMember.guardianLastName ?? "",
         guardianPhone: editMember.guardianPhone ?? "",
-        relationship: editMember.relationship ?? "",
-        relationshipOther: "",
-        guardianDOB: editMember.guardianDOB ?? "",
+        relationship,
+        relationshipOther,
+        guardianDOB: toDateInputValue(editMember.guardianDOB),
         guardianAge: editMember.guardianAge != null ? String(editMember.guardianAge) : "",
       })
     } else {
       form.reset({
+        formMode: "add",
         centerId: 0,
         pocId: 0,
         firstName: "",
@@ -332,13 +455,17 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         guardianAge: "",
       })
     }
-  }, [dialogKey, editMember, form])
+  }, [dialogKey, editMember, form, relationshipLookups])
 
   if (value === null) return null
 
   const close = () => {
     dialogRef.current?.close()
     onClose()
+  }
+
+  const onValidationError = (errors: FieldErrors<CreateFormData>) => {
+    toast.error(firstFieldErrorMessage(errors) ?? "Please fix the validation errors and try again.")
   }
 
   const buildRequest = (data: CreateFormData): MemberSaveRequest => ({
@@ -358,6 +485,20 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     city: data.city || null,
     state: data.state || null,
     zipCode: data.zipCode || null,
+
+    guardianFirstName: data.guardianFirstName,
+    guardianMiddleName: null,
+    guardianLastName: data.guardianLastName,
+    guardianPhone: data.guardianPhone || null,
+    relationship:
+      data.relationship === "Other"
+        ? data.relationshipOther || null
+        : data.relationship,
+    guardianDob: data.guardianDOB || null,
+    guardianAge:
+      data.guardianAge != null && data.guardianAge !== ""
+        ? Number(data.guardianAge)
+        : calculateAgeFromIso(data.guardianDOB) ?? 0,
   })
 
   const onSubmit = async (data: CreateFormData) => {
@@ -366,7 +507,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     try {
       if (isEdit && editMember) {
         await memberService.updateMember(editMember.id, request)
-        toast.success("Member updated")
+        toast.success("Member updated successfully")
       } else {
         const created = await memberService.createMember(request)
 
@@ -392,12 +533,12 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
           })
         }
 
-        toast.success("Member created")
+        toast.success("Member created successfully")
       }
       onSuccess()
       close()
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Failed to save member"))
+      toast.error(getApiErrorMessage(err, isEdit ? "Failed to update member" : "Failed to create member"))
     } finally {
       setSaving(false)
     }
@@ -416,7 +557,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         </h2>
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col min-h-0 overflow-hidden">
+      <form onSubmit={form.handleSubmit(onSubmit, onValidationError)} className="flex flex-col min-h-0 overflow-hidden">
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {/* Assignment Details */}
           <section>
@@ -424,40 +565,53 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-medium mb-1 block">Center <span className="text-destructive">*</span></label>
-                <select
-                  {...form.register("centerId", {
-                    valueAsNumber: true,
-                    onChange: () => form.setValue("pocId", 0),
-                  })}
-                  className={cn(inputClass, form.formState.errors.centerId && "border-destructive")}
-                >
-                  <option value={0}>Select Center</option>
-                  {centers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <Autocomplete
+                  options={centers}
+                  value={centers.find((c) => c.id === selectedCenterId) ?? null}
+                  getOptionLabel={(option) => option?.name ?? ""}
+                  isOptionEqualToValue={(option, v) => option.id === v.id}
+                  disablePortal
+                  ListboxProps={{ style: { maxHeight: 300, overflow: "auto" } }}
+                  onChange={(_, newValue) => {
+                    const nextCenterId = newValue?.id ?? 0
+                    // When center changes, reset POC selection.
+                    form.setValue("centerId", nextCenterId, { shouldValidate: true, shouldDirty: true })
+                    form.setValue("pocId", 0, { shouldValidate: true, shouldDirty: true })
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Select Center"
+                      error={!!form.formState.errors.centerId}
+                    />
+                  )}
+                />
                 {form.formState.errors.centerId && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.centerId.message}</p>
                 )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">POC (Point of Contact) <span className="text-destructive">*</span></label>
-                <select
-                  {...form.register("pocId", { valueAsNumber: true })}
-                  className={cn(inputClass, form.formState.errors.pocId && "border-destructive")}
+                <Autocomplete
+                  options={pocsForAutocomplete}
+                  value={pocsForAutocomplete.find((p) => p.id === selectedPocId) ?? null}
+                  getOptionLabel={(option) => option?.name ?? ""}
+                  isOptionEqualToValue={(option, v) => option.id === v.id}
                   disabled={!selectedCenterId}
-                >
-                  <option value={0}>
-                    {selectedCenterId ? "Select POC" : "Select Center first"}
-                  </option>
-                  {pocsForCenter.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  disablePortal
+                  ListboxProps={{ style: { maxHeight: 300, overflow: "auto" } }}
+                  onChange={(_, newValue) => {
+                    const nextPocId = newValue?.id ?? 0
+                    form.setValue("pocId", nextPocId, { shouldValidate: true, shouldDirty: true })
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={selectedCenterId ? "Select POC" : "Select Center first"}
+                      error={!!form.formState.errors.pocId}
+                    />
+                  )}
+                />
                 {form.formState.errors.pocId && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.pocId.message}</p>
                 )}
@@ -576,7 +730,15 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-medium mb-1 block">Address Line 1 <span className="text-destructive">*</span></label>
-                <input {...form.register("address1")} className={inputClass} placeholder="Enter address line 1" maxLength={200} />
+                <input
+                  {...form.register("address1")}
+                  className={cn(inputClass, form.formState.errors.address1 && "border-destructive")}
+                  placeholder="Enter address line 1"
+                  maxLength={200}
+                />
+                {form.formState.errors.address1 && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.address1.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Address Line 2</label>
@@ -584,11 +746,22 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">City <span className="text-destructive">*</span></label>
-                <input {...form.register("city")} className={inputClass} placeholder="Enter city" maxLength={100} />
+                <input
+                  {...form.register("city")}
+                  className={cn(inputClass, form.formState.errors.city && "border-destructive")}
+                  placeholder="Enter city"
+                  maxLength={100}
+                />
+                {form.formState.errors.city && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.city.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">State <span className="text-destructive">*</span></label>
-                <select {...form.register("state")} className={inputClass}>
+                <select
+                  {...form.register("state")}
+                  className={cn(inputClass, form.formState.errors.state && "border-destructive")}
+                >
                   <option value="">Select state</option>
                   {stateLookups.map((s) => (
                     <option key={s.id} value={s.lookupCode}>
@@ -596,10 +769,21 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                     </option>
                   ))}
                 </select>
+                {form.formState.errors.state && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.state.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Pincode <span className="text-destructive">*</span></label>
-                <input {...form.register("zipCode")} className={inputClass} placeholder="Enter 6-digit pincode" maxLength={10} />
+                <input
+                  {...form.register("zipCode")}
+                  className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
+                  placeholder="Enter 6-digit pincode"
+                  maxLength={10}
+                />
+                {form.formState.errors.zipCode && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.zipCode.message}</p>
+                )}
               </div>
             </div>
           </section>
@@ -727,7 +911,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 >
                   <option value="">Select relationship</option>
                   {relationshipLookups.map((r) => (
-                    <option key={r.id} value={r.lookupValue}>
+                    <option key={r.id} value={r.lookupCode}>
                       {r.lookupValue}
                     </option>
                   ))}

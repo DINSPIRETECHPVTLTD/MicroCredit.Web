@@ -19,6 +19,15 @@ export interface MemberSaveRequest {
   city?: string | null
   state?: string | null
   zipCode?: string | null
+
+  // Guardian details (expected by backend Create/UpdateMemberRequest)
+  guardianFirstName: string
+  guardianMiddleName?: string | null
+  guardianLastName: string
+  guardianPhone?: string | null
+  relationship?: string | null
+  guardianDob?: string | null
+  guardianAge: number
 }
 
 export const memberService = {
