@@ -11,6 +11,7 @@ import type { SearchMemberResponse } from "@/types/searchMemeber"
 import AddLoanDialog from "./AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
 import { loanService } from "@/services/loan.service"
+import { string } from "zod"
 
 
 function AddLoan() {
@@ -26,6 +27,8 @@ function AddLoan() {
 
     const branch = getBranch()
     const branchId = branch?.id
+
+    const searchBoxClass = "border-2 border-primary rounded-md px-3 py-2 text-sm flex-1 font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary"
 
     const {
         data: members = [],
@@ -116,6 +119,9 @@ function AddLoan() {
         enableGrouping: true,
         enableExpanding: false,
         enableColumnPinning: true,
+        renderTopToolbarCustomActions: () => (
+        <span className="text-base font-semibold self-center">{firstName || lastName || middleName ? "Members" : "Recent Memebers"}</span>
+    ),
     })
 
     const handleCreated = async () => {
@@ -127,13 +133,13 @@ function AddLoan() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Add Loan</h1>
         <div className="flex gap-3 mb-4">
-            <input className="border rounded px-3 py-2 text-sm flex-1"
+            <input className= {searchBoxClass}
                 placeholder="First Name"
                 value={firstName} onChange={e => setFirstName(e.target.value)} />
-            <input className="border rounded px-3 py-2 text-sm flex-1"
+            <input className= {searchBoxClass}
                 placeholder="Middle Name"
                 value={middleName} onChange={e => setMiddleName(e.target.value)} />
-            <input className="border rounded px-3 py-2 text-sm flex-1"
+            <input className= {searchBoxClass}
                 placeholder="Last Name"
                 value={lastName} onChange={e => setLastName(e.target.value)} />
         </div>
