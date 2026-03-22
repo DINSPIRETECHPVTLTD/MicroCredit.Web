@@ -126,23 +126,24 @@ export const api = {
     get list() {
       return `${getApiBase()}/Users/branch`
     },
-    loans: {
-        get list() {
-            return `${getApiBase()}/loans`
-        },
+  },
+  loans: {
+      get list() {
+          return `${getApiBase()}/loans`
+      },
 
-        get addLoan() {
-          return `${getApiBase()}/loans/add-loan`
-        },
+      get addLoan() {
+        return `${getApiBase()}/loans/add-loan`
+      },
 
-        loanByMemId(memberId: number) {
-          return `${getApiBase()}/loans/memberId/${memberId}`
-        },
+      loanByMemId(memberId: number) {
+        return `${getApiBase()}/loans/memberId/${memberId}`
+      },
 
-        get activeList() {
-          return `${getApiBase()}/loans/ActiveLoans`
-        },
-    },
+      get activeList() {
+        return `${getApiBase()}/loans/ActiveLoans`
+      },
+  },
 
     searchMembers: {
       get list() {
