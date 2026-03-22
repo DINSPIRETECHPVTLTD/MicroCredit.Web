@@ -48,4 +48,11 @@ export const pocService = {
   async setInactive(id: number): Promise<void> {
     await axios.delete(api.pocs.setInactive(id))
   },
+
+  async getByid(id: number): Promise<PocResponse> {
+    console.log(id, "POC Id")
+    console.log("base API", api)
+    const { data } = await axios.get<PocResponse>(api.pocs.getById(id))
+    return data
+  }
 }
