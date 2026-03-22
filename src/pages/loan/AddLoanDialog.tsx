@@ -269,30 +269,25 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Most Recent Loan</h3>
                   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-                    Loan #{latest.id}
+                    Loan #
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Member Name</p>
-                    <p className="text-sm font-semibold">{latest.memberName}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Loan Amount</p>
-                    <p className="text-sm font-semibold">{latest.totalAmount}</p>
                   </div>
                   
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Total Amount Paid</p>
-                    <p className="text-sm font-semibold">{latest.totalAmountPaid}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Weeks Paid</p>
-                    <p className="text-sm font-semibold">{latest.weeksPaid}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Remaining Balance</p>
-                    <p className="text-sm font-semibold">{latest.remainingBalance}</p>
                   </div>
                 </div>
               </div>
