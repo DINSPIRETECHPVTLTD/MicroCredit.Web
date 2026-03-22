@@ -113,16 +113,18 @@ export const api = {
       update: (id: number) => `${getApiBase()}/center/${id}`,
       setInactive: (id: number) => `${getApiBase()}/center/${id}/inactive`,
     },
-    staff: {
-        get list() {
-            return `${getApiBase()}/Users/branch`
-        },
-        get create() {
-            return `${getApiBase()}/users`
-        },
-        update: (id: number) => `${getApiBase()}/users/${id}`,
-        resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
-        setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
+  members: {
+    listByBranch: (branchId: number) => `${getApiBase()}/Member/by-branch/${branchId}`,
+    create: () => `${getApiBase()}/Member`,
+    update: (id: number) => `${getApiBase()}/Member/${id}`,
+    setInactive: (id: number) => `${getApiBase()}/Member/${id}/inactive`,
+  },
+  memberFees: {
+    create: () => `${getApiBase()}/MemberMembershipFees`,
+  },
+  staff: {
+    get list() {
+      return `${getApiBase()}/Users/branch`
     },
     loans: {
         get list() {
@@ -135,16 +137,20 @@ export const api = {
 
         loanByMemId(memberId: number) {
           return `${getApiBase()}/loans/memberId/${memberId}`
-        }
+        },
 
-    },
-    loanScheduler: {
-      list: (loanId: number) => `${getApiBase()}/LoanSchedulers/${loanId}`,
+        get activeList() {
+          return `${getApiBase()}/loans/ActiveLoans`
+        },
     },
 
     searchMembers: {
       get list() {
         return `${getApiBase()}/member/by-branch/search-member`
       }
-    }
+    },
+      
+  loanScheduler: {
+    list: (loanId: number) => `${getApiBase()}/LoanSchedulers/${loanId}`,
+  },
 }

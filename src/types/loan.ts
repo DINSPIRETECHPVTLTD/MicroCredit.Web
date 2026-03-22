@@ -1,12 +1,12 @@
 export interface LoanResponse {
-    id: string
-    memberName: string
-    totalAmount: number
-    weeksPaid: number
+    loanId: number
+    memberId: number
+    fullName: string
+    loanTotalAmount: number
+    noOfTerms: string
     totalAmountPaid: number
-    remainingBalance: number
-
-
+    schedulerTotalAmount: number
+    remainingBal: number
 }
 
 export interface AddLoanRequest {
