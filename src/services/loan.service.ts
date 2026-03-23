@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { api } from '../lib/api';
-import type { LoanResponse } from '../types/loan';
+import type { AddLoanRequest, LoanResponse } from '../types/loan';
 
 type ApiLoanLike = {
     loanId?: number | string
@@ -90,4 +90,14 @@ export const loanService = {
         const { data } = await axios.get<ApiLoanLike[]>(api.loans.activeList)
         return (data ?? []).map(normalizeLoan)
     },
+
+    async addLoan(request : AddLoanRequest): Promise<number> {
+        const { data } = await axios.post(api.loans.addLoan, request)
+        return data
+    },
+
+    async getLoanByMemId(memberId: number): Promise<LoanResponse[]> {
+        const { data } = await axios.get<LoanResponse[]>(api.loans.loanByMemId(memberId))
+        return data
+    }
 };

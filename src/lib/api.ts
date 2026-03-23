@@ -1,3 +1,5 @@
+import { id } from "zod/v4/locales"
+
 const VITE_API_URL_REQUIRED =
   "VITE_API_URL is required. Set it in your .env file (e.g. VITE_API_URL=https://your-api.example.com)."
 
@@ -99,6 +101,7 @@ export const api = {
       create: () => `${getApiBase()}/POC`,
       update: (id: number) => `${getApiBase()}/POC/${id}`,
       setInactive: (id: number) => `${getApiBase()}/POC/${id}/inactive`,
+      getById:(id: number) => `${getApiBase()}/POC/${id}`
     },
     centers: {
       get list() {
@@ -123,21 +126,31 @@ export const api = {
     get list() {
       return `${getApiBase()}/Users/branch`
     },
-    get create() {
-      return `${getApiBase()}/users`
-    },
-    update: (id: number) => `${getApiBase()}/users/${id}`,
-    resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
-    setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
   },
   loans: {
-    get list() {
-      return `${getApiBase()}/loans`
-    },
-    get activeList() {
-      return `${getApiBase()}/loans/ActiveLoans`
-    },
+      get list() {
+          return `${getApiBase()}/loans`
+      },
+
+      get addLoan() {
+        return `${getApiBase()}/loans/add-loan`
+      },
+
+      loanByMemId(memberId: number) {
+        return `${getApiBase()}/loans/memberId/${memberId}`
+      },
+
+      get activeList() {
+        return `${getApiBase()}/loans/ActiveLoans`
+      },
   },
+
+    searchMembers: {
+      get list() {
+        return `${getApiBase()}/member/by-branch/search-member`
+      }
+    },
+      
   loanScheduler: {
     list: (loanId: number) => `${getApiBase()}/LoanSchedulers/${loanId}`,
   },
