@@ -1,6 +1,3 @@
-import type { string } from "zod";
-
-
 export interface SearchMemberResponse {
     id : number;
     firstName: string;

@@ -117,7 +117,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
     const {
             data: paymentTerms = [],
-            isLoading: paymentTermsLoading,
         } = useQuery({
         queryKey: ["paymentTerms"],
         queryFn: () => paymentTermService.getPaymentTerms() as Promise<PaymentTermResponse[]>, // ✅
@@ -125,7 +124,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
     const {
             data: pocs,
-            isLoading: pocsLoading,
         } = useQuery({
             queryKey: ["pocs", member?.pocId],
             queryFn: () => pocService.getByid(member!.pocId ?? 0) as Promise<PocResponse>,

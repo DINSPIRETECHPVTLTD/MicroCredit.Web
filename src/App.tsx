@@ -20,6 +20,7 @@ import StaffList from "./pages/staff/StaffList"
 import AddLoan from "./pages/loan/AddLoan"
 import ManageLoanList from "./pages/loan/ManageLoanList"
 import LoanSchedulerList from "./pages/loanScheduler/LoanSchedulerList"
+import RecoveryPostingList from "./pages/recoveryPosting/RecoveryPostingList"
 
 function App() {
   return (
@@ -58,8 +59,12 @@ function App() {
           <Route path="loans/add" element={<AddLoan />} />
           <Route path="members" element={<MemberList />} />
           <Route path="loans/manage" element={<ManageLoanList />} />
+          <Route
+            path="loans/recovery-posting"
+            element={<Navigate to="/recovery-posting" replace />}
+          />
           <Route path="loans/:loanId/scheduler" element={<LoanSchedulerList />} />
-          <Route path="recovery-posting" element={<Placeholder />} />
+          <Route path="recovery-posting" element={<RecoveryPostingList />} />
           <Route path="ledger-transactions/:userId" element={<UserLedgerTransactions />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
