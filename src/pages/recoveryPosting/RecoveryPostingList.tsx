@@ -1,7 +1,7 @@
 /**
  * Recovery Posting UI — filters and grid live here; data loading is in ./recoveryPostingData.ts.
  */
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   MaterialReactTable,
@@ -55,6 +55,12 @@ const EMPTY_STAFF: StaffResponse[] = []
 
 /** API may send isActive on branch users; keep typing local to this page. */
 type BranchUserForCollectedBy = StaffResponse & { isActive?: boolean }
+type RecoveryRowDraft = {
+  paymentAmount: number
+  principalAmount: number
+  interestAmount: number
+  status: string
+}
 type RecoveryPostingFieldErrorState = {
   collectedBy?: string
   rows: Record<
@@ -141,7 +147,7 @@ function mapApiValidationErrorsToRecoveryFields(
       continue
     }
 
-    const itemMatch = normalizedKey.match(/items[\[.](\d+)[\].]?/i)
+    const itemMatch = normalizedKey.match(/items[[.](\d+)[\].]?/i)
     const row = itemMatch ? rowsToPost[Number(itemMatch[1])] : undefined
     const rowKey = row?.rowKey
     if (!rowKey) continue
@@ -172,13 +178,8 @@ function RecoveryPostingList() {
   const [rowSelection, setRowSelection] = useState<MRT_RowSelectionState>({})
   const [paymentModeDraft, setPaymentModeDraft] = useState<Record<string, string>>({})
   const [commentsDraft, setCommentsDraft] = useState<Record<string, string>>({})
+  const [rowEdits, setRowEdits] = useState<Record<string, RecoveryRowDraft>>({})
   const [fieldErrors, setFieldErrors] = useState<RecoveryPostingFieldErrorState>(EMPTY_FIELD_ERRORS)
-  /** Local grid copy so payment edits and derived P/I/status stay in sync (Angular-style). */
-  const [editableRows, setEditableRows] = useState<RecoveryPostingRow[]>([])
-
-  useEffect(() => {
-    setPocId(0)
-  }, [centerId])
 
   const { data: centersData } = useQuery({
     queryKey: ["centers"],
@@ -220,12 +221,6 @@ function RecoveryPostingList() {
     return active.filter((u) => !isOwnerRole(u.role))
   }, [staffData])
 
-  useEffect(() => {
-    if (collectedById && !collectedByOptions.some((u) => u.id === collectedById)) {
-      setCollectedById(0)
-    }
-  }, [collectedById, collectedByOptions])
-
   const {
     data: recoveryData,
     isLoading,
@@ -263,32 +258,42 @@ function RecoveryPostingList() {
     [allLookups]
   )
 
-  useEffect(() => {
-    setEditableRows(gridRows.map((r) => ({ ...r })))
-  }, [gridRows])
+  const editableRows = useMemo<RecoveryPostingRow[]>(() => {
+    return gridRows.map((row) => {
+      const draft = rowEdits[row.rowKey]
+      return draft ? { ...row, ...draft } : row
+    })
+  }, [gridRows, rowEdits])
 
-  useEffect(() => {
+  const resetTableDrafts = useCallback(() => {
     setRowSelection({})
     setPaymentModeDraft({})
     setCommentsDraft({})
+    setRowEdits({})
     setFieldErrors(EMPTY_FIELD_ERRORS)
-  }, [dateKey, centerId, pocId])
+  }, [])
+
+  const effectiveCollectedById = useMemo(() => {
+    if (!collectedById) return 0
+    return collectedByOptions.some((u) => u.id === collectedById) ? collectedById : 0
+  }, [collectedById, collectedByOptions])
 
   const updatePaymentAmount = useCallback((rowKey: string, payment: number) => {
-    setEditableRows((prev) =>
-      prev.map((row) => {
-        if (row.rowKey !== rowKey) return row
-        const { principalAmount, interestAmount } = calculatePaymentSplitFromSchedule(row, payment)
-        const next: RecoveryPostingRow = {
-          ...row,
+    setRowEdits((prev) => {
+      const baseRow = gridRows.find((r) => r.rowKey === rowKey)
+      if (!baseRow) return prev
+      const mergedRow = { ...baseRow, ...(prev[rowKey] ?? {}) }
+      const { principalAmount, interestAmount } = calculatePaymentSplitFromSchedule(mergedRow, payment)
+      return {
+        ...prev,
+        [rowKey]: {
           paymentAmount: payment,
           principalAmount,
           interestAmount,
-          status: deriveStatusFromAmounts({ ...row, paymentAmount: payment }),
-        }
-        return next
-      })
-    )
+          status: deriveStatusFromAmounts({ ...mergedRow, paymentAmount: payment }),
+        },
+      }
+    })
     setFieldErrors((prev) => {
       let next = clearRowFieldError(prev, rowKey, "paymentAmount")
       next = clearRowFieldError(next, rowKey, "principalAmount")
@@ -297,7 +302,7 @@ function RecoveryPostingList() {
       next = clearRowFieldError(next, rowKey, "general")
       return next
     })
-  }, [])
+  }, [gridRows])
 
   const selectedTotal = useMemo(() => {
     let sum = 0
@@ -316,7 +321,7 @@ function RecoveryPostingList() {
       toast.error("Select at least one row to post recovery.")
       return
     }
-    if (!collectedById) {
+    if (!effectiveCollectedById) {
       setFieldErrors({ rows: {}, collectedBy: "Select Collected By." })
       toast.error("Select Collected By.")
       return
@@ -340,7 +345,7 @@ function RecoveryPostingList() {
 
     try {
       const result = await postRecoveryPosting({
-        collectedBy: collectedById,
+        collectedBy: effectiveCollectedById,
         items: rowsToPost.map((r) => ({
           loanSchedulerId: r.loanSchedulerId,
           paymentAmount: round2(r.paymentAmount),
@@ -355,6 +360,7 @@ function RecoveryPostingList() {
         result.message?.trim() || `Posted ${result.postedCount || rowsToPost.length} recovery row(s).`
       )
       setFieldErrors(EMPTY_FIELD_ERRORS)
+      setRowEdits({})
       setRowSelection({})
       await refetch()
     } catch (err: unknown) {
@@ -365,7 +371,7 @@ function RecoveryPostingList() {
       }
       toast.error(details.message || DEFAULT_API_ERROR_MESSAGE)
     }
-  }, [rowSelection, collectedById, editableRows, paymentModeDraft, commentsDraft, refetch])
+  }, [rowSelection, effectiveCollectedById, editableRows, paymentModeDraft, commentsDraft, refetch])
 
   const columns = useMemo<MRT_ColumnDef<RecoveryPostingRow>[]>(
     () => [
@@ -598,7 +604,10 @@ function RecoveryPostingList() {
                 type="date"
                 className={cn(inputClass, "w-full max-w-full")}
                 value={dateKey}
-                onChange={(e) => setDateKey(e.target.value)}
+                onChange={(e) => {
+                  setDateKey(e.target.value)
+                  resetTableDrafts()
+                }}
               />
             </div>
             <div className="w-full max-w-[260px] min-w-0">
@@ -615,6 +624,8 @@ function RecoveryPostingList() {
                 }}
                 onChange={(_, newValue) => {
                   setCenterId(newValue?.id ?? 0)
+                  setPocId(0)
+                  resetTableDrafts()
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -645,6 +656,7 @@ function RecoveryPostingList() {
                 }}
                 onChange={(_, newValue) => {
                   setPocId(newValue?.id ?? 0)
+                  resetTableDrafts()
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -671,7 +683,7 @@ function RecoveryPostingList() {
                 "w-full max-w-full text-sm",
                 fieldErrors.collectedBy && "border-destructive"
               )}
-              value={collectedById || ""}
+              value={effectiveCollectedById || ""}
               onChange={(e) => {
                 setCollectedById(Number(e.target.value) || 0)
                 setFieldErrors((prev) =>

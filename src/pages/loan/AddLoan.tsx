@@ -11,7 +11,6 @@ import type { SearchMemberResponse } from "@/types/searchMemeber"
 import AddLoanDialog from "./AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
 import { loanService } from "@/services/loan.service"
-import { string } from "zod"
 
 
 function AddLoan() {
@@ -79,7 +78,6 @@ function AddLoan() {
               enableSorting: false,
               enableColumnFilter: false,
               Cell: ({ row }) => {
-                const u = row.original
                 return (
                   <Button 
                   variant="outline"

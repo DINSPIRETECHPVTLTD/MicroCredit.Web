@@ -1,4 +1,4 @@
-import { id } from "zod/v4/locales"
+
 
 const VITE_API_URL_REQUIRED =
   "VITE_API_URL is required. Set it in your .env file (e.g. VITE_API_URL=https://your-api.example.com)."
@@ -126,6 +126,12 @@ export const api = {
     get list() {
       return `${getApiBase()}/Users/branch`
     },
+    get create() {
+      return `${getApiBase()}/users`
+    },
+    update: (id: number) => `${getApiBase()}/users/${id}`,
+    resetPassword: (id: number) => `${getApiBase()}/users/${id}/reset-password`,
+    setInactive: (id: number) => `${getApiBase()}/users/${id}/inactive`,
   },
   loans: {
       get list() {
