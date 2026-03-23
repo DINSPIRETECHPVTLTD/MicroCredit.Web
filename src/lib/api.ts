@@ -141,4 +141,12 @@ export const api = {
   loanScheduler: {
     list: (loanId: number) => `${getApiBase()}/LoanSchedulers/${loanId}`,
   },
+  recoveryPosting: {
+    get schedulers() {
+      return `${getApiBase()}/RecoveryPosting/schedulers`
+    },
+    get post() {
+      return `${getApiBase()}/RecoveryPosting/post`
+    },
+  },
 }
