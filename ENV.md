@@ -18,7 +18,7 @@ Later files override earlier ones. Variables must start with `VITE_` to be expos
    Running `npm run dev` or `npm run build` copies `.env.*.example` to `.env.*` if the target file does not exist.
 
 2. **Per environment**
-   - **Development** – Edit `.env` or `.env.development`. Example: `VITE_API_URL=https://localhost:7119`
+   - **Development** – Edit `.env` or `.env.development`. Example: `VITE_API_URL=https://mcs.dinspire.in/`
    - **Test** – Edit `.env.test` (or set in CI). Example: `VITE_API_URL=https://test-api.example.com`
    - **Production** – Edit `.env.production` or set `VITE_API_URL` in your CI/CD before `npm run build`
 
