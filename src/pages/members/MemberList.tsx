@@ -1,17 +1,8 @@
-/**
- * MemberList.tsx
- *
- * High‑level flow:
- * - reads current branch from auth
- * - loads members for that branch with React Query
- * - shows them in a MaterialReactTable with the required columns
- * - opens dialogs for Add/Edit and Set Inactive
- * - exposes loan links (Add / View) per member row
- */
 import { useMemo, useRef, useState, useEffect, type ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { MaterialReactTable, type MRT_ColumnDef } from "material-react-table"
 import { Plus, Pencil, UserX, Landmark } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import type { MemberResponse } from "@/types/member"
@@ -30,15 +21,13 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 }
 
 function MemberList() {
-  // Current logged‑in context (ORG vs BRANCH, and which branch).
+  const navigate = useNavigate()
   const branch = getBranch()
   const branchId = branch?.id
 
-  // Dialog state: which member is being edited / set inactive.
   const [addEditDialog, setAddEditDialog] = useState<AddEditMemberDialogMode | null>(null)
   const [inactiveMember, setInactiveMember] = useState<MemberResponse | null>(null)
 
-  // Load members for the active branch. When branchId changes, this query refetches.
   const {
     data: members = [],
     isLoading,
@@ -51,7 +40,6 @@ function MemberList() {
     refetchOnWindowFocus: false,
   })
 
-  // Grid definition: maps MemberResponse shape to the required columns.
   const columns = useMemo<MRT_ColumnDef<MemberResponse>[]>(
     () => [
       {
@@ -100,6 +88,25 @@ function MemberList() {
           <MemberRowActions
             onOpenEdit={() => setAddEditDialog({ mode: "edit", member: row.original })}
             onOpenSetInactive={() => setInactiveMember(row.original)}
+            onOpenAddLoan={() =>
+              navigate("/loans/add", {
+                state: {
+                  from: "member",
+                  fromMemberPage: true,
+                  memberId: row.original.id,
+                  prefillMember: {
+                    id: row.original.id,
+                    name: row.original.name ?? [row.original.firstName, row.original.lastName].filter(Boolean).join(" "),
+                    phoneNumber: row.original.phoneNumber ?? row.original.memberPhone ?? "",
+                    guardianName: row.original.guardianName ?? "",
+                    fullAddress: row.original.fullAddress ?? "",
+                    center: row.original.center ?? row.original.centerName ?? "",
+                    poc: row.original.poc ?? "",
+                    pocId: row.original.pocId ?? undefined,
+                  },
+                },
+              })
+            }
           />
         ),
       },
@@ -160,13 +167,6 @@ function MemberList() {
   )
 }
 
-/**
- * FORMAT HELPERS
- * These helpers keep the render logic for the grid columns in one place,
- * so the column definitions stay small and easy to read.
- */
-
-/** Parses API ISO date (e.g. "2002-06-05T00:00:00") to "YYYY-MM-DD" for grid. */
 function formatDob(iso?: string | null): string | null {
   if (!iso?.trim()) return null
   const d = new Date(iso)
@@ -177,12 +177,10 @@ function formatDob(iso?: string | null): string | null {
   return `${y}-${m}-${day}`
 }
 
-/** DOB/Age column: sortable value (member DOB only). */
 function formatDobForSort(row: MemberResponse): string {
   return formatDob(row.dob) ?? ""
 }
 
-/** DOB/Age column: show member DOB and computed age as "YYYY-MM-DD / Age". Guardian DOB is not shown. */
 function formatDobDisplay(row: MemberResponse): ReactNode {
   const memberDob = formatDob(row.dob)
   if (!memberDob) return "—"
@@ -191,7 +189,6 @@ function formatDobDisplay(row: MemberResponse): ReactNode {
   return <span>{age != null ? `${memberDob} / ${age}` : memberDob}</span>
 }
 
-/** Calculate age in full years from ISO DOB (today-based). */
 function calculateAge(iso?: string | null): number | null {
   if (!iso?.trim()) return null
   const dob = new Date(iso)
@@ -205,15 +202,12 @@ function calculateAge(iso?: string | null): number | null {
   return age
 }
 
-/** Full name column: API sends combined name; guardian is combined as guardianName. */
-/** Full Name column: "Name / guardian Name"; if no guardian, show "Name / (-)". */
 function formatFullName(row: MemberResponse): string {
   const name = (row.name ?? [row.firstName, row.lastName].filter(Boolean).join(" ").trim()) || "—"
   const guardian = row.guardianName?.trim()
   return guardian ? `${name} / ${guardian}` : `${name} / (-)`
 }
 
-/** Phone column: member phone + guardian phone (joined with `/`). */
 function formatPhone(row: MemberResponse): string {
   const parts = [row.memberPhone ?? row.phoneNumber, row.guardianPhone].filter(Boolean) as string[]
   return parts.length ? parts.join(" / ") : "—"
@@ -222,9 +216,11 @@ function formatPhone(row: MemberResponse): string {
 function MemberRowActions({
   onOpenEdit,
   onOpenSetInactive,
+  onOpenAddLoan,
 }: {
   onOpenEdit: () => void
   onOpenSetInactive: () => void
+  onOpenAddLoan: () => void
 }) {
   return (
     <div className="flex items-center justify-end gap-1 flex-nowrap whitespace-nowrap">
@@ -240,7 +236,7 @@ function MemberRowActions({
         variant="ghost"
         size="sm"
         type="button"
-        onClick={() => toast("Add Loan is not implemented yet")}
+        onClick={onOpenAddLoan}
       >
         <Landmark className="mr-1 h-4 w-4" />
         Add Loan
