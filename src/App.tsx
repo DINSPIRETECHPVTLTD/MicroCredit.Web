@@ -19,6 +19,7 @@ import MemberList from "./pages/members/MemberList"
 import StaffList from "./pages/staff/StaffList"
 import AddLoan from "./pages/loan/AddLoan"
 import ManageLoanList from "./pages/loan/ManageLoanList"
+import LoanPrepayment from "./pages/loan/LoanPrepayment"
 import LoanSchedulerList from "./pages/loanScheduler/LoanSchedulerList"
 import RecoveryPostingList from "./pages/recoveryPosting/RecoveryPostingList"
 
@@ -59,6 +60,7 @@ function App() {
           <Route path="loans/add" element={<AddLoan />} />
           <Route path="members" element={<MemberList />} />
           <Route path="loans/manage" element={<ManageLoanList />} />
+          <Route path="loans/:loanId/prepayment" element={<LoanPrepayment />} />
           <Route
             path="loans/recovery-posting"
             element={<Navigate to="/recovery-posting" replace />}

@@ -146,6 +146,10 @@ export const api = {
         return `${getApiBase()}/loans/memberId/${memberId}`
       },
 
+      close(loanId: number) {
+        return `${getApiBase()}/loans/${loanId}/close`
+      },
+
       get activeList() {
         return `${getApiBase()}/loans/ActiveLoans`
       },
