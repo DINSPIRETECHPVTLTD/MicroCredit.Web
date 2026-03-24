@@ -49,7 +49,9 @@ function ManageLoanList() {
 
   const handlePrepayment = useCallback(
     (loan: LoanResponse) => {
-      navigate(`/loans/${loan.loanId}/scheduler`)
+      navigate(`/loans/${loan.loanId}/prepayment`, {
+        state: { memberName: loan.fullName },
+      })
     },
     [navigate]
   )
