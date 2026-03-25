@@ -124,14 +124,17 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         } = useQuery({
         queryKey: ["paymentTerms"],
         queryFn: () => paymentTermService.getPaymentTerms() as Promise<PaymentTermResponse[]>,
-    });
+        enabled: open,
+        staleTime: 1000 * 60 * 10,
+        refetchOnWindowFocus: false,
+    })
 
     const {
             data: pocs,
         } = useQuery({
             queryKey: ["pocs", member?.pocId],
             queryFn: () => pocService.getByid(member!.pocId ?? 0) as Promise<PocResponse>,
-            enabled: !!member?.pocId
+            enabled: !!member?.pocId && open
     });
 
     const {
