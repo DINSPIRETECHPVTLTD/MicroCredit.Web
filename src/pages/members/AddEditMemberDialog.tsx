@@ -1,8 +1,3 @@
-/**
- * AddEditMemberDialog.tsx
- * Modal dialog to create a new Member or edit an existing one.
- * Used from MemberList when user clicks "Add Member" or "Edit" on a row.
- */
 import React, { useRef, useEffect } from "react"
 import { useForm, type FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -27,8 +22,8 @@ import TextField from "@mui/material/TextField"
 
 const phoneRegex = /^\d{10}$/
 const aadhaarRegex = /^\d{12}$/
+const pincodeRegex = /^\d{6}$/
 
-/** API dates are often ISO strings; `<input type="date">` needs yyyy-MM-dd (leading segment avoids timezone day shifts). */
 function toDateInputValue(value: string | null | undefined): string {
   if (value == null || String(value).trim() === "") return ""
   const s = String(value).trim()
@@ -44,7 +39,10 @@ function toDateInputValue(value: string | null | undefined): string {
 
 function calculateAgeFromIso(dobIso: string): number | null {
   if (!dobIso) return null
-  const dobDate = new Date(dobIso)
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dobIso.trim())
+  const dobDate = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(dobIso)
   if (Number.isNaN(dobDate.getTime())) return null
   const today = new Date()
   let years = today.getFullYear() - dobDate.getFullYear()
@@ -55,7 +53,6 @@ function calculateAgeFromIso(dobIso: string): number | null {
   return years
 }
 
-/** `formMode` drives validation: joining fee is required only for create, not for update. */
 const baseFields = z
   .object({
     formMode: z.enum(["add", "edit"]),
@@ -94,7 +91,11 @@ const baseFields = z
     address2: z.string().max(200, "Address must be 200 characters or less").optional(),
     city: z.string().min(1, "City is required").max(100, "City must be 100 characters or less"),
     state: z.string().min(1, "State is required"),
-    zipCode: z.string().min(1, "Pincode is required").max(10, "Zip code must be 10 characters or less"),
+    zipCode: z
+      .string()
+      .min(1, "Pincode is required")
+      .transform((s) => s.trim())
+      .refine((s) => pincodeRegex.test(s), "Pincode must be exactly 6 digits"),
     // Member Entry Joining Fee — validated in superRefine only when formMode === "add"
     paymentMode: z.string().optional(),
     joiningFeeAmount: z.union([z.string(), z.number()]).optional(),
@@ -107,7 +108,13 @@ const baseFields = z
     guardianPhone: z.string().optional(),
     relationship: z.string().min(1, "Relationship is required"),
     relationshipOther: z.string().max(100, "Relationship must be 100 characters or less").optional(),
-    guardianDOB: z.string().min(1, "Guardian DOB is required"),
+    guardianDOB: z
+      .string()
+      .min(1, "Guardian DOB is required")
+      .refine((value) => {
+        const age = calculateAgeFromIso(value)
+        return age !== null && age >= 18
+      }, "Guardian age must be at least 18 years"),
     guardianAge: z.union([z.string(), z.number()]).optional(),
   })
   .superRefine((data, ctx) => {
@@ -198,7 +205,6 @@ function firstFieldErrorMessage(errors: FieldErrors<CreateFormData>): string | u
   return undefined
 }
 
-/** Map API relationship (code or display value or custom text) to form state; matches State dropdown pattern (lookupCode as value). */
 function normalizeRelationshipForForm(
   stored: string | null | undefined,
   lookups: MasterLookupResponse[]
@@ -218,13 +224,11 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
   const isEdit = value?.mode === "edit"
   const editMember = isEdit && value ? value.member : null
-  // Stable key so the load effect runs only when dialog opens/closes or switch add↔edit, not on every parent re-render
   const dialogKey = value === null ? "closed" : value.mode === "edit" ? `edit-${value.member.id}` : "add"
 
   const isOpen = value !== null
   const branchId = getBranch()?.id ?? null
 
-  // Shared data using React Query so calls are de-duplicated across the app (and under StrictMode).
   const { data: centers = [] } = useQuery({
     queryKey: ["centers"],
     queryFn: () => centerService.getCenters(),
@@ -261,7 +265,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     [allLookups]
   )
 
-  // Payment modes from MasterLookup (e.g. lookupKey = "PaymentMode")
   const paymentModeLookups = React.useMemo<MasterLookupResponse[]>(
     () => allLookups.filter((x) => x.lookupKey?.toLowerCase() === "paymentmode"),
     [allLookups]
@@ -302,29 +305,23 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     },
   })
 
-  // Center selection drives POC loading and filtering
-  // `react-hook-form` values may come in as strings depending on how they were set/reset.
-  // Coerce to number so Autocomplete `find()` / filtering works reliably with numeric ids.
   const selectedCenterId = Number(form.watch("centerId") ?? 0) || 0
   const selectedPocId = Number(form.watch("pocId") ?? 0) || 0
   const dobValue = form.watch("dob") ?? ""
   const guardianDobValue = form.watch("guardianDOB") ?? ""
   const relationshipValue = form.watch("relationship") ?? ""
 
-  // Load POCs for the current branch only AFTER a center is selected.
   const { data: pocsByBranch = [] } = useQuery({
     queryKey: ["pocs", branchId],
     queryFn: () => pocService.getByBranch(branchId!),
     enabled: isOpen && !!branchId && !!selectedCenterId,
   })
 
-  // Filter POCs for the selected centerId
   const pocsForCenter = React.useMemo<PocResponse[]>(() => {
     if (!selectedCenterId) return []
     return pocsByBranch.filter((p) => p.centerId === selectedCenterId)
   }, [pocsByBranch, selectedCenterId])
 
-  // In edit mode, ensure the saved POC appears in the list while branch POCs load or if the API row is missing it.
   const pocsForAutocomplete = React.useMemo<PocResponse[]>(() => {
     const list = [...pocsForCenter]
     const savedPocId = editMember?.pocId != null ? Number(editMember.pocId) : 0
@@ -360,7 +357,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     return list
   }, [pocsForCenter, isEdit, editMember, selectedCenterId])
 
-  // When member DOB changes, auto-calculate age in years and populate Age field (read-only in UI).
   useEffect(() => {
     if (!dobValue) {
       form.setValue("age", "")
@@ -370,7 +366,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     form.setValue("age", years != null ? years.toString() : "")
   }, [dobValue, form])
 
-  // When guardian DOB changes, auto-calculate guardian age and populate Guardian Age field.
   useEffect(() => {
     if (!guardianDobValue) {
       form.setValue("guardianAge", "")
@@ -385,7 +380,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
     dialogRef.current?.showModal()
 
-    // Once centers and lookups are available, reset the form for add/edit.
     if (editMember) {
       const { relationship, relationshipOther } = normalizeRelationshipForForm(
         editMember.relationship,
@@ -502,6 +496,13 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   })
 
   const onSubmit = async (data: CreateFormData) => {
+    const age = calculateAgeFromIso(data.dob)
+    if (age == null || age < 18) {
+      form.setError("dob", { type: "manual", message: "Age must be at least 18 years" })
+      toast.error("Age must be at least 18 years")
+      return
+    }
+
     setSaving(true)
     const request = buildRequest(data)
     try {
@@ -559,7 +560,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
       <form onSubmit={form.handleSubmit(onSubmit, onValidationError)} className="flex flex-col min-h-0 overflow-hidden">
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* Assignment Details */}
           <section>
             <h3 className="text-sm font-medium mb-3">Assignment Details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -574,7 +574,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                   ListboxProps={{ style: { maxHeight: 300, overflow: "auto" } }}
                   onChange={(_, newValue) => {
                     const nextCenterId = newValue?.id ?? 0
-                    // When center changes, reset POC selection.
                     form.setValue("centerId", nextCenterId, { shouldValidate: true, shouldDirty: true })
                     form.setValue("pocId", 0, { shouldValidate: true, shouldDirty: true })
                   }}
@@ -619,7 +618,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
             </div>
           </section>
 
-          {/* Member Personal Details */}
           <section>
             <h3 className="text-sm font-medium mb-3">Member Personal Details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -670,6 +668,9 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                   {...form.register("dob")}
                   className={cn(inputClass, form.formState.errors.dob && "border-destructive")}
                 />
+                {form.formState.errors.dob && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.dob.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Age</label>
@@ -724,7 +725,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
             </div>
           </section>
 
-          {/* Address Details */}
           <section>
             <h3 className="text-sm font-medium mb-3">Address Details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -779,7 +779,8 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                   {...form.register("zipCode")}
                   className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
                   placeholder="Enter 6-digit pincode"
-                  maxLength={10}
+                  inputMode="numeric"
+                  maxLength={6}
                 />
                 {form.formState.errors.zipCode && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.zipCode.message}</p>
@@ -788,7 +789,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
             </div>
           </section>
 
-          {/* Member Entry Joining Fee - only for new member (one-time) */}
           {!isEdit && (
             <section>
               <h3 className="text-sm font-medium mb-3">Member Entry Joining Fee</h3>
@@ -865,7 +865,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
             </section>
           )}
 
-          {/* Guardian Details */}
           <section>
             <h3 className="text-sm font-medium mb-3">Guardian Details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

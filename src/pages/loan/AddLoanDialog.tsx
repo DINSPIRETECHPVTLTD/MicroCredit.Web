@@ -16,11 +16,12 @@ import toast from "react-hot-toast"
 import type { AddLoanRequest } from "@/types/loan"
 import { loanService } from "@/services/loan.service"
 import type { LoanResponse } from "@/types/loan"
+import { DEFAULT_API_ERROR_MESSAGE, getApiErrorDetails } from "@/lib/apiErrorHandler"
 
 
 interface AddLoanDialogProps {
   open: boolean
-  onClose: () => void
+  onClose: (reason: "cancel" | "success") => void
   onSuccess: () => void
   member: SearchMemberResponse | null
   mode: "add" | "view"
@@ -48,6 +49,11 @@ const schema = z.object({
 type FormInput = z.input<typeof schema>
 type FormOutput = z.output<typeof schema>
 
+function toNumber(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 
 
 export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }: AddLoanDialogProps) {
@@ -55,11 +61,11 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = useState(false)
   const [currentMode, setCurrentMode] = useState<"add" | "view">(mode)
+  const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
 
-// ADDED
-    useEffect(() => {
+  useEffect(() => {
     setCurrentMode(mode)
-    }, [mode])
+  }, [mode])
 
   const form = useForm<FormInput, unknown, FormOutput>({
       resolver: zodResolver(schema),
@@ -89,6 +95,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         dialogRef.current?.close()
         return
       }
+    setApiErrorMessage(null)
     const today = new Date().toISOString().slice(0, 10)
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     form.reset({
@@ -109,25 +116,29 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       dialogRef.current?.showModal()
     }, [open])
   
-    const close = () => {
+    const close = (reason: "cancel" | "success" = "cancel") => {
       dialogRef.current?.close()
       setCurrentMode(mode)
-      onClose()
+      setApiErrorMessage(null)
+      onClose(reason)
     }
 
     const {
             data: paymentTerms = [],
         } = useQuery({
         queryKey: ["paymentTerms"],
-        queryFn: () => paymentTermService.getPaymentTerms() as Promise<PaymentTermResponse[]>, // ✅
-    });
+        queryFn: () => paymentTermService.getPaymentTerms() as Promise<PaymentTermResponse[]>,
+        enabled: open,
+        staleTime: 1000 * 60 * 10,
+        refetchOnWindowFocus: false,
+    })
 
     const {
             data: pocs,
         } = useQuery({
             queryKey: ["pocs", member?.pocId],
             queryFn: () => pocService.getByid(member!.pocId ?? 0) as Promise<PocResponse>,
-            enabled: !!member?.pocId
+            enabled: !!member?.pocId && open
     });
 
     const {
@@ -138,27 +149,48 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
             queryFn: () => loanService.getLoanByMemId(member!.id) as Promise<LoanResponse[]>,
             enabled: !!member?.id && open && currentMode === "view",
     })
-
-
-    console.log(loans)
-
-
     const selectedPaymentTermId = form.watch("paymentTermId")
+    const loanAmountValue = form.watch("loanAmount")
+    const savingAmountValue = form.watch("savingAmount")
+    const processingFeeValue = form.watch("processingFee")
+    const insuranceFeeValue = form.watch("insuranceFee")
+    const interestAmountValue = form.watch("interestAmount")
+
+    const selectedPaymentTerm = useMemo(
+      () => paymentTerms.find((term) => term.id === Number(selectedPaymentTermId)) ?? null,
+      [paymentTerms, selectedPaymentTermId]
+    )
 
     useEffect(() => {
-    const selected = paymentTerms.find((term) => term.id === Number(selectedPaymentTermId))
-        if (selected) {
-            form.setValue("insuranceFee", selected.insuranceFee)
-            form.setValue("processingFee", selected.processingFee)
-            form.setValue("noOfTerms", selected.noOfTerms)
-            form.setValue("collectionTerm", selected.paymentTerm)
-        } else {
-            form.setValue("insuranceFee", 0)
-            form.setValue("processingFee", 0)
-            form.setValue("noOfTerms", 0)
-            form.setValue("collectionTerm", "")
-        }
-    }, [selectedPaymentTermId, paymentTerms])
+      if (selectedPaymentTerm) {
+        form.setValue("insuranceFee", selectedPaymentTerm.insuranceFee)
+        form.setValue("processingFee", selectedPaymentTerm.processingFee)
+        form.setValue("noOfTerms", selectedPaymentTerm.noOfTerms)
+        form.setValue("collectionTerm", selectedPaymentTerm.paymentTerm)
+      } else {
+        form.setValue("insuranceFee", 0)
+        form.setValue("processingFee", 0)
+        form.setValue("noOfTerms", 0)
+        form.setValue("collectionTerm", "")
+      }
+    }, [selectedPaymentTerm, form])
+
+    useEffect(() => {
+      const loanAmount = toNumber(loanAmountValue)
+      const rate = toNumber(selectedPaymentTerm?.rateOfInterest ?? 0)
+      const interest = Number(((loanAmount * rate) / 100).toFixed(2))
+      form.setValue("interestAmount", interest)
+    }, [loanAmountValue, selectedPaymentTerm, form])
+
+    useEffect(() => {
+      const loanAmount = toNumber(loanAmountValue)
+      const interest = toNumber(interestAmountValue)
+      const processing = toNumber(processingFeeValue)
+      const insurance = toNumber(insuranceFeeValue)
+      const saving = toNumber(savingAmountValue)
+      const total = Number((loanAmount + interest + processing + insurance + saving).toFixed(2))
+      form.setValue("totalAmount", total)
+    }, [loanAmountValue, interestAmountValue, processingFeeValue, insuranceFeeValue, savingAmountValue, form])
 
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -176,6 +208,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
     const submit = async (data: FormOutput) => {
     setSaving(true)
+    setApiErrorMessage(null)
     try {
       const session = getSession()
       const createdById = session?.userId
@@ -203,9 +236,10 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       await loanService.addLoan(payload)
       toast.success("Added Loan successfully")
       onSuccess()
-      close()
+      close("success")
     } catch(err) {
-      toast.error("Failed to add loan")
+      const details = getApiErrorDetails(err)
+      setApiErrorMessage(details.message || DEFAULT_API_ERROR_MESSAGE)
     } finally {
       setSaving(false)
     }
@@ -216,254 +250,279 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
   return (
     <dialog
-  ref={dialogRef}
-  onCancel={close}
-  className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-lg w-full"
-  aria-labelledby="add-loan-title"
->
-  <div className="p-6 relative"> 
-
-    
-    <div className="flex items-center justify-between mb-4">
-      <h2 id="add-loan-title" className="text-lg font-semibold">
-        {currentMode === "view" ? "View Loan" : "Add Loan"} — {member?.name}
-      </h2>
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentMode(currentMode === "view" ? "add" : "view")}
-        >
-          {currentMode === "view" ? "+ Add Loan" : "View Loans"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={close}
-          aria-label="Close"
-        >
-          <X />
-        </Button>
+      ref={dialogRef}
+      onCancel={() => close("cancel")}
+      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
+      aria-labelledby="add-loan-title"
+    >
+      <div className="p-6 border-b shrink-0">
+        <div className="flex items-center justify-between">
+          <h2 id="add-loan-title" className="text-lg font-semibold">
+            {currentMode === "view" ? "View Loan" : "Add Loan"} — {member?.name}
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentMode(currentMode === "view" ? "add" : "view")}
+            >
+              {currentMode === "view" ? "+ Add Loan" : "View Loans"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => close("cancel")}
+              aria-label="Close"
+            >
+              <X />
+            </Button>
+          </div>
+        </div>
       </div>
-    </div>
 
-    {/* ADDED: view mode card */}
-    {currentMode === "view" && (
-      <div>
-        {loansLoading ? (
-          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-            <p>Loading...</p>
-          </div>
-        ) : loans.length === 0 ? (
-          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-            <p>No loans found for this member.</p>
-          </div>
-        ) : (() => {
-            const latest = loans[loans.length - 1]
-            return (
-              <div className="rounded-lg border bg-card p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Most Recent Loan</h3>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-                    Loan # {latest.loanId}
-                  </span>
+      {currentMode === "view" && (
+        <div className="p-6 overflow-y-auto flex-1">
+          {loansLoading ? (
+            <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+              <p>Loading...</p>
+            </div>
+          ) : loans.length === 0 ? (
+            <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+              <p>No loans found for this member.</p>
+            </div>
+          ) : (() => {
+              const latest = loans[loans.length - 1]
+              return (
+                <div className="rounded-lg border bg-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Most Recent Loan</h3>
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                      Loan # {latest.loanId}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Member Name</p>
+                      <p className="text-sm font-semibold">{latest.fullName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Loan Amount</p>
+                      <p className="text-sm font-semibold">{latest.loanTotalAmount}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Total Amount Paid</p>
+                      <p className="text-sm font-semibold">{latest.totalAmountPaid}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Weeks Paid</p>
+                      <p className="text-sm font-semibold">{latest.noOfTerms}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Remaining Balance</p>
+                      <p className="text-sm font-semibold">{latest.remainingBal}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Scheduler Total Balance</p>
+                      <p className="text-sm font-semibold">{latest.schedulerTotalAmount}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+              )
+            })()}
+        </div>
+      )}
+
+      {currentMode === "add" && (
+        <form onSubmit={form.handleSubmit(submit)} className="flex flex-col min-h-0 overflow-hidden">
+          <div className="p-6 overflow-y-auto space-y-6 flex-1">
+            {apiErrorMessage ? (
+              <div
+                className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive"
+                role="alert"
+                aria-live="polite"
+              >
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Member Name</p>
-                    <p className="text-sm font-semibold">{latest.fullName}</p>
+                    <p className="text-sm font-semibold">Error</p>
+                    <p className="text-sm">{apiErrorMessage}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Loan Amount</p>
-                    <p className="text-sm font-semibold">{latest.loanTotalAmount}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Total Amount Paid</p>
-                    <p className="text-sm font-semibold">{latest.totalAmountPaid}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Weeks Paid</p>
-                    <p className="text-sm font-semibold">{latest.noOfTerms}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Remaining Balance</p>
-                    <p className="text-sm font-semibold">{latest.remainingBal}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Scheduler Total Balance</p>
-                    <p className="text-sm font-semibold">{latest.schedulerTotalAmount}</p>
-                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setApiErrorMessage(null)}>
+                    Dismiss
+                  </Button>
                 </div>
               </div>
-            )
-          })()
-        }
-      </div>
-    )}
+            ) : null}
+            <section>
+              <h3 className="text-sm font-medium mb-3">Loan Details</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Loan Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...form.register("loanAmount")}
+                    className={cn(inputClass, form.formState.errors.loanAmount && "border-destructive")}
+                  />
+                  {form.formState.errors.loanAmount && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.loanAmount.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Payment Term</label>
+                  <select
+                    {...form.register("paymentTermId")}
+                    className={cn(inputClass, form.formState.errors.paymentTermId && "border-destructive")}
+                  >
+                    <option value={0}>Select Payment Term</option>
+                    {paymentTerms.map((p) => (
+                      <option key={p.id} value={p.id}>{p.paymentType}</option>
+                    ))}
+                  </select>
+                  {form.formState.errors.paymentTermId && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.paymentTermId.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Interest Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...form.register("interestAmount")}
+                    className={cn(inputClass, form.formState.errors.interestAmount && "border-destructive")}
+                    readOnly
+                  />
+                  {form.formState.errors.interestAmount && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.interestAmount.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Processing Fee</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...form.register("processingFee")}
+                    className={cn(inputClass, form.formState.errors.processingFee && "border-destructive")}
+                    readOnly
+                  />
+                  {form.formState.errors.processingFee && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.processingFee.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Insurance Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...form.register("insuranceFee")}
+                    className={cn(inputClass, form.formState.errors.insuranceFee && "border-destructive")}
+                    readOnly
+                  />
+                  {form.formState.errors.insuranceFee && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.insuranceFee.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Savings Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...form.register("savingAmount")}
+                    className={cn(inputClass, form.formState.errors.savingAmount && "border-destructive")}
+                  />
+                  {form.formState.errors.savingAmount && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.savingAmount.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Total Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...form.register("totalAmount")}
+                    className={cn(inputClass, form.formState.errors.totalAmount && "border-destructive")}
+                    readOnly
+                  />
+                  {form.formState.errors.totalAmount && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.totalAmount.message}</p>
+                  )}
+                </div>
+              </div>
+            </section>
 
-    {/* ADDED: condition wrapper — form only shows in add mode */}
-    {currentMode === "add" && (
-      <form onSubmit={form.handleSubmit(submit)} className="space-y-4">  {/* CHANGED: removed p-6 */}
-        <div>
-          <label className="text-sm font-medium mb-1 block">Loan Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            {...form.register("loanAmount")}
-            className={cn(inputClass, form.formState.errors.loanAmount && "border-destructive")}
-          />
-          {form.formState.errors.loanAmount && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.loanAmount.message}</p>
-          )}
-        </div>
+            <section>
+              <h3 className="text-sm font-medium mb-3">Collection Schedule</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Disbursement Date</label>
+                  <input
+                    type="date"
+                    {...form.register("disbursementDate")}
+                    className={cn(inputClass, form.formState.errors.disbursementDate && "border-destructive")}
+                  />
+                  {form.formState.errors.disbursementDate && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.disbursementDate.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Collection Start Date</label>
+                  <input
+                    type="date"
+                    {...form.register("collectionStartDate")}
+                    className={cn(inputClass, (form.formState.errors.collectionStartDate || collectionDayError) && "border-destructive")}
+                  />
+                  {form.formState.errors.collectionStartDate && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.collectionStartDate.message}</p>
+                  )}
+                  {collectionDayError && (
+                    <p className="text-xs text-destructive mt-1">{collectionDayError}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Collection Term</label>
+                  <input
+                    type="text"
+                    {...form.register("collectionTerm")}
+                    className={cn(
+                      inputClass,
+                      form.formState.errors.collectionTerm && "border-destructive"
+                    )}
+                    readOnly
+                  />
+                  {form.formState.errors.collectionTerm && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.collectionTerm.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">No Of Terms</label>
+                  <input
+                    type="number"
+                    {...form.register("noOfTerms")}
+                    className={cn(
+                      inputClass,
+                      form.formState.errors.noOfTerms && "border-destructive"
+                    )}
+                    readOnly
+                  />
+                  {form.formState.errors.noOfTerms && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.noOfTerms.message}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
 
-        <div>
-          <label className="text-sm font-medium mb-1 block">Payment Term</label>
-          <select
-            {...form.register("paymentTermId")}
-            className={cn(inputClass, form.formState.errors.paymentTermId && "border-destructive")}
-          >
-            <option value={0}>Select Payment Term</option>
-            {paymentTerms.map((p) => (
-              <option key={p.id} value={p.id}>{p.paymentType}</option>
-            ))}
-          </select>
-          {form.formState.errors.paymentTermId && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.paymentTermId.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Interest Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            {...form.register("interestAmount")}
-            className={cn(inputClass, form.formState.errors.interestAmount && "border-destructive")}
-          />
-          {form.formState.errors.interestAmount && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.interestAmount.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Processing Fee</label>
-          <input
-            type="number"
-            step="0.01"
-            {...form.register("processingFee")}
-            className={cn(inputClass, form.formState.errors.processingFee && "border-destructive")}
-          />
-          {form.formState.errors.processingFee && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.processingFee.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Insurance Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            {...form.register("insuranceFee")}
-            className={cn(inputClass, form.formState.errors.insuranceFee && "border-destructive")}
-          />
-          {form.formState.errors.insuranceFee && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.insuranceFee.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Savings Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            {...form.register("savingAmount")}
-            className={cn(inputClass, form.formState.errors.savingAmount && "border-destructive")}
-          />
-          {form.formState.errors.savingAmount && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.savingAmount.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Total Amount</label>
-          <input
-            type="number"
-            step="0.01"
-            {...form.register("totalAmount")}
-            className={cn(inputClass, form.formState.errors.totalAmount && "border-destructive")}
-          />
-          {form.formState.errors.totalAmount && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.totalAmount.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Disbursement Date</label>
-          <input
-            type="date"
-            {...form.register("disbursementDate")}
-            className={cn(inputClass, form.formState.errors.disbursementDate && "border-destructive")}
-          />
-          {form.formState.errors.disbursementDate && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.disbursementDate.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Collection Start Date</label>
-          <input
-            type="date"
-            {...form.register("collectionStartDate")}
-            className={cn(inputClass, (form.formState.errors.collectionStartDate || collectionDayError) && "border-destructive")}
-          />
-          {form.formState.errors.collectionStartDate && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.collectionStartDate.message}</p>
-          )}
-          {collectionDayError && (
-            <p className="text-xs text-destructive mt-1">{collectionDayError}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">Collection Term</label>
-          <input
-            type="text"
-            {...form.register("collectionTerm")}
-            className={cn(inputClass, form.formState.errors.collectionTerm && "border-destructive")}
-          />
-          {form.formState.errors.collectionTerm && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.collectionTerm.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm font-medium mb-1 block">No Of Terms</label>
-          <input
-            type="number"
-            {...form.register("noOfTerms")}
-            className={cn(inputClass, form.formState.errors.noOfTerms && "border-destructive")}
-          />
-          {form.formState.errors.noOfTerms && (
-            <p className="text-xs text-destructive mt-1">{form.formState.errors.noOfTerms.message}</p>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={close}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving || !!collectionDayError}>  {/* CHANGED: added collectionDayError */}
-            {saving ? "Adding..." : "Add Loan"}
-          </Button>
-        </div>
-      </form>
-    )}
-
-  </div>
-</dialog>
+          <div className="flex justify-end gap-2 p-6 border-t shrink-0">
+            <Button type="button" variant="outline" onClick={() => close("cancel")}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || !!collectionDayError}>
+              {saving ? "Adding..." : "Add Loan"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </dialog>
   )
 }
