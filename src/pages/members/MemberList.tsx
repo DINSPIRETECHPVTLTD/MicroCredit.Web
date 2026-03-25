@@ -1,23 +1,14 @@
-/**
- * MemberList.tsx
- *
- * High‑level flow:
- * - reads current branch from auth
- * - loads members for that branch with React Query
- * - shows them in a MaterialReactTable with the required columns
- * - opens dialogs for Add/Edit and Set Inactive
- * - exposes loan links (Add / View) per member row
- */
-import { useMemo, useRef, useState, useEffect, type ReactNode } from "react"
+import { useRef, useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { MaterialReactTable, type MRT_ColumnDef } from "material-react-table"
-import { Plus, Pencil, UserX, Landmark } from "lucide-react"
+import { Plus } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import type { MemberResponse } from "@/types/member"
 import { memberService } from "@/services/member.service"
 import { AddEditMemberDialog, type AddEditMemberDialogMode } from "@/pages/members/AddEditMemberDialog"
 import { getBranch } from "@/services/auth.service"
+import MemberGrid from "@/components/members/MemberGrid"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -30,15 +21,13 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 }
 
 function MemberList() {
-  // Current logged‑in context (ORG vs BRANCH, and which branch).
+  const navigate = useNavigate()
   const branch = getBranch()
   const branchId = branch?.id
 
-  // Dialog state: which member is being edited / set inactive.
   const [addEditDialog, setAddEditDialog] = useState<AddEditMemberDialogMode | null>(null)
   const [inactiveMember, setInactiveMember] = useState<MemberResponse | null>(null)
 
-  // Load members for the active branch. When branchId changes, this query refetches.
   const {
     data: members = [],
     isLoading,
@@ -50,62 +39,6 @@ function MemberList() {
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   })
-
-  // Grid definition: maps MemberResponse shape to the required columns.
-  const columns = useMemo<MRT_ColumnDef<MemberResponse>[]>(
-    () => [
-      {
-        id: "memberId",
-        header: "ID",
-        size: 80,
-        accessorFn: (row) => row.memberId ?? row.id,
-      },
-      {
-        id: "fullName",
-        header: "Full Name",
-        accessorFn: (row) => formatFullName(row),
-      },
-      {
-        id: "phone",
-        header: "Phone",
-        accessorFn: (row) => formatPhone(row),
-      },
-      {
-        id: "dob",
-        header: "DOB / Age",
-        accessorFn: (row) => formatDobForSort(row),
-        Cell: ({ row }) => formatDobDisplay(row.original),
-      },
-      {
-        id: "center",
-        header: "Center",
-        accessorFn: (row) => row.center ?? row.centerName ?? "",
-      },
-      {
-        accessorKey: "fullAddress",
-        header: "Address",
-      },
-      {
-        accessorKey: "poc",
-        header: "POC",
-      },
-      {
-        id: "actions",
-        header: "Actions",
-        size: 220,
-        minSize: 220,
-        enableSorting: false,
-        enableColumnFilter: false,
-        Cell: ({ row }) => (
-          <MemberRowActions
-            onOpenEdit={() => setAddEditDialog({ mode: "edit", member: row.original })}
-            onOpenSetInactive={() => setInactiveMember(row.original)}
-          />
-        ),
-      },
-    ],
-    []
-  )
 
   return (
     <div>
@@ -126,15 +59,30 @@ function MemberList() {
           </Button>
         </div>
       ) : (
-        <MaterialReactTable
-          columns={columns}
-          data={members}
-          state={{ isLoading }}
-          enableSorting
-          enableColumnFilters
-          enableGrouping
-          enableExpanding={false}
-          enableColumnPinning
+        <MemberGrid
+          members={members}
+          isLoading={isLoading}
+          onOpenEdit={(m) => setAddEditDialog({ mode: "edit", member: m })}
+          onOpenSetInactive={setInactiveMember}
+          onOpenAddLoan={(row) =>
+            navigate("/loans/add", {
+              state: {
+                from: "member",
+                fromMemberPage: true,
+                memberId: row.id,
+                prefillMember: {
+                  id: row.id,
+                  name: row.name ?? [row.firstName, row.lastName].filter(Boolean).join(" "),
+                  phoneNumber: row.phoneNumber ?? row.memberPhone ?? "",
+                  guardianName: row.guardianName ?? "",
+                  fullAddress: row.fullAddress ?? "",
+                  center: row.center ?? row.centerName ?? "",
+                  poc: row.poc ?? "",
+                  pocId: row.pocId ?? undefined,
+                },
+              },
+            })
+          }
         />
       )}
 
@@ -148,103 +96,14 @@ function MemberList() {
           }}
         />
       )}
-<AddEditMemberDialog
-  value={addEditDialog}
-  onClose={() => setAddEditDialog(null)}
-  onSuccess={async () => {
-    await refetch()
-    setAddEditDialog(null)
-  }}
-/>
-    </div>
-  )
-}
-
-/**
- * FORMAT HELPERS
- * These helpers keep the render logic for the grid columns in one place,
- * so the column definitions stay small and easy to read.
- */
-
-/** Parses API ISO date (e.g. "2002-06-05T00:00:00") to "YYYY-MM-DD" for grid. */
-function formatDob(iso?: string | null): string | null {
-  if (!iso?.trim()) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
-}
-
-/** DOB/Age column: sortable value (member DOB only). */
-function formatDobForSort(row: MemberResponse): string {
-  return formatDob(row.dob) ?? ""
-}
-
-/** DOB/Age column: show member DOB and computed age as "YYYY-MM-DD / Age". Guardian DOB is not shown. */
-function formatDobDisplay(row: MemberResponse): ReactNode {
-  const memberDob = formatDob(row.dob)
-  if (!memberDob) return "—"
-
-  const age = calculateAge(row.dob)
-  return <span>{age != null ? `${memberDob} / ${age}` : memberDob}</span>
-}
-
-/** Calculate age in full years from ISO DOB (today-based). */
-function calculateAge(iso?: string | null): number | null {
-  if (!iso?.trim()) return null
-  const dob = new Date(iso)
-  if (Number.isNaN(dob.getTime())) return null
-  const today = new Date()
-  let age = today.getFullYear() - dob.getFullYear()
-  const m = today.getMonth() - dob.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-    age--
-  }
-  return age
-}
-
-/** Full name column: API sends combined name; guardian is combined as guardianName. */
-/** Full Name column: "Name / guardian Name"; if no guardian, show "Name / (-)". */
-function formatFullName(row: MemberResponse): string {
-  const name = (row.name ?? [row.firstName, row.lastName].filter(Boolean).join(" ").trim()) || "—"
-  const guardian = row.guardianName?.trim()
-  return guardian ? `${name} / ${guardian}` : `${name} / (-)`
-}
-
-/** Phone column: member phone + guardian phone (joined with `/`). */
-function formatPhone(row: MemberResponse): string {
-  const parts = [row.memberPhone ?? row.phoneNumber, row.guardianPhone].filter(Boolean) as string[]
-  return parts.length ? parts.join(" / ") : "—"
-}
-
-function MemberRowActions({
-  onOpenEdit,
-  onOpenSetInactive,
-}: {
-  onOpenEdit: () => void
-  onOpenSetInactive: () => void
-}) {
-  return (
-    <div className="flex items-center justify-end gap-1 flex-nowrap whitespace-nowrap">
-      <Button variant="ghost" size="sm" onClick={onOpenEdit}>
-        <Pencil className="mr-1 h-4 w-4" />
-        Edit
-      </Button>
-      <Button variant="ghost" size="sm" onClick={onOpenSetInactive}>
-        <UserX className="mr-1 h-4 w-4" />
-        Inactive
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        type="button"
-        onClick={() => toast("Add Loan is not implemented yet")}
-      >
-        <Landmark className="mr-1 h-4 w-4" />
-        Add Loan
-      </Button>
+      <AddEditMemberDialog
+        value={addEditDialog}
+        onClose={() => setAddEditDialog(null)}
+        onSuccess={async () => {
+          await refetch()
+          setAddEditDialog(null)
+        }}
+      />
     </div>
   )
 }

@@ -348,9 +348,12 @@ function RecoveryPostingList() {
         collectedBy: effectiveCollectedById,
         items: rowsToPost.map((r) => ({
           loanSchedulerId: r.loanSchedulerId,
+          // Backend validates `paymentAmount == principalAmount + interestAmount` using
+          // exact decimal equality. Re-derive interest from the rounded payment to avoid
+          // any floating/rounding drift between fields.
           paymentAmount: round2(r.paymentAmount),
           principalAmount: round2(r.principalAmount),
-          interestAmount: round2(r.interestAmount),
+          interestAmount: round2(round2(r.paymentAmount) - round2(r.principalAmount)),
           paymentMode: r.paymentMode.trim(),
           status: r.status.trim(),
           comments: r.comments?.trim() || undefined,

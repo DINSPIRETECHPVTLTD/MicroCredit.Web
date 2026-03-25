@@ -34,6 +34,23 @@ export function calculatePaymentSplitFromSchedule(
 
   const total = row.actualEmiAmount != null && row.actualEmiAmount > 0 ? Number(row.actualEmiAmount) : 0
   const principal = row.actualPrincipalAmount != null ? Number(row.actualPrincipalAmount) : 0
+  const interest = row.actualInterestAmount != null ? Number(row.actualInterestAmount) : 0
+
+  // Prefer splitting based on (principal + interest) when both are present.
+  // This fixes cases where `actualEmiAmount` is 0/undefined for the last installment,
+  // but principal/interest values are still available from the API.
+  const hasPrincipalAndInterest =
+    row.actualPrincipalAmount != null &&
+    row.actualInterestAmount != null &&
+    Number.isFinite(principal) &&
+    Number.isFinite(interest)
+  const totalFromPI = hasPrincipalAndInterest ? principal + interest : 0
+  if (totalFromPI > 0) {
+    const principalRatio = principal / totalFromPI
+    const principalAmount = round2(payment * principalRatio)
+    const interestAmount = round2(payment - principalAmount)
+    return { principalAmount, interestAmount }
+  }
 
   if (total > 0) {
     const principalRatio = principal / total
