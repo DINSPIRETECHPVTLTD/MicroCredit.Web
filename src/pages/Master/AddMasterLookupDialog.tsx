@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { CreateMasterLookupRequest, MasterLookupResponse } from "@/types/masterLookup"
+import { masterlookupService } from "@/services/masterLookup.service"
 
 const schema = z.object({
   lookupKey: z.string().min(1, "LookupKey is required"),
@@ -49,6 +50,8 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSubmit }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = useState(false)
+  const [lookupKeys, setLookupKeys] = useState<string[]>([])
+  const [loadingKeys, setLoadingKeys] = useState(false)
   const isEdit = value?.mode === "edit"
   const editLookup = value?.mode === "edit" ? value.lookup : null
 
@@ -63,6 +66,25 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
       description: "",
     },
   })
+
+  // Fetch unique lookup keys on component mount
+  useEffect(() => {
+    const fetchLookupKeys = async () => {
+      try {
+        setLoadingKeys(true)
+        const allLookups = await masterlookupService.getMasterLookups()
+        const uniqueKeys = Array.from(new Set(allLookups.map(l => l.lookupKey))).sort()
+        setLookupKeys(uniqueKeys)
+      } catch (err) {
+        console.error("Failed to fetch lookup keys:", err)
+        toast.error("Failed to fetch lookup keys")
+      } finally {
+        setLoadingKeys(false)
+      }
+    }
+
+    fetchLookupKeys()
+  }, [])
 
   useEffect(() => {
     if (!value) {
@@ -133,18 +155,28 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
       </div>
       <form onSubmit={form.handleSubmit(submit)} className="p-6 space-y-4">
         <div>
-          <label className="text-sm font-medium mb-1 block">LookupKey</label>
-          <input
+          <label className="text-sm font-medium mb-1 block">Key</label>
+          <select
             {...form.register("lookupKey")}
-            className={cn(inputClass, form.formState.errors.lookupKey && "border-destructive")}
-          />
+            className={cn(inputClass, form.formState.errors.lookupKey && "border-destructive", "cursor-pointer")}
+            disabled={loadingKeys}
+          >
+            <option value="">
+              {loadingKeys ? "Loading keys..." : "Select a lookup key"}
+            </option>
+            {lookupKeys.map((key) => (
+              <option key={key} value={key}>
+                {key}
+              </option>
+            ))}
+          </select>
           {form.formState.errors.lookupKey && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.lookupKey.message}</p>
           )}
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">LookupCode</label>
+          <label className="text-sm font-medium mb-1 block">Code</label>
           <input
             {...form.register("lookupCode")}
             className={cn(inputClass, form.formState.errors.lookupCode && "border-destructive")}
@@ -155,7 +187,7 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">LookupValue</label>
+          <label className="text-sm font-medium mb-1 block">Value</label>
           <input
             {...form.register("lookupValue")}
             className={cn(inputClass, form.formState.errors.lookupValue && "border-destructive")}
