@@ -16,6 +16,7 @@ import toast from "react-hot-toast"
 import type { AddLoanRequest } from "@/types/loan"
 import { loanService } from "@/services/loan.service"
 import type { LoanResponse } from "@/types/loan"
+import { DEFAULT_API_ERROR_MESSAGE, getApiErrorDetails } from "@/lib/apiErrorHandler"
 
 
 interface AddLoanDialogProps {
@@ -60,6 +61,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = useState(false)
   const [currentMode, setCurrentMode] = useState<"add" | "view">(mode)
+  const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setCurrentMode(mode)
@@ -93,6 +95,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         dialogRef.current?.close()
         return
       }
+    setApiErrorMessage(null)
     const today = new Date().toISOString().slice(0, 10)
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     form.reset({
@@ -116,6 +119,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     const close = (reason: "cancel" | "success" = "cancel") => {
       dialogRef.current?.close()
       setCurrentMode(mode)
+      setApiErrorMessage(null)
       onClose(reason)
     }
 
@@ -204,6 +208,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
     const submit = async (data: FormOutput) => {
     setSaving(true)
+    setApiErrorMessage(null)
     try {
       const session = getSession()
       const createdById = session?.userId
@@ -233,7 +238,8 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       onSuccess()
       close("success")
     } catch(err) {
-      toast.error("Failed to add loan")
+      const details = getApiErrorDetails(err)
+      setApiErrorMessage(details.message || DEFAULT_API_ERROR_MESSAGE)
     } finally {
       setSaving(false)
     }
@@ -331,6 +337,23 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       {currentMode === "add" && (
         <form onSubmit={form.handleSubmit(submit)} className="flex flex-col min-h-0 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-6 flex-1">
+            {apiErrorMessage ? (
+              <div
+                className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive"
+                role="alert"
+                aria-live="polite"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Error</p>
+                    <p className="text-sm">{apiErrorMessage}</p>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setApiErrorMessage(null)}>
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <section>
               <h3 className="text-sm font-medium mb-3">Loan Details</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -461,7 +484,11 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                   <input
                     type="text"
                     {...form.register("collectionTerm")}
-                    className={cn(inputClass, form.formState.errors.collectionTerm && "border-destructive")}
+                    className={cn(
+                      inputClass,
+                      form.formState.errors.collectionTerm && "border-destructive"
+                    )}
+                    readOnly
                   />
                   {form.formState.errors.collectionTerm && (
                     <p className="text-xs text-destructive mt-1">{form.formState.errors.collectionTerm.message}</p>
@@ -472,7 +499,11 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                   <input
                     type="number"
                     {...form.register("noOfTerms")}
-                    className={cn(inputClass, form.formState.errors.noOfTerms && "border-destructive")}
+                    className={cn(
+                      inputClass,
+                      form.formState.errors.noOfTerms && "border-destructive"
+                    )}
+                    readOnly
                   />
                   {form.formState.errors.noOfTerms && (
                     <p className="text-xs text-destructive mt-1">{form.formState.errors.noOfTerms.message}</p>
