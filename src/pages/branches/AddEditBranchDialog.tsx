@@ -6,7 +6,9 @@ import { Button } from "../../components/ui/button"
 import { cn } from "../../lib/utils"
 import toast from "react-hot-toast"
 import { branchService } from "../../services/branch.service"
+import { masterlookupService } from "../../services/masterLookup.service"
 import type { BranchResponse } from "../../types/branch"
+import type { MasterLookupResponse } from "../../types/masterLookup"
 
 const branchNameSchema = z
     .string()
@@ -74,6 +76,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
     const [saving, setSaving] = useState(false)
     const isEdit = value?.mode === "edit"
     const editBranch = isEdit && value ? value.branch : null
+    const [stateLookups, setStateLookups] = useState<MasterLookupResponse[]>([])
 
     const form = useForm<CreateFormData>({
         resolver: zodResolver(baseFields),
@@ -83,6 +86,10 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
     useEffect(() => {
         if (value === null) return
         dialogRef.current?.showModal()
+        masterlookupService
+            .getMasterLookupsByKey("State")
+            .then((states) => setStateLookups(states))
+            .catch(() => setStateLookups([]))
         if (editBranch) {
             form.reset({
                 name: editBranch.name ?? "",
@@ -147,11 +154,11 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
         <dialog
             ref={dialogRef}
             onCancel={close}
-            className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-lg w-full"
+            className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
             aria-labelledby="add-edit-branch-title"
         >
             <div className="p-6 border-b shrink-0">
-                <h2 id="add-edit-branch-title" className="text-lg font-semibold mb-4">
+                <h2 id="add-edit-branch-title" className="text-lg font-semibold">
                 {isEdit ? "Update branch" : "Create branch"}
                 </h2>
             </div>
@@ -160,9 +167,8 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                 className="flex flex-col min-h-0 overflow-hidden"
             >
                 <div className="p-6 overflow-y-auto space-y-6 flex-1">
-                 <section>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <section>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
                         <div>
                         <label className="text-sm font-medium mb-1 block">Branch Name <span className="text-destructive">*</span></label>
@@ -170,19 +176,19 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                             {...form.register("name")}
                             maxLength={200}
                             className={cn(inputClass, form.formState.errors.name && "border-destructive")}
-                            placeholder="Alphanumeric and spaces only"
+                            placeholder="Enter Branchname"
                         />
                         {form.formState.errors.name && (
                             <p className="text-xs text-destructive mt-1">{form.formState.errors.name.message}</p>
                         )}
                     </div>                    
                         <div>
-                            <label className="text-sm font-medium mb-1 block">Address 1</label>
+                            <label className="text-sm font-medium mb-1 block">Address 1 <span className="text-destructive">*</span></label>
                             <input
                                 {...form.register("address1")}
                                 maxLength={500}
                                 className={cn(inputClass, form.formState.errors.address1 && "border-destructive")}
-                                placeholder="Free text; alphanumeric & special characters"
+                                placeholder="Enter adress"
                             />
                             {form.formState.errors.address1 && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.address1.message}</p>
@@ -194,91 +200,95 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                                 {...form.register("address2")}
                                 maxLength={500}
                                 className={cn(inputClass, form.formState.errors.address2 && "border-destructive")}
-                                placeholder="Free text; alphanumeric & special characters"
+                                placeholder="Enter Address 2"
                             />
                             {form.formState.errors.address2 && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.address2.message}</p>
                             )}
                         </div>              
                         <div>
-                            <label className="text-sm font-medium mb-1 block">City</label>
+                            <label className="text-sm font-medium mb-1 block">City <span className="text-destructive">*</span></label>
                             <input
                                 {...form.register("city")}
                                 maxLength={200}
                                 className={cn(inputClass, form.formState.errors.city && "border-destructive")}
-                                placeholder="Alphanumeric and spaces, max 200 characters"
+                                placeholder="Enter city"
                             />
                             {form.formState.errors.city && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.city.message}</p>
                             )}
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-1 block">State</label>
-                            <input
+                            <label className="text-sm font-medium mb-1 block">State <span className="text-destructive">*</span></label>
+                            <select
                                 {...form.register("state")}
-                                maxLength={200}
                                 className={cn(inputClass, form.formState.errors.state && "border-destructive")}
-                                placeholder="Alphanumeric and spaces, max 200 characters"
-                            />
+                            >
+                                <option value="">Select state</option>
+                                {stateLookups.map((s) => (
+                                    <option key={s.id} value={s.lookupValue}>
+                                        {s.lookupValue}
+                                    </option>
+                                ))}
+                            </select>
                             {form.formState.errors.state && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.state.message}</p>
                             )}
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-1 block">Country</label>
+                            <label className="text-sm font-medium mb-1 block">Country <span className="text-destructive">*</span></label>
                             <input
                                 {...form.register("country")}
                                 maxLength={200}
                                 className={cn(inputClass, form.formState.errors.country && "border-destructive")}
-                                placeholder="Alphanumeric and spaces, max 200 characters"
+                                placeholder="Enter country"
                             />
                             {form.formState.errors.country && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.country.message}</p>
                             )}
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-1 block">Zip Code</label>
+                            <label className="text-sm font-medium mb-1 block">Zip Code <span className="text-destructive">*</span></label>
                             <input
                                 {...form.register("zipcode")}
                                 type="text"
                                 inputMode="numeric"
                                 maxLength={6}
                                 className={cn(inputClass, form.formState.errors.zipcode && "border-destructive")}
-                                placeholder="Numeric only, max 6 digits"
+                                placeholder="Enter Zip Code"
                             />
                             {form.formState.errors.zipcode && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.zipcode.message}</p>
                             )}
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-1 block">Phone</label>
+                            <label className="text-sm font-medium mb-1 block">Phone <span className="text-destructive">*</span></label>
                             <input
                                 {...form.register("phoneNumber")}
                                 type="text"
                                 inputMode="numeric"
                                 maxLength={10}
                                 className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
-                                placeholder="Numeric only, max 10 digits"
+                                placeholder="Enter phone"
                             />
                             {form.formState.errors.phoneNumber && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
                             )}
                         </div>
                        
-                    </div>
-                
+                        </div>
                     </section>
-                    
-                <div className="flex justify-end gap-2 mt-6">
+                </div>
+
+                <div className="flex justify-end gap-2 p-6 border-t shrink-0">
                     <Button type="button" variant="outline" onClick={close}>
                         Cancel
                     </Button>
                     <Button type="submit" disabled={saving}>
-                        {saving ? (isEdit ? "Updating�" : "Creating�") : isEdit ? "Update branch" : "Create branch"}
+                        {saving ? "Saving..." : isEdit ? "Update branch" : "Create branch"}
                     </Button>
                        
-                    </div>
-                </div>  
+                </div>
             </form>
         </dialog>
     )

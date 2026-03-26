@@ -83,6 +83,10 @@ export const api = {
         get list() {
             return `${getApiBase()}/masterLookups`
         },
+        get keys()
+        {
+          return `${getApiBase()}/masterLookups/keys`
+        },
         update: (id: number) => `${getApiBase()}/masterLookups/${id}`,
         setInactive: (id: number) => `${getApiBase()}/masterLookups/${id}/inactive`,
     },

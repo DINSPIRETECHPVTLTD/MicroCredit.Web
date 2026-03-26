@@ -2,23 +2,55 @@ import { useRef, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { useQuery } from "@tanstack/react-query"
 import { staffService } from "@/services/staff.service"
 import type { StaffResponse } from "@/types/staff"
+import { masterlookupService } from "@/services/masterLookup.service"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 
+const alphaNumericRegex = /^[A-Za-z0-9 ]+$/
+const alphabeticRegex = /^[A-Za-z ]+$/
+const zipCodeRegex = /^[A-Za-z0-9 -]+$/
+
 const baseFields = {
-    firstName: z.string().min(1, "First name is required"),
-    surname: z.string().min(1, "Surname is required"),
-    email: z.string().min(1, "Email is required").email("Invalid email"),
+    firstName: z
+        .string()
+        .min(1, "First name is required")
+        .max(250, "First name must be at most 250 characters")
+        .regex(alphaNumericRegex, "First name can contain only letters, numbers and spaces"),
+    surname: z
+        .string()
+        .min(1, "Surname is required")
+        .max(250, "Surname must be at most 250 characters")
+        .regex(alphaNumericRegex, "Surname can contain only letters, numbers and spaces"),
+    email: z
+        .string()
+        .min(1, "Email is required")
+        .max(225, "Email must be at most 225 characters")
+        .email("Invalid email"),
     role: z.string().min(1, "Role is required"),
-    phoneNumber: z.string().optional(),
-    address1: z.string().optional(),
-    address2: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    pinCode: z.string().optional(),
+    phoneNumber: z
+        .string()
+        .optional()
+        .refine((val) => !val || /^\d+$/.test(val), { message: "Phone number must contain digits only" })
+        .refine((val) => !val || val.length <= 10, { message: "Phone number must be at most 10 digits" }),
+    address1: z.string().min(1, "Address 1 is required").max(250, "Address 1 must be at most 250 characters"),
+    address2: z.string().max(225, "Address 2 must be at most 225 characters").optional(),
+    city: z
+        .string()
+        .min(1, "City is required")
+        .max(100, "City must be at most 100 characters")
+        .regex(alphabeticRegex, "City can contain only letters and spaces"),
+    state: z.string().min(1, "State is required"),
+    pinCode: z
+        .string()
+        .optional()
+        .refine((val) => !val || zipCodeRegex.test(val), {
+            message: "Zip code can contain only letters, numbers, spaces and hyphen",
+        })
+        .refine((val) => !val || val.length <= 15, { message: "Zip code must be at most 15 characters" }),
 }
 
 const createSchema = z
@@ -56,6 +88,14 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
 
     const isEdit = value?.mode === "edit"
     const editUser = value?.mode === "edit" ? value.user : null
+
+    const { data: stateLookups = [] } = useQuery({
+        queryKey: ["masterLookups", "state"],
+        queryFn: () => masterlookupService.getMasterLookupsByKey("STATE"),
+        enabled: value !== null,
+        staleTime: 1000 * 60 * 10,
+        refetchOnWindowFocus: false,
+    })
 
     const form = useForm<CreateFormData>({
         resolver: zodResolver(isEdit ? editSchema : createSchema),
@@ -183,9 +223,10 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                         <h3 className="text-sm font-medium mb-3">Basic information</h3>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <label className="text-sm font-medium mb-1 block">First name</label>
+                                <label className="text-sm font-medium mb-1 block">First name <span className="text-destructive">*</span></label>
                                 <input
                                     {...form.register("firstName")}
+                                    placeholder="Enter first name"
                                     className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
                                 />
                                 {form.formState.errors.firstName && (
@@ -193,9 +234,10 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                 )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium mb-1 block">Surname</label>
+                                <label className="text-sm font-medium mb-1 block">Surname <span className="text-destructive">*</span></label>
                                 <input
                                     {...form.register("surname")}
+                                    placeholder="Enter surname"
                                     className={cn(inputClass, form.formState.errors.surname && "border-destructive")}
                                 />
                                 {form.formState.errors.surname && (
@@ -203,10 +245,11 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                 )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium mb-1 block">Email</label>
+                                <label className="text-sm font-medium mb-1 block">Email <span className="text-destructive">*</span></label>
                                 <input
                                     {...form.register("email")}
                                     type="email"
+                                    placeholder="Enter email"
                                     className={cn(inputClass, form.formState.errors.email && "border-destructive")}
                                 />
                                 {form.formState.errors.email && (
@@ -215,10 +258,19 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                             </div>
                             <div>
                                 <label className="text-sm font-medium mb-1 block">Phone</label>
-                                <input {...form.register("phoneNumber")} className={inputClass} />
+                                <input
+                                    {...form.register("phoneNumber")}
+                                    inputMode="numeric"
+                                    maxLength={10}
+                                    placeholder="Enter phone number"
+                                    className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
+                                />
+                                {form.formState.errors.phoneNumber && (
+                                    <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
+                                )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium mb-1 block">Role</label>
+                                <label className="text-sm font-medium mb-1 block">Role <span className="text-destructive">*</span></label>
                                 <select {...form.register("role")} className={inputClass}>
                                     {ROLES.map((r) => (
                                         <option key={r} value={r}>{r}</option>
@@ -233,11 +285,12 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                             <h3 className="text-sm font-medium mb-3">Security</h3>
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label className="text-sm font-medium mb-1 block">Password</label>
+                                    <label className="text-sm font-medium mb-1 block">Password <span className="text-destructive">*</span></label>
                                     <input
                                         {...form.register("password")}
                                         type="password"
                                         autoComplete="new-password"
+                                        placeholder="Enter password"
                                         className={cn(inputClass, form.formState.errors.password && "border-destructive")}
                                     />
                                     {form.formState.errors.password && (
@@ -250,6 +303,7 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                         {...form.register("confirmPassword")}
                                         type="password"
                                         autoComplete="new-password"
+                                        placeholder="Confirm password"
                                         className={cn(inputClass, form.formState.errors.confirmPassword && "border-destructive")}
                                     />
                                     {form.formState.errors.confirmPassword && (
@@ -264,24 +318,69 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                         <h3 className="text-sm font-medium mb-3">Address</h3>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <label className="text-sm font-medium mb-1 block">Address 1</label>
-                                <input {...form.register("address1")} className={inputClass} />
+                                <label className="text-sm font-medium mb-1 block">Address 1 <span className="text-destructive">*</span></label>
+                                <input
+                                    {...form.register("address1")}
+                                    placeholder="Enter address line 1"
+                                    maxLength={250}
+                                    className={cn(inputClass, form.formState.errors.address1 && "border-destructive")}
+                                />
+                                {form.formState.errors.address1 && (
+                                    <p className="text-xs text-destructive mt-1">{form.formState.errors.address1.message}</p>
+                                )}
                             </div>
                             <div>
                                 <label className="text-sm font-medium mb-1 block">Address 2</label>
-                                <input {...form.register("address2")} className={inputClass} />
+                                <input
+                                    {...form.register("address2")}
+                                    placeholder="Enter address line 2"
+                                    maxLength={225}
+                                    className={cn(inputClass, form.formState.errors.address2 && "border-destructive")}
+                                />
+                                {form.formState.errors.address2 && (
+                                    <p className="text-xs text-destructive mt-1">{form.formState.errors.address2.message}</p>
+                                )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium mb-1 block">City</label>
-                                <input {...form.register("city")} className={inputClass} />
+                                <label className="text-sm font-medium mb-1 block">City <span className="text-destructive">*</span></label>
+                                <input
+                                    {...form.register("city")}
+                                    placeholder="Enter city"
+                                    maxLength={100}
+                                    className={cn(inputClass, form.formState.errors.city && "border-destructive")}
+                                />
+                                {form.formState.errors.city && (
+                                    <p className="text-xs text-destructive mt-1">{form.formState.errors.city.message}</p>
+                                )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium mb-1 block">State</label>
-                                <input {...form.register("state")} className={inputClass} />
+                                <label className="text-sm font-medium mb-1 block">State <span className="text-destructive">*</span></label>
+                                <select
+                                    {...form.register("state")}
+                                    className={cn(inputClass, form.formState.errors.state && "border-destructive")}
+                                >
+                                    <option value="">Select state</option>
+                                    {stateLookups.map((s) => (
+                                        <option key={s.id} value={s.lookupValue}>
+                                            {s.lookupValue}
+                                        </option>
+                                    ))}
+                                </select>
+                                {form.formState.errors.state && (
+                                    <p className="text-xs text-destructive mt-1">{form.formState.errors.state.message}</p>
+                                )}
                             </div>
                             <div className="sm:col-span-2">
                                 <label className="text-sm font-medium mb-1 block">Zip code</label>
-                                <input {...form.register("pinCode")} className={inputClass} />
+                                <input
+                                    {...form.register("pinCode")}
+                                    placeholder="Enter zip code"
+                                    maxLength={15}
+                                    className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
+                                />
+                                {form.formState.errors.pinCode && (
+                                    <p className="text-xs text-destructive mt-1">{form.formState.errors.pinCode.message}</p>
+                                )}
                             </div>
                         </div>
                     </section>
@@ -296,7 +395,7 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                         Cancel
                     </Button>
                     <Button type="submit" disabled={saving}>
-                        {saving ? "Saving…" : isEdit ? "Update staff" : "Create staff"}
+                        {saving ? "Saving..." : isEdit ? "Update staff" : "Create staff"}
                     </Button>
                 </div>
             </form>
