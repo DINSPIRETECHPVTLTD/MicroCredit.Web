@@ -8,10 +8,10 @@ export const masterlookupService = {
         return data
     },
     async getMasterLookupsByKey(lookupKey: string): Promise<MasterLookupResponse[]> {
-        const all = await this.getMasterLookups()
-        return all.filter(
-          (x) => x.lookupKey?.toLowerCase() === lookupKey.toLowerCase()
+        const { data } = await axios.get<MasterLookupResponse[]>(
+            `${api.masterLookups.list}?lookupKey=${encodeURIComponent(lookupKey)}`
         )
+        return data
     },
 
     async createMasterLookup(request: CreateMasterLookupRequest): Promise<number> {
@@ -26,4 +26,8 @@ export const masterlookupService = {
     async setInactive(id: number): Promise<void> {
         await axios.delete(api.masterLookups.setInactive(id))
     },
+    async getLookupKeys(): Promise<string[]> {
+        const { data } = await axios.get<string[]>(api.masterLookups.keys)
+        return data
+      },
 };

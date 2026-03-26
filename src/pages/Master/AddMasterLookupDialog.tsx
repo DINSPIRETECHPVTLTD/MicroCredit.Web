@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { CreateMasterLookupRequest, MasterLookupResponse } from "@/types/masterLookup"
+import { masterlookupService } from "@/services/masterLookup.service"
 
 const schema = z.object({
   lookupKey: z.string().min(1, "LookupKey is required"),
@@ -49,6 +50,7 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSubmit }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = useState(false)
+  const [lookupKeys, setLookupKeys] = useState<string[]>([])
   const isEdit = value?.mode === "edit"
   const editLookup = value?.mode === "edit" ? value.lookup : null
 
@@ -67,9 +69,14 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
   useEffect(() => {
     if (!value) {
       dialogRef.current?.close()
+      setLookupKeys([])
       return
     }
     dialogRef.current?.showModal()
+    masterlookupService
+      .getLookupKeys()
+      .then((keys) => setLookupKeys(keys))
+      .catch(() => setLookupKeys([]))
     if (editLookup) {
       form.reset({
         lookupKey: editLookup.lookupKey ?? "",
@@ -93,6 +100,7 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
 
   const close = () => {
     dialogRef.current?.close()
+    setLookupKeys([])
     onClose()
   }
 
@@ -133,21 +141,33 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
       </div>
       <form onSubmit={form.handleSubmit(submit)} className="p-6 space-y-4">
         <div>
-          <label className="text-sm font-medium mb-1 block">LookupKey</label>
-          <input
+          <label className="text-sm font-medium mb-1 block">
+            LookupKey <span className="text-destructive">*</span>
+          </label>
+          <select
             {...form.register("lookupKey")}
             className={cn(inputClass, form.formState.errors.lookupKey && "border-destructive")}
-          />
+          >
+            <option value="">Select LookupKey</option>
+            {lookupKeys.map((key) => (
+              <option key={key} value={key}>
+                {key}
+              </option>
+            ))}
+          </select>
           {form.formState.errors.lookupKey && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.lookupKey.message}</p>
           )}
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">LookupCode</label>
+          <label className="text-sm font-medium mb-1 block">
+            LookupCode <span className="text-destructive">*</span>
+          </label>
           <input
             {...form.register("lookupCode")}
             className={cn(inputClass, form.formState.errors.lookupCode && "border-destructive")}
+            placeholder="Enter LookupCode"
           />
           {form.formState.errors.lookupCode && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.lookupCode.message}</p>
@@ -155,10 +175,13 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">LookupValue</label>
+          <label className="text-sm font-medium mb-1 block">
+            LookupValue <span className="text-destructive">*</span>
+          </label>
           <input
             {...form.register("lookupValue")}
             className={cn(inputClass, form.formState.errors.lookupValue && "border-destructive")}
+            placeholder="Enter LookupValue"
           />
           {form.formState.errors.lookupValue && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.lookupValue.message}</p>
@@ -171,11 +194,14 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">SortOrder</label>
+          <label className="text-sm font-medium mb-1 block">
+            SortOrder <span className="text-destructive">*</span>
+          </label>
           <input
             type="number"
             {...form.register("sortOrder")}
             className={cn(inputClass, form.formState.errors.sortOrder && "border-destructive")}
+            placeholder="Enter SortOrder"
           />
           {form.formState.errors.sortOrder && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.sortOrder.message}</p>

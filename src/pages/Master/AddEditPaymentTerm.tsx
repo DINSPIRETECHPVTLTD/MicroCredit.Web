@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { PaymentTermResponse } from "@/types/paymentTerm"
 import { paymentTermService } from "@/services/paymentTerm.service"
+import { masterlookupService } from "@/services/masterLookup.service"
 
 const baseFields = {
   paymentTerm: z.string().min(1, "Payment term is required"),
@@ -48,6 +49,7 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = useState(false)
+  const [paymentTermOptions, setPaymentTermOptions] = useState<string[]>([])
 
   const isEdit = value?.mode === "edit"
   const editItem = value?.mode === "edit" ? value.paymentTerm : null
@@ -67,10 +69,15 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
   useEffect(() => {
     if (value === null) {
       dialogRef.current?.close()
+      setPaymentTermOptions([])
       return
     }
 
     dialogRef.current?.showModal()
+    masterlookupService
+      .getMasterLookupsByKey("PAYMENT_TERM")
+      .then((items) => setPaymentTermOptions(items.map((x) => x.lookupValue)))
+      .catch(() => setPaymentTermOptions([]))
 
     if (editItem) {
       form.reset({
@@ -142,10 +149,17 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
           <label className="text-sm font-medium mb-1 block">
             Payment Term <span className="text-destructive">*</span>
           </label>
-          <input
+          <select
             {...form.register("paymentTerm")}
             className={cn(inputClass, form.formState.errors.paymentTerm && "border-destructive")}
-          />
+          >
+            <option value="">Select Payment Term</option>
+            {paymentTermOptions.map((term) => (
+              <option key={term} value={term}>
+                {term}
+              </option>
+            ))}
+          </select>
           {form.formState.errors.paymentTerm && (
             <p className="text-xs text-destructive mt-1">
               {form.formState.errors.paymentTerm.message}
@@ -160,6 +174,7 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
           <input
             {...form.register("paymentType")}
             className={cn(inputClass, form.formState.errors.paymentType && "border-destructive")}
+            placeholder="Enter Payment Type"
           />
           {form.formState.errors.paymentType && (
             <p className="text-xs text-destructive mt-1">
@@ -176,6 +191,7 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
             type="number"
             {...form.register("noOfTerms")}
             className={cn(inputClass, form.formState.errors.noOfTerms && "border-destructive")}
+            placeholder="Enter No of Terms"
           />
           {form.formState.errors.noOfTerms && (
             <p className="text-xs text-destructive mt-1">
@@ -193,6 +209,7 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
             step="0.01"
             {...form.register("processingFee")}
             className={cn(inputClass, form.formState.errors.processingFee && "border-destructive")}
+            placeholder="Enter Processing Fee"
           />
           {form.formState.errors.processingFee && (
             <p className="text-xs text-destructive mt-1">
@@ -210,6 +227,7 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
             step="0.01"
             {...form.register("rateOfInterest")}
             className={cn(inputClass, form.formState.errors.rateOfInterest && "border-destructive")}
+            placeholder="Enter Rate Of Interest"
           />
           {form.formState.errors.rateOfInterest && (
             <p className="text-xs text-destructive mt-1">
@@ -227,6 +245,7 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
             step="0.01"
             {...form.register("insuranceFee")}
             className={cn(inputClass, form.formState.errors.insuranceFee && "border-destructive")}
+            placeholder="Enter Insurance Fee"
           />
           {form.formState.errors.insuranceFee && (
             <p className="text-xs text-destructive mt-1">
