@@ -21,27 +21,27 @@ const alphanumericWithSpacesMax200Schema = z
     .max(200, "Must be at most 200 characters")
     .regex(/^[a-zA-Z0-9 ]*$/, "Alphanumeric and spaces only; max 200 characters")
 
-const citySchema = alphanumericWithSpacesMax200Schema
+const citySchema = alphanumericWithSpacesMax200Schema.min(1, "City is required")
 
 const addressSchema = z.string().max(500, "Address must be at most 500 characters")
 
 const zipcodeSchema = z
     .string()
-    .max(6, "Pin code must be at most 6 digits")
-    .regex(/^\d*$/, "Numeric only; max 6 digits")
+    .length(6, "Pin code must be exactly 6 digits")
+    .regex(/^\d+$/, "Numeric only; exactly 6 digits")
 
 const phoneSchema = z
     .string()
-    .max(10, "Phone must be at most 10 digits")
-    .regex(/^\d*$/, "Numeric only; max 10 digits")
+    .length(10, "Phone must be exactly 10 digits")
+    .regex(/^\d+$/, "Numeric only; exactly 10 digits")
 
 const baseFields = z.object({
     name: branchNameSchema,
-    address1: addressSchema,
+    address1: addressSchema.min(1, "Address 1 is required"),
     address2: addressSchema,
     city: citySchema,
-    state: alphanumericWithSpacesMax200Schema,
-    country: alphanumericWithSpacesMax200Schema,
+    state: alphanumericWithSpacesMax200Schema.min(1, "State is required"),
+    country: alphanumericWithSpacesMax200Schema.min(1, "Country is required"),
     zipcode: zipcodeSchema,
     phoneNumber: phoneSchema,
 })
@@ -262,7 +262,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                             )}
                         </div>
                         <div>
-                            <label className="text-sm font-medium mb-1 block">Phone <span className="text-destructive">*</span></label>
+                            <label className="text-sm font-medium mb-1 block">Phone number <span className="text-destructive">*</span></label>
                             <input
                                 {...form.register("phoneNumber")}
                                 type="text"

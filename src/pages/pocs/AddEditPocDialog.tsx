@@ -23,7 +23,37 @@ import type { MasterLookupResponse } from "@/types/masterLookup"
 // Validation schema (Zod): defines required/optional fields and rules for the form.
 // phoneRegex: exactly 10 digits (used for Phone and Alt phone).
 // -----------------------------------------------------------------------------
-const phoneRegex = /^\d{10}$/
+const sanitizePhone = (value: string) => value.replace(/\D/g, "")
+const sanitizeZip = (value: string) => value.replace(/\D/g, "")
+
+type PocFormOptions = {
+  usersData: UserResponse[]
+  centersData: CenterResponse[]
+  masterLookupsData: MasterLookupResponse[]
+}
+
+let pocFormOptionsRequest: Promise<PocFormOptions> | null = null
+
+const loadPocFormOptions = async (): Promise<PocFormOptions> => {
+  if (!pocFormOptionsRequest) {
+    pocFormOptionsRequest = Promise.all([
+      userService.getUsers(),
+      centerService.getCenters(),
+      masterlookupService.getMasterLookups(),
+    ]).then(([usersData, centersData, masterLookupsData]) => ({
+      usersData,
+      centersData,
+      masterLookupsData,
+    }))
+  }
+
+  try {
+    return await pocFormOptionsRequest
+  } finally {
+    pocFormOptionsRequest = null
+  }
+}
+
 const baseFields = z.object({
   centerId: z.number({ message: "Center is required" }).min(1, "Center is required"),
   firstName: z.string().min(1, "First name is required").max(100, "First name must be 100 characters or less"),
@@ -32,17 +62,22 @@ const baseFields = z.object({
   phoneNumber: z
     .string()
     .min(1, "Phone is required")
-    .transform((s) => s.trim())
-    .refine((s) => phoneRegex.test(s), "Phone must be exactly 10 digits"),
+    .refine((val) => /^\d+$/.test(val), { message: "Phone can contain digits only" })
+    .refine((val) => val.length === 10, { message: "Phone must be exactly 10 digits" }),
   altPhone: z
     .string()
     .optional()
-    .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Alt phone must be exactly 10 digits"),
+    .refine((val) => !val || /^\d+$/.test(val), { message: "Alt phone can contain digits only" })
+    .refine((val) => !val || val.length === 10, { message: "Alt phone must be exactly 10 digits" }),
   address1: z.string().max(200, "Address must be 200 characters or less").optional(),
   address2: z.string().max(200, "Address must be 200 characters or less").optional(),
   city: z.string().max(100, "City must be 100 characters or less").optional(),
   state: z.string().optional(),
-  zipCode: z.string().max(10, "Zip code must be 10 characters or less").optional(),
+  zipCode: z
+    .string()
+    .optional()
+    .refine((val) => !val || /^\d+$/.test(val), { message: "Zip code can contain digits only" })
+    .refine((val) => !val || val.length === 6, { message: "Zip code must be exactly 6 digits" }),
   collectionDay: z.string().min(1, "Collection day is required"),
   collectionFrequency: z.string().min(1, "Frequency is required"),
   collectionBy: z
@@ -82,6 +117,7 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
   const [users, setUsers] = useState<UserResponse[]>([])
   const [centers, setCenters] = useState<CenterResponse[]>([])
   const [stateLookups, setStateLookups] = useState<MasterLookupResponse[]>([])
+  const [collectionFrequencyLookups, setCollectionFrequencyLookups] = useState<MasterLookupResponse[]>([])
 
   // Whether we are editing (vs adding). editPoc is the existing POC when in edit mode.
   const isEdit = value?.mode === "edit"
@@ -116,14 +152,13 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
 
     const loadAndReset = async () => {
       try {
-        const [usersData, centersData, statesData] = await Promise.all([
-          userService.getUsers(),
-          centerService.getCenters(),
-          masterlookupService.getMasterLookupsByKey("State"),
-        ])
+        const { usersData, centersData, masterLookupsData } = await loadPocFormOptions()
         setUsers(usersData)
         setCenters(centersData)
-        setStateLookups(statesData)
+        setStateLookups(masterLookupsData.filter((x) => x.lookupKey.toUpperCase() === "STATE"))
+        setCollectionFrequencyLookups(
+          masterLookupsData.filter((x) => x.lookupKey.toUpperCase() === "PAYMENT_TERM")
+        )
 
         // Reset form after dropdown options are set so selects display the right value
         if (editPoc) {
@@ -266,13 +301,18 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
               )}
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Phone <span className="text-destructive">*</span></label>
+              <label className="text-sm font-medium mb-1 block">Phone number<span className="text-destructive">*</span></label>
               <input
-                {...form.register("phoneNumber")}
+                {...form.register("phoneNumber", {
+                  onChange: (e) => {
+                    e.target.value = sanitizePhone(e.target.value)
+                  },
+                })}
                 className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
                 inputMode="numeric"
+                minLength={10}
                 maxLength={10}
-                placeholder="10 digits"
+                placeholder="Enter phone number"
               />
               {form.formState.errors.phoneNumber && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
@@ -281,11 +321,16 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
             <div>
               <label className="text-sm font-medium mb-1 block">Alt phone</label>
               <input
-                {...form.register("altPhone")}
+                {...form.register("altPhone", {
+                  onChange: (e) => {
+                    e.target.value = sanitizePhone(e.target.value)
+                  },
+                })}
                 className={cn(inputClass, form.formState.errors.altPhone && "border-destructive")}
                 inputMode="numeric"
+                minLength={10}
                 maxLength={10}
-                placeholder="10 digits"
+                placeholder="Enter phone number"
               />
               {form.formState.errors.altPhone && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.altPhone.message}</p>
@@ -323,7 +368,21 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-medium mb-1 block">Zip code</label>
-              <input {...form.register("zipCode")} className={inputClass} placeholder="Enter zip code" maxLength={10} />
+              <input
+                {...form.register("zipCode", {
+                  onChange: (e) => {
+                    e.target.value = sanitizeZip(e.target.value)
+                  },
+                })}
+                className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
+                inputMode="numeric"
+                minLength={6}
+                maxLength={6}
+                placeholder="Enter zip code"
+              />
+              {form.formState.errors.zipCode && (
+                <p className="text-xs text-destructive mt-1">{form.formState.errors.zipCode.message}</p>
+              )}
             </div>
           </div>
         </section>
@@ -355,9 +414,11 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
     className={cn(inputClass, form.formState.errors.collectionFrequency && "border-destructive")}
   >
     <option value="">Select frequency</option>
-    <option value="Daily">Daily</option>
-    <option value="Weekly">Weekly</option>
-    <option value="Monthly">Monthly</option>
+    {collectionFrequencyLookups.map((item) => (
+      <option key={item.id} value={item.lookupValue}>
+        {item.lookupValue}
+      </option>
+    ))}
   </select>
   {form.formState.errors.collectionFrequency && (
     <p className="text-xs text-destructive mt-1">

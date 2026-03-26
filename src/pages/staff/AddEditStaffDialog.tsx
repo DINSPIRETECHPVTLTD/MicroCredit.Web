@@ -12,7 +12,8 @@ import toast from "react-hot-toast"
 
 const alphaNumericRegex = /^[A-Za-z0-9 ]+$/
 const alphabeticRegex = /^[A-Za-z ]+$/
-const zipCodeRegex = /^[A-Za-z0-9 -]+$/
+const sanitizePhone = (value: string) => value.replace(/\D/g, "")
+const sanitizeZip = (value: string) => value.replace(/\D/g, "")
 
 const baseFields = {
     firstName: z
@@ -34,8 +35,14 @@ const baseFields = {
     phoneNumber: z
         .string()
         .optional()
-        .refine((val) => !val || /^\d+$/.test(val), { message: "Phone number must contain digits only" })
-        .refine((val) => !val || val.length <= 10, { message: "Phone number must be at most 10 digits" }),
+        .refine(
+            (val) => !val || /^\d+$/.test(val),
+            { message: "Phone can contain digits only" }
+        )
+        .refine(
+            (val) => !val || val.length === 10,
+            { message: "Phone must be exactly 10 digits" }
+        ),
     address1: z.string().min(1, "Address 1 is required").max(250, "Address 1 must be at most 250 characters"),
     address2: z.string().max(225, "Address 2 must be at most 225 characters").optional(),
     city: z
@@ -47,10 +54,14 @@ const baseFields = {
     pinCode: z
         .string()
         .optional()
-        .refine((val) => !val || zipCodeRegex.test(val), {
-            message: "Zip code can contain only letters, numbers, spaces and hyphen",
-        })
-        .refine((val) => !val || val.length <= 15, { message: "Zip code must be at most 15 characters" }),
+        .refine(
+            (val) => !val || /^\d+$/.test(val),
+            { message: "Zip code can contain digits only" }
+        )
+        .refine(
+            (val) => !val || val.length === 6,
+            { message: "Zip code must be exactly 6 digits" },
+        ),
 }
 
 const createSchema = z
@@ -257,9 +268,13 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                 )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium mb-1 block">Phone</label>
+                                <label className="text-sm font-medium mb-1 block">Phone number</label>
                                 <input
-                                    {...form.register("phoneNumber")}
+                                    {...form.register("phoneNumber", {
+                                        onChange: (e) => {
+                                            e.target.value = sanitizePhone(e.target.value)
+                                        },
+                                    })}
                                     inputMode="numeric"
                                     maxLength={10}
                                     placeholder="Enter phone number"
@@ -373,9 +388,14 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                             <div className="sm:col-span-2">
                                 <label className="text-sm font-medium mb-1 block">Zip code</label>
                                 <input
-                                    {...form.register("pinCode")}
+                                    {...form.register("pinCode", {
+                                        onChange: (e) => {
+                                            e.target.value = sanitizeZip(e.target.value)
+                                        },
+                                    })}
                                     placeholder="Enter zip code"
-                                    maxLength={15}
+                                    inputMode="numeric"
+                                    maxLength={6}
                                     className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
                                 />
                                 {form.formState.errors.pinCode && (

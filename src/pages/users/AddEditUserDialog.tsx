@@ -2,8 +2,10 @@ import { useRef, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { useQuery } from "@tanstack/react-query"
 import { userService } from "@/services/user.service"
 import type { UserResponse } from "@/types/user"
+import { masterlookupService } from "@/services/masterLookup.service"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
@@ -39,8 +41,8 @@ const baseFields = {
       { message: "Phone can contain digits only" }
     )
     .refine(
-      (val) => !val || val.length <= 15,
-      { message: "Phone must be at most 15 digits" }
+      (val) => !val || val.length === 10,
+      { message: "Phone must be exactly 10 digits" }
     ),
   address1: z.string().max(225, "Address 1 must be at most 225 characters").optional(),
   address2: z.string().max(225, "Address 2 must be at most 225 characters").optional(),
@@ -64,8 +66,8 @@ const baseFields = {
       { message: "Zip code can contain digits only" }
     )
     .refine(
-      (val) => !val || val.length <= 10,
-      { message: "Zip code must be at most 10 digits" }
+      (val) => !val || val.length === 6,
+      { message: "Zip code must be exactly 6 digits" }
     ),
   level: z.string().min(1, "Level is required"),
 }
@@ -81,7 +83,11 @@ const createSchema = z
     { message: "Passwords do not match", path: ["confirmPassword"] }
   )
 
-const editSchema = z.object(baseFields)
+const editSchema = z.object({
+  ...baseFields,
+  password: z.string().optional(),
+  confirmPassword: z.string().optional(),
+})
 
 type CreateFormData = z.infer<typeof createSchema>
 
@@ -98,6 +104,20 @@ type Props = {
   onSuccess: () => void
 }
 
+const defaultFormValues = {
+  firstName: "",
+  surname: "",
+  email: "",
+  role: "Owner",
+  phoneNumber: "",
+  address1: "",
+  address2: "",
+  city: "",
+  state: "",
+  pinCode: "",
+  level: "1",
+}
+
 export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = useState(false)
@@ -106,21 +126,17 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
   const isEdit = value?.mode === "edit"
   const editUser = value?.mode === "edit" ? value.user : null
 
+  const { data: stateLookups = [] } = useQuery({
+    queryKey: ["masterLookups", "state"],
+    queryFn: () => masterlookupService.getMasterLookupsByKey("STATE"),
+    enabled: value !== null,
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+  })
+
   const form = useForm<CreateFormData>({
     resolver: zodResolver(isEdit ? editSchema : createSchema),
-    defaultValues: {
-      firstName: "",
-      surname: "",
-      email: "",
-      role: "Owner",
-      phoneNumber: "",
-      address1: "",
-      address2: "",
-      city: "",
-      state: "",
-      pinCode: "",
-      level: "1",
-    },
+    defaultValues: defaultFormValues,
   })
 
   useEffect(() => {
@@ -142,19 +158,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
         level: "1",
       })
     } else {
-      form.reset({
-        firstName: "",
-        surname: "",
-        email: "",
-        role: "Owner",
-        phoneNumber: "",
-        address1: "",
-        address2: "",
-        city: "",
-        state: "",
-        pinCode: "",
-        level: "1",
-      })
+      form.reset(defaultFormValues)
     }
   }, [value, editUser?.id, form])
 
@@ -166,19 +170,22 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
   const onSubmit = async (data: CreateFormData) => {
     setErrorMessage(null)
     setSaving(true)
+    const commonPayload = {
+      firstName: data.firstName,
+      surname: data.surname,
+      email: data.email,
+      role: data.role,
+      phoneNumber: data.phoneNumber || null,
+      address1: data.address1 || null,
+      address2: data.address2 || null,
+      city: data.city || null,
+      state: data.state || null,
+      pinCode: data.pinCode || null,
+    }
     try {
       if (isEdit && editUser) {
         await userService.updateUser(editUser.id, {
-          firstName: data.firstName,
-          surname: data.surname,
-          email: data.email,
-          role: data.role,
-          phoneNumber: data.phoneNumber || null,
-          address1: data.address1 || null,
-          address2: data.address2 || null,
-          city: data.city || null,
-          state: data.state || null,
-          pinCode: data.pinCode || null,
+          ...commonPayload,
           level: data.level,
         })
         toast.success("User updated")
@@ -188,16 +195,16 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
           setSaving(false)
           return
         }
+        if (!data.confirmPassword) {
+          form.setError("confirmPassword", { message: "Confirm password is required" })
+          setSaving(false)
+          return
+        }
         const { confirmPassword: _, ...rest } = data
         await userService.createUser({
           ...rest,
+          ...commonPayload,
           password: data.password!,
-          phoneNumber: data.phoneNumber || null,
-          address1: data.address1 || null,
-          address2: data.address2 || null,
-          city: data.city || null,
-          state: data.state || null,
-          pinCode: data.pinCode || null,
         })
         toast.success("User created")
       }
@@ -237,7 +244,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
             <h3 className="text-sm font-medium mb-3">Basic information</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-sm font-medium mb-1 block">First name</label>
+                <label className="text-sm font-medium mb-1 block">First name <span className="text-destructive">*</span></label>
                 <input
                   {...form.register("firstName", {
                     onChange: (e) => {
@@ -245,6 +252,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                     },
                   })}
                   maxLength={225}
+                  placeholder="Enter first name"
                   className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
                 />
                 {form.formState.errors.firstName && (
@@ -252,7 +260,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Surname</label>
+                <label className="text-sm font-medium mb-1 block">Surname <span className="text-destructive">*</span></label>
                 <input
                   {...form.register("surname", {
                     onChange: (e) => {
@@ -260,6 +268,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                     },
                   })}
                   maxLength={225}
+                  placeholder="Enter surname"
                   className={cn(inputClass, form.formState.errors.surname && "border-destructive")}
                 />
                 {form.formState.errors.surname && (
@@ -267,11 +276,12 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Email</label>
+                <label className="text-sm font-medium mb-1 block">Email <span className="text-destructive">*</span></label>
                 <input
                   {...form.register("email")}
                   type="email"
                   maxLength={225}
+                  placeholder="Enter email"
                   className={cn(inputClass, form.formState.errors.email && "border-destructive")}
                 />
                 {form.formState.errors.email && (
@@ -279,14 +289,15 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Phone</label>
+                <label className="text-sm font-medium mb-1 block">Phone number</label>
                 <input
                   {...form.register("phoneNumber", {
                     onChange: (e) => {
                       e.target.value = sanitizePhone(e.target.value)
                     },
                   })}
-                  maxLength={15}
+                  maxLength={10}
+                  placeholder="Enter phone number"
                   className={inputClass}
                 />
                 {form.formState.errors.phoneNumber && (
@@ -294,7 +305,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Role</label>
+                <label className="text-sm font-medium mb-1 block">Role <span className="text-destructive">*</span></label>
                 <select {...form.register("role")} className={inputClass}>
                   {ROLES.map((r) => (
                     <option key={r} value={r}>{r}</option>
@@ -309,11 +320,12 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
               <h3 className="text-sm font-medium mb-3">Security</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Password</label>
+                  <label className="text-sm font-medium mb-1 block">Password <span className="text-destructive">*</span></label>
                   <input
                     {...form.register("password")}
                     type="password"
                     autoComplete="new-password"
+                    placeholder="Enter password"
                     className={cn(inputClass, form.formState.errors.password && "border-destructive")}
                   />
                   {form.formState.errors.password && (
@@ -321,11 +333,12 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Confirm password</label>
+                  <label className="text-sm font-medium mb-1 block">Confirm password <span className="text-destructive">*</span></label>
                   <input
                     {...form.register("confirmPassword")}
                     type="password"
                     autoComplete="new-password"
+                    placeholder="Confirm password"
                     className={cn(inputClass, form.formState.errors.confirmPassword && "border-destructive")}
                   />
                   {form.formState.errors.confirmPassword && (
@@ -344,6 +357,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("address1")}
                   maxLength={225}
+                  placeholder="Enter address line 1"
                   className={cn(inputClass, form.formState.errors.address1 && "border-destructive")}
                 />
                 {form.formState.errors.address1 && (
@@ -355,6 +369,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("address2")}
                   maxLength={225}
+                  placeholder="Enter address line 2"
                   className={cn(inputClass, form.formState.errors.address2 && "border-destructive")}
                 />
                 {form.formState.errors.address2 && (
@@ -369,6 +384,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                       e.target.value = sanitizeName(e.target.value)
                     },
                   })}
+                  placeholder="Enter city"
                   className={cn(inputClass, form.formState.errors.city && "border-destructive")}
                 />
                 {form.formState.errors.city && (
@@ -377,14 +393,17 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">State</label>
-                <input
-                  {...form.register("state", {
-                    onChange: (e) => {
-                      e.target.value = sanitizeName(e.target.value)
-                    },
-                  })}
+                <select
+                  {...form.register("state")}
                   className={cn(inputClass, form.formState.errors.state && "border-destructive")}
-                />
+                >
+                  <option value="">Select state</option>
+                  {stateLookups.map((s) => (
+                    <option key={s.id} value={s.lookupValue}>
+                      {s.lookupValue}
+                    </option>
+                  ))}
+                </select>
                 {form.formState.errors.state && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.state.message}</p>
                 )}
@@ -397,7 +416,8 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                       e.target.value = sanitizeZip(e.target.value)
                     },
                   })}
-                  maxLength={10}
+                  maxLength={6}
+                  placeholder="Enter zip code"
                   className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
                 />
                 {form.formState.errors.pinCode && (
