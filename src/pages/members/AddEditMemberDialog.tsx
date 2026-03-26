@@ -23,6 +23,7 @@ import TextField from "@mui/material/TextField"
 const phoneRegex = /^\d{10}$/
 const aadhaarRegex = /^\d{12}$/
 const pincodeRegex = /^\d{6}$/
+const sanitizeDigits = (value: string) => value.replace(/\D/g, "")
 
 function toDateInputValue(value: string | null | undefined): string {
   if (value == null || String(value).trim() === "") return ""
@@ -105,7 +106,11 @@ const baseFields = z
     // Guardian Details (required)
     guardianFirstName: z.string().min(1, "Guardian first name is required").max(100),
     guardianLastName: z.string().min(1, "Guardian surname is required").max(100),
-    guardianPhone: z.string().optional(),
+    guardianPhone: z
+      .string()
+      .optional()
+      .refine((val) => !val || /^\d+$/.test(val), { message: "Guardian phone can contain digits only" })
+      .refine((val) => !val || val.length === 10, { message: "Guardian phone must be exactly 10 digits" }),
     relationship: z.string().min(1, "Relationship is required"),
     relationshipOther: z.string().max(100, "Relationship must be 100 characters or less").optional(),
     guardianDOB: z
@@ -686,7 +691,11 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">Phone Number <span className="text-destructive">*</span></label>
                 <input
-                  {...form.register("phoneNumber")}
+                  {...form.register("phoneNumber", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeDigits(e.target.value)
+                    },
+                  })}
                   className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
@@ -699,7 +708,11 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">Aadhaar <span className="text-destructive">*</span></label>
                 <input
-                  {...form.register("aadhaar")}
+                  {...form.register("aadhaar", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeDigits(e.target.value)
+                    },
+                  })}
                   className={cn(inputClass, form.formState.errors.aadhaar && "border-destructive")}
                   inputMode="numeric"
                   maxLength={12}
@@ -712,7 +725,11 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">Alt phone</label>
                 <input
-                  {...form.register("altPhone")}
+                  {...form.register("altPhone", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeDigits(e.target.value)
+                    },
+                  })}
                   className={cn(inputClass, form.formState.errors.altPhone && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
@@ -776,7 +793,11 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">Pincode <span className="text-destructive">*</span></label>
                 <input
-                  {...form.register("zipCode")}
+                  {...form.register("zipCode", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeDigits(e.target.value)
+                    },
+                  })}
                   className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
                   placeholder="Enter 6-digit pincode"
                   inputMode="numeric"
@@ -895,12 +916,19 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">Phone Number</label>
                 <input
-                  {...form.register("guardianPhone")}
-                  className={inputClass}
+                  {...form.register("guardianPhone", {
+                    onChange: (e) => {
+                      e.target.value = sanitizeDigits(e.target.value)
+                    },
+                  })}
+                  className={cn(inputClass, form.formState.errors.guardianPhone && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="Enter phone number"
                 />
+                {form.formState.errors.guardianPhone && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.guardianPhone.message}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Relationship <span className="text-destructive">*</span></label>
