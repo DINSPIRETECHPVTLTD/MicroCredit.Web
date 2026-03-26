@@ -10,8 +10,8 @@ import type { CenterResponse } from "../../types/center"
 
 const baseFields = z.object({
     name: z.string().min(1, "Name is required"),
-    address: z.string().optional(),
-    city: z.string().optional(),
+    address: z.string().min(1, "Address is required"),
+    city: z.string().min(1, "City is required"),
 })
 
 type CreateFormData = z.infer<typeof baseFields>
@@ -112,21 +112,39 @@ export function AddEditCenterDialog({ value, onClose, onSuccess }: Props) {
 
                 <div className="space-y-4">
                     <div>
-                        <label className="text-sm font-medium mb-1 block">Center Name</label>
-                        <input {...form.register("name")} className={cn(inputClass, form.formState.errors.name && "border-destructive")} />
+                        <label className="text-sm font-medium mb-1 block">Center Name <span className="text-destructive">*</span></label>
+                        <input
+                            {...form.register("name")}
+                            placeholder="Enter center name"
+                            className={cn(inputClass, form.formState.errors.name && "border-destructive")}
+                        />
                         {form.formState.errors.name && (
                             <p className="text-xs text-destructive mt-1">{form.formState.errors.name.message}</p>
                         )}
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium mb-1 block">Address</label>
-                        <input {...form.register("address")} className={inputClass} />
+                        <label className="text-sm font-medium mb-1 block">Address <span className="text-destructive">*</span></label>
+                        <input
+                            {...form.register("address")}
+                            placeholder="Enter address"
+                            className={cn(inputClass, form.formState.errors.address && "border-destructive")}
+                        />
+                        {form.formState.errors.address && (
+                            <p className="text-xs text-destructive mt-1">{form.formState.errors.address.message}</p>
+                        )}
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium mb-1 block">City</label>
-                        <input {...form.register("city")} className={inputClass} />
+                        <label className="text-sm font-medium mb-1 block">City <span className="text-destructive">*</span></label>
+                        <input
+                            {...form.register("city")}
+                            placeholder="Enter city"
+                            className={cn(inputClass, form.formState.errors.city && "border-destructive")}
+                        />
+                        {form.formState.errors.city && (
+                            <p className="text-xs text-destructive mt-1">{form.formState.errors.city.message}</p>
+                        )}
                     </div>
                 </div>
 

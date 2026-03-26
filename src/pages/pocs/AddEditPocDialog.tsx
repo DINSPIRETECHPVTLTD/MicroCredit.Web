@@ -242,6 +242,7 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
               <input
                 {...form.register("firstName")}
                 className={cn(inputClass, form.formState.errors.firstName && "border-destructive")}
+                placeholder="Enter first name"
                 maxLength={100}
               />
               {form.formState.errors.firstName && (
@@ -250,13 +251,14 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Middle name</label>
-              <input {...form.register("middleName")} className={inputClass} maxLength={100} />
+              <input {...form.register("middleName")} className={inputClass} placeholder="Enter middle name" maxLength={100} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Last name <span className="text-destructive">*</span></label>
               <input
                 {...form.register("lastName")}
                 className={cn(inputClass, form.formState.errors.lastName && "border-destructive")}
+                placeholder="Enter last name"
                 maxLength={100}
               />
               {form.formState.errors.lastName && (
@@ -298,15 +300,15 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="text-sm font-medium mb-1 block">Address 1</label>
-              <input {...form.register("address1")} className={inputClass} maxLength={200} />
+              <input {...form.register("address1")} className={inputClass} placeholder="Enter address line 1" maxLength={200} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Address 2</label>
-              <input {...form.register("address2")} className={inputClass} maxLength={200} />
+              <input {...form.register("address2")} className={inputClass} placeholder="Enter address line 2" maxLength={200} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">City</label>
-              <input {...form.register("city")} className={inputClass} maxLength={100} />
+              <input {...form.register("city")} className={inputClass} placeholder="Enter city" maxLength={100} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">State</label>
@@ -321,7 +323,7 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-medium mb-1 block">Zip code</label>
-              <input {...form.register("zipCode")} className={inputClass} maxLength={10} />
+              <input {...form.register("zipCode")} className={inputClass} placeholder="Enter zip code" maxLength={10} />
             </div>
           </div>
         </section>
