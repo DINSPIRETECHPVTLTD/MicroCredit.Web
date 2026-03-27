@@ -9,6 +9,7 @@ import { loanService } from "@/services/loan.service"
 import { getOrganization } from "@/services/auth.service"
 import type { MemberResponse } from "@/types/member"
 import type { LoanAgreementMember, LoanScheduleWord } from "@/types/loanAgreement"
+import { buildPromissoryNoteHtml } from "@/templates/promissoryNoteTemplate"
 
 function toNum(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0
@@ -130,6 +131,7 @@ export default function MemberGrid({
 }: MemberGridProps) {
   const navigate = useNavigate()
   const [printingMemberId, setPrintingMemberId] = useState<number | null>(null)
+  const [printingPromissoryMemberId, setPrintingPromissoryMemberId] = useState<number | null>(null)
 
   const { data: branchLoans = [] } = useQuery({
     queryKey: ["loans", "list-for-member-grid"],
@@ -186,6 +188,31 @@ export default function MemberGrid({
     [navigate]
   )
 
+  const handleGeneratePromissoryPdf = useCallback((row: MemberResponse) => {
+    setPrintingPromissoryMemberId(row.id)
+    try {
+      const popup = window.open("", "_blank", "width=1200,height=900")
+      if (!popup) {
+        toast.error("Popup blocked. Allow popups to download PDF.")
+        return
+      }
+
+      const memberId = String(row.memberId ?? row.id)
+      const memberName = buildDisplayName(row)
+      const formattedDate = new Date().toLocaleDateString("en-IN")
+      const html = buildPromissoryNoteHtml(memberName, memberId, formattedDate)
+
+      popup.document.write(html)
+      popup.document.close()
+      popup.focus()
+      popup.print()
+    } catch {
+      toast.error("Failed to prepare promissory PDF.")
+    } finally {
+      setPrintingPromissoryMemberId(null)
+    }
+  }, [])
+
   const columns = useMemo<MRT_ColumnDef<MemberResponse>[]>(
     () => [
       {
@@ -238,11 +265,22 @@ export default function MemberGrid({
             onOpenSetInactive={() => onOpenSetInactive(row.original)}
             onOpenAddLoan={() => onOpenAddLoan(row.original)}
             onGeneratePdf={() => void handleGeneratePdf(row.original)}
+            onGeneratePromissoryPdf={() => handleGeneratePromissoryPdf(row.original)}
+            printingPromissory={printingPromissoryMemberId === row.original.id}
           />
         ),
       },
     ],
-    [printingMemberId, memberIdsWithLoan, onOpenEdit, onOpenSetInactive, onOpenAddLoan, handleGeneratePdf]
+    [
+      printingMemberId,
+      printingPromissoryMemberId,
+      memberIdsWithLoan,
+      onOpenEdit,
+      onOpenSetInactive,
+      onOpenAddLoan,
+      handleGeneratePdf,
+      handleGeneratePromissoryPdf,
+    ]
   )
 
   return (
@@ -311,14 +349,18 @@ function MemberRowActions({
   onOpenSetInactive,
   onOpenAddLoan,
   onGeneratePdf,
+  onGeneratePromissoryPdf,
   printing,
+  printingPromissory,
   hasLoan,
 }: {
   onOpenEdit: () => void
   onOpenSetInactive: () => void
   onOpenAddLoan: () => void
   onGeneratePdf: () => void
+  onGeneratePromissoryPdf: () => void
   printing: boolean
+  printingPromissory: boolean
   hasLoan: boolean
 }) {
   const pdfDisabled = printing || !hasLoan
@@ -346,6 +388,10 @@ function MemberRowActions({
       >
         <FileDown className="mr-1 h-4 w-4" />
         {printing ? "…" : "Generate PDF"}
+      </Button>
+      <Button variant="ghost" size="sm" type="button" onClick={onGeneratePromissoryPdf} disabled={printingPromissory}>
+        <FileDown className="mr-1 h-4 w-4" />
+        {printingPromissory ? "…" : "promisorydownloadasPDF"}
       </Button>
     </div>
   )
