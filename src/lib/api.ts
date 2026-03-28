@@ -176,4 +176,10 @@ export const api = {
       return `${getApiBase()}/RecoveryPosting/post`
     },
   },
+  report: {
+    pocsByBranch: (branchId: number) =>
+      `${getApiBase()}/Report/pocs-by-branch/${branchId}`,
+    membersByPoc: (branchId: number, pocId: number) =>
+      `${getApiBase()}/Report/members-by-poc/${branchId}/${pocId}`,
+  },
 }
