@@ -197,6 +197,8 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
   return fallback
 }
 
+const aadhaarDuplicateMessage = "Member already exists with this Aadhaar number."
+
 function firstFieldErrorMessage(errors: FieldErrors<CreateFormData>): string | undefined {
   for (const v of Object.values(errors)) {
     if (v == null) continue
@@ -228,6 +230,7 @@ function normalizeRelationshipForForm(
 export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = React.useState(false)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
   const isEdit = value?.mode === "edit"
   const editMember = isEdit && value ? value.member : null
@@ -503,6 +506,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   })
 
   const onSubmit = async (data: CreateFormData) => {
+    setErrorMessage(null)
     const age = calculateAgeFromIso(data.dob)
     if (age == null || age < 18) {
       form.setError("dob", { type: "manual", message: "Age must be at least 18 years" })
@@ -546,7 +550,14 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
       onSuccess()
       close()
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, isEdit ? "Failed to update member" : "Failed to create member"))
+      const message = getApiErrorMessage(err, isEdit ? "Failed to update member" : "Failed to create member")
+      if (message.toLowerCase().includes("aadhaar") && message.toLowerCase().includes("already exists")) {
+        form.setError("aadhaar", { type: "manual", message: aadhaarDuplicateMessage })
+        setErrorMessage(aadhaarDuplicateMessage)
+        return
+      }
+      setErrorMessage(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -1008,6 +1019,10 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               </div>
             </div>
           </section>
+
+          {errorMessage && (
+            <p className="text-sm text-destructive">{errorMessage}</p>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 p-6 border-t shrink-0">
