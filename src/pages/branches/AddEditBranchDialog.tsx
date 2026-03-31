@@ -25,12 +25,12 @@ const citySchema = alphanumericWithSpacesMax200Schema.min(1, "City is required")
 
 const addressSchema = z.string().max(500, "Address must be at most 500 characters")
 const sanitizePhone = (value: string) => value.replace(/\D/g, "").slice(0, 10)
-const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 5)
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
 
 const zipcodeSchema = z
     .string()
-    .length(5, "Pin code must be exactly 5 digits")
-    .regex(/^\d+$/, "Numeric only; exactly 5 digits")
+    .length(6, "Pin code must be exactly 6 digits")
+    .regex(/^\d+$/, "Numeric only; exactly 6 digits")
 
 const phoneSchema = z
     .string()
@@ -258,7 +258,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                                 })}
                                 type="text"
                                 inputMode="numeric"
-                                maxLength={5}
+                                maxLength={6}
                                 className={cn(inputClass, form.formState.errors.zipcode && "border-destructive")}
                                 placeholder="Enter Zip Code"
                                 onKeyDown={(e) => {

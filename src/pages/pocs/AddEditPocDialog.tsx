@@ -24,7 +24,7 @@ import type { MasterLookupResponse } from "@/types/masterLookup"
 // phoneRegex: exactly 10 digits (used for Phone and Alt phone).
 // -----------------------------------------------------------------------------
 const sanitizePhone = (value: string) => value.replace(/\D/g, "").slice(0, 10)
-const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 5)
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
 
 type PocFormOptions = {
   usersData: UserResponse[]
@@ -74,7 +74,7 @@ const baseFields = z.object({
   zipCode: z
     .string()
     .optional()
-    .refine((val) => !val || /^\d{5}$/.test(val), { message: "Zip code must be exactly 5 digits" }),
+    .refine((val) => !val || /^\d{6}$/.test(val), { message: "Zip code must be exactly 6 digits" }),
   collectionDay: z.string().min(1, "Collection day is required"),
   collectionFrequency: z.string().min(1, "Frequency is required"),
   collectionBy: z
@@ -383,8 +383,8 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
                 })}
                 className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
                 inputMode="numeric"
-                minLength={5}
-                maxLength={5}
+                minLength={6}
+                maxLength={6}
                 placeholder="Enter zip code"
                 onKeyDown={(e) => {
                   const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]

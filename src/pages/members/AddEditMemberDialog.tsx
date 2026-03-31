@@ -22,7 +22,7 @@ import TextField from "@mui/material/TextField"
 
 const phoneRegex = /^[6-9]\d{9}$/
 const aadhaarRegex = /^\d{12}$/
-const pincodeRegex = /^\d{5}$/
+const pincodeRegex = /^\d{6}$/
 const sanitizeDigits = (value: string, maxLength?: number) => {
   const digits = value.replace(/\D/g, "")
   return typeof maxLength === "number" ? digits.slice(0, maxLength) : digits
@@ -99,7 +99,7 @@ const baseFields = z
       .string()
       .min(1, "Pincode is required")
       .transform((s) => s.trim())
-      .refine((s) => pincodeRegex.test(s), "Pincode must be exactly 5 digits"),
+      .refine((s) => pincodeRegex.test(s), "Pincode must be exactly 6 digits"),
     // Member Entry Joining Fee — validated in superRefine only when formMode === "add"
     paymentMode: z.string().optional(),
     joiningFeeAmount: z.union([z.string(), z.number()]).optional(),
@@ -807,13 +807,13 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("zipCode", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value, 5)
+                      e.target.value = sanitizeDigits(e.target.value, 6)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
-                  placeholder="Enter 5-digit pincode"
+                  placeholder="Enter 6-digit pincode"
                   inputMode="numeric"
-                  maxLength={5}
+                  maxLength={6}
                   onKeyDown={(e) => {
                     const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
                     if (allowedKeys.includes(e.key)) return

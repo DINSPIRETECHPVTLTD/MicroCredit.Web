@@ -17,7 +17,7 @@ const sanitizePhone = (value: string) => {
   const digits = value.replace(/\D/g, "").slice(0, 10)
   return digits
 }
-const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 5)
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
 const passwordValidationMessage =
   "Password must be at least 8 characters and include uppercase, lowercase, number, special character (@$!%*?&#), and no spaces"
@@ -66,8 +66,8 @@ const baseFields = {
     .string()
     .optional()
     .refine(
-      (val) => !val || /^\d{5}$/.test(val),
-      { message: "Zip code must be exactly 5 digits" }
+      (val) => !val || /^\d{6}$/.test(val),
+      { message: "Zip code must be exactly 6 digits" }
     ),
   level: z.string().min(1, "Level is required"),
 }
@@ -466,7 +466,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                       e.target.value = sanitizeZip(e.target.value)
                     },
                   })}
-                  maxLength={5}
+                  maxLength={6}
                   placeholder="Enter zip code"
                   className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
                   onKeyDown={(e) => {

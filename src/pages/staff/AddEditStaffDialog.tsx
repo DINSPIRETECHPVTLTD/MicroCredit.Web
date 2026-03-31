@@ -13,7 +13,7 @@ import toast from "react-hot-toast"
 const alphaNumericRegex = /^[A-Za-z0-9 ]+$/
 const alphabeticRegex = /^[A-Za-z ]+$/
 const sanitizePhone = (value: string) => value.replace(/\D/g, "").slice(0, 10)
-const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 5)
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
 
 const baseFields = {
     firstName: z
@@ -51,8 +51,8 @@ const baseFields = {
         .string()
         .optional()
         .refine(
-            (val) => !val || /^\d{5}$/.test(val),
-            { message: "Zip code must be exactly 5 digits" },
+            (val) => !val || /^\d{6}$/.test(val),
+            { message: "Zip code must be exactly 6 digits" },
         ),
 }
 
@@ -392,7 +392,7 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                     })}
                                     placeholder="Enter zip code"
                                     inputMode="numeric"
-                                    maxLength={5}
+                                    maxLength={6}
                                     className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
                                     onKeyDown={(e) => {
                                         const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
