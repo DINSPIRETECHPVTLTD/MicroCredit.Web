@@ -14,6 +14,11 @@ const alphaNumericRegex = /^[A-Za-z0-9 ]+$/
 const alphabeticRegex = /^[A-Za-z ]+$/
 const sanitizePhone = (value: string) => value.replace(/\D/g, "").slice(0, 10)
 const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
+const passwordValidationMessage =
+    "Password must be at least 8 characters and include uppercase, lowercase, number, special character (@$!%*?&#), and no spaces"
+const duplicateRecordMessage = "A record with the same unique value already exists."
+const duplicateEmailUiMessage = "Email already exists. Please use a different email."
 
 const baseFields = {
     firstName: z
@@ -59,7 +64,10 @@ const baseFields = {
 const createSchema = z
     .object({
         ...baseFields,
-        password: z.string().min(6, "Password must be at least 6 characters").optional(),
+        password: z
+            .string()
+            .min(1, "Password is required")
+            .regex(passwordRegex, passwordValidationMessage),
         confirmPassword: z.string().optional(),
     })
     .refine(
@@ -154,6 +162,12 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
         onClose()
     }
 
+    const extractApiMessage = (err: unknown) => {
+        const responseData = (err as { response?: { data?: { message?: string; error?: string } } })
+            ?.response?.data
+        return responseData?.message ?? responseData?.error ?? ""
+    }
+
     const onSubmit = async (data: CreateFormData) => {
         setErrorMessage(null)
         setSaving(true)
@@ -173,8 +187,8 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                 })
                 toast.success("Staff updated")
             } else {
-                if (!data.password) {
-                    form.setError("password", { message: "Password is required" })
+                if (!data.confirmPassword) {
+                    form.setError("confirmPassword", { message: "Confirm password is required" })
                     setSaving(false)
                     return
                 }
@@ -194,12 +208,36 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
             onSuccess()
             close()
         } catch (err: unknown) {
-            const msg =
-                (err as { response?: { data?: { message?: string } } })?.response?.data
-                    ?.message ?? "Something went wrong."
+            const apiMessage = extractApiMessage(err)
+            const isDuplicateError =
+                apiMessage.toLowerCase().includes(duplicateRecordMessage.toLowerCase()) ||
+                apiMessage.toLowerCase().includes("already exists") ||
+                apiMessage.toLowerCase().includes("duplicate")
+
+            if (isDuplicateError) {
+                form.setError("email", { message: duplicateEmailUiMessage })
+                setErrorMessage(`${duplicateEmailUiMessage} (Unique field: Email)`)
+                toast.error(`${duplicateEmailUiMessage} (Unique field: Email)`)
+                return
+            }
+
+            const msg = apiMessage || "Something went wrong."
             setErrorMessage(msg)
+            toast.error(msg)
         } finally {
             setSaving(false)
+        }
+    }
+
+    const onInvalid = (errors: typeof form.formState.errors) => {
+        const passwordError = errors.password?.message
+        if (passwordError) {
+            toast.error(passwordError)
+            return
+        }
+        const firstError = Object.values(errors)[0]?.message
+        if (firstError) {
+            toast.error(firstError)
         }
     }
 
@@ -218,7 +256,7 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                 </h2>
             </div>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={form.handleSubmit(onSubmit, onInvalid)}
                 className="flex flex-col min-h-0 overflow-hidden"
             >
                 <div className="p-6 overflow-y-auto space-y-6 flex-1">
