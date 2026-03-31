@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
-import { GuestRoute } from "@/components/GuestRoute"
+import { isAuthenticated } from "@/services/auth.service"
 import DashboardLayout from "@/components/DashboardLayout"
-import Home from "@/pages/Home"
 import Login from "@/pages/Login"
 import Placeholder from "@/pages/Placeholder"
 import BranchList from "@/pages/branches/BranchList"
@@ -23,6 +22,7 @@ import LoanPrepayment from "./pages/loan/LoanPrepayment"
 import LoanSchedulerList from "./pages/loanScheduler/LoanSchedulerList"
 import RecoveryPostingList from "./pages/recoveryPosting/RecoveryPostingList"
 import LoanPrintPage from "@/pages/loan/LoanPrintPage"
+import DashboardPage from "@/pages/dashboard/DashboardPage"
 
 function App() {
   return (
@@ -31,9 +31,11 @@ function App() {
         <Route
           path="/login"
           element={
-            <GuestRoute>
+            isAuthenticated() ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
               <Login />
-            </GuestRoute>
+            )
           }
         />
         <Route
@@ -44,7 +46,8 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Home />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="users" element={<UserList />} />
           <Route path="users/new" element={<Navigate to="/users" replace />} />
           <Route path="users/:id/edit" element={<Navigate to="/users" replace />} />

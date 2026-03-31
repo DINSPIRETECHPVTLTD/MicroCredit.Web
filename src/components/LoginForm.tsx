@@ -27,7 +27,7 @@ export default function LoginForm() {
     setIsLoading(true)
     try {
       await authService.login(data)
-      navigate("/", { replace: true })
+      navigate("/dashboard", { replace: true })
     } catch (err: unknown) {
       const message =
         (err as Error)?.message ??
