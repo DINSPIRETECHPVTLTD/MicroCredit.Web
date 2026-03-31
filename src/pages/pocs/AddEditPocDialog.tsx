@@ -23,8 +23,8 @@ import type { MasterLookupResponse } from "@/types/masterLookup"
 // Validation schema (Zod): defines required/optional fields and rules for the form.
 // phoneRegex: exactly 10 digits (used for Phone and Alt phone).
 // -----------------------------------------------------------------------------
-const sanitizePhone = (value: string) => value.replace(/\D/g, "")
-const sanitizeZip = (value: string) => value.replace(/\D/g, "")
+const sanitizePhone = (value: string) => value.replace(/\D/g, "").slice(0, 10)
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
 
 type PocFormOptions = {
   usersData: UserResponse[]
@@ -62,13 +62,11 @@ const baseFields = z.object({
   phoneNumber: z
     .string()
     .min(1, "Phone is required")
-    .refine((val) => /^\d+$/.test(val), { message: "Phone can contain digits only" })
-    .refine((val) => val.length === 10, { message: "Phone must be exactly 10 digits" }),
+    .refine((val) => /^[6-9]\d{9}$/.test(val), { message: "Invalid mobile number" }),
   altPhone: z
     .string()
     .optional()
-    .refine((val) => !val || /^\d+$/.test(val), { message: "Alt phone can contain digits only" })
-    .refine((val) => !val || val.length === 10, { message: "Alt phone must be exactly 10 digits" }),
+    .refine((val) => !val || /^[6-9]\d{9}$/.test(val), { message: "Invalid mobile number" }),
   address1: z.string().max(200, "Address must be 200 characters or less").optional(),
   address2: z.string().max(200, "Address must be 200 characters or less").optional(),
   city: z.string().max(100, "City must be 100 characters or less").optional(),
@@ -76,8 +74,7 @@ const baseFields = z.object({
   zipCode: z
     .string()
     .optional()
-    .refine((val) => !val || /^\d+$/.test(val), { message: "Zip code can contain digits only" })
-    .refine((val) => !val || val.length === 6, { message: "Zip code must be exactly 6 digits" }),
+    .refine((val) => !val || /^\d{6}$/.test(val), { message: "Zip code must be exactly 6 digits" }),
   collectionDay: z.string().min(1, "Collection day is required"),
   collectionFrequency: z.string().min(1, "Frequency is required"),
   collectionBy: z
@@ -313,6 +310,11 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
                 minLength={10}
                 maxLength={10}
                 placeholder="Enter phone number"
+                onKeyDown={(e) => {
+                  const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                  if (allowedKeys.includes(e.key)) return
+                  if (!/^\d$/.test(e.key)) e.preventDefault()
+                }}
               />
               {form.formState.errors.phoneNumber && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
@@ -331,6 +333,11 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
                 minLength={10}
                 maxLength={10}
                 placeholder="Enter phone number"
+                onKeyDown={(e) => {
+                  const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                  if (allowedKeys.includes(e.key)) return
+                  if (!/^\d$/.test(e.key)) e.preventDefault()
+                }}
               />
               {form.formState.errors.altPhone && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.altPhone.message}</p>
@@ -379,6 +386,11 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
                 minLength={6}
                 maxLength={6}
                 placeholder="Enter zip code"
+                onKeyDown={(e) => {
+                  const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                  if (allowedKeys.includes(e.key)) return
+                  if (!/^\d$/.test(e.key)) e.preventDefault()
+                }}
               />
               {form.formState.errors.zipCode && (
                 <p className="text-xs text-destructive mt-1">{form.formState.errors.zipCode.message}</p>

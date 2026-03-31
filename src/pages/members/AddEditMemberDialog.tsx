@@ -20,10 +20,13 @@ import type { UserResponse } from "@/types/user"
 import Autocomplete from "@mui/material/Autocomplete"
 import TextField from "@mui/material/TextField"
 
-const phoneRegex = /^\d{10}$/
+const phoneRegex = /^[6-9]\d{9}$/
 const aadhaarRegex = /^\d{12}$/
 const pincodeRegex = /^\d{6}$/
-const sanitizeDigits = (value: string) => value.replace(/\D/g, "")
+const sanitizeDigits = (value: string, maxLength?: number) => {
+  const digits = value.replace(/\D/g, "")
+  return typeof maxLength === "number" ? digits.slice(0, maxLength) : digits
+}
 
 function toDateInputValue(value: string | null | undefined): string {
   if (value == null || String(value).trim() === "") return ""
@@ -77,7 +80,7 @@ const baseFields = z
       .string()
       .min(1, "Phone is required")
       .transform((s) => s.trim())
-      .refine((s) => phoneRegex.test(s), "Phone must be exactly 10 digits"),
+      .refine((s) => phoneRegex.test(s), "Invalid mobile number"),
     aadhaar: z
       .string()
       .min(1, "Aadhaar is required")
@@ -86,7 +89,7 @@ const baseFields = z
     altPhone: z
       .string()
       .optional()
-      .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Alt phone must be exactly 10 digits"),
+      .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Invalid mobile number"),
     // Address Details
     address1: z.string().min(1, "Address line 1 is required").max(200, "Address must be 200 characters or less"),
     address2: z.string().max(200, "Address must be 200 characters or less").optional(),
@@ -109,8 +112,7 @@ const baseFields = z
     guardianPhone: z
       .string()
       .optional()
-      .refine((val) => !val || /^\d+$/.test(val), { message: "Guardian phone can contain digits only" })
-      .refine((val) => !val || val.length === 10, { message: "Guardian phone must be exactly 10 digits" }),
+      .refine((val) => !val || phoneRegex.test(val), { message: "Invalid mobile number" }),
     relationship: z.string().min(1, "Relationship is required"),
     relationshipOther: z.string().max(100, "Relationship must be 100 characters or less").optional(),
     guardianDOB: z
@@ -195,6 +197,9 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
   return fallback
 }
 
+const aadhaarDuplicateMessage = "Member already exists with this Aadhaar number."
+const duplicateRecordMessage = "A record with the same unique value already exists."
+
 function firstFieldErrorMessage(errors: FieldErrors<CreateFormData>): string | undefined {
   for (const v of Object.values(errors)) {
     if (v == null) continue
@@ -226,6 +231,7 @@ function normalizeRelationshipForForm(
 export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = React.useState(false)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
   const isEdit = value?.mode === "edit"
   const editMember = isEdit && value ? value.member : null
@@ -501,6 +507,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   })
 
   const onSubmit = async (data: CreateFormData) => {
+    setErrorMessage(null)
     const age = calculateAgeFromIso(data.dob)
     if (age == null || age < 18) {
       form.setError("dob", { type: "manual", message: "Age must be at least 18 years" })
@@ -544,7 +551,17 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
       onSuccess()
       close()
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, isEdit ? "Failed to update member" : "Failed to create member"))
+      const message = getApiErrorMessage(err, isEdit ? "Failed to update member" : "Failed to create member")
+      if (
+        message.toLowerCase().includes("aadhaar") && message.toLowerCase().includes("already exists") ||
+        message.toLowerCase().includes(duplicateRecordMessage.toLowerCase())
+      ) {
+        form.setError("aadhaar", { type: "manual", message: aadhaarDuplicateMessage })
+        setErrorMessage(aadhaarDuplicateMessage)
+        return
+      }
+      setErrorMessage(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -693,13 +710,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("phoneNumber", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 10)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="Enter phone number"
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.phoneNumber && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
@@ -727,13 +749,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("altPhone", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 10)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.altPhone && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="10 digits"
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.altPhone && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.altPhone.message}</p>
@@ -795,13 +822,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("zipCode", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 6)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
                   placeholder="Enter 6-digit pincode"
                   inputMode="numeric"
                   maxLength={6}
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.zipCode && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.zipCode.message}</p>
@@ -918,13 +950,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("guardianPhone", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 10)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.guardianPhone && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="Enter phone number"
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.guardianPhone && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.guardianPhone.message}</p>
@@ -986,6 +1023,10 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               </div>
             </div>
           </section>
+
+          {errorMessage && (
+            <p className="text-sm text-destructive">{errorMessage}</p>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 p-6 border-t shrink-0">

@@ -24,6 +24,8 @@ const alphanumericWithSpacesMax200Schema = z
 const citySchema = alphanumericWithSpacesMax200Schema.min(1, "City is required")
 
 const addressSchema = z.string().max(500, "Address must be at most 500 characters")
+const sanitizePhone = (value: string) => value.replace(/\D/g, "").slice(0, 10)
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
 
 const zipcodeSchema = z
     .string()
@@ -32,8 +34,7 @@ const zipcodeSchema = z
 
 const phoneSchema = z
     .string()
-    .length(10, "Phone must be exactly 10 digits")
-    .regex(/^\d+$/, "Numeric only; exactly 10 digits")
+    .regex(/^[6-9]\d{9}$/, "Invalid mobile number")
 
 const baseFields = z.object({
     name: branchNameSchema,
@@ -250,12 +251,21 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                         <div>
                             <label className="text-sm font-medium mb-1 block">Zip Code <span className="text-destructive">*</span></label>
                             <input
-                                {...form.register("zipcode")}
+                                {...form.register("zipcode", {
+                                    onChange: (e) => {
+                                        e.target.value = sanitizeZip(e.target.value)
+                                    },
+                                })}
                                 type="text"
                                 inputMode="numeric"
                                 maxLength={6}
                                 className={cn(inputClass, form.formState.errors.zipcode && "border-destructive")}
                                 placeholder="Enter Zip Code"
+                                onKeyDown={(e) => {
+                                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                                    if (allowedKeys.includes(e.key)) return
+                                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                                }}
                             />
                             {form.formState.errors.zipcode && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.zipcode.message}</p>
@@ -264,12 +274,21 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
                         <div>
                             <label className="text-sm font-medium mb-1 block">Phone number <span className="text-destructive">*</span></label>
                             <input
-                                {...form.register("phoneNumber")}
+                                {...form.register("phoneNumber", {
+                                    onChange: (e) => {
+                                        e.target.value = sanitizePhone(e.target.value)
+                                    },
+                                })}
                                 type="text"
                                 inputMode="numeric"
                                 maxLength={10}
                                 className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
                                 placeholder="Enter phone"
+                                onKeyDown={(e) => {
+                                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                                    if (allowedKeys.includes(e.key)) return
+                                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                                }}
                             />
                             {form.formState.errors.phoneNumber && (
                                 <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>

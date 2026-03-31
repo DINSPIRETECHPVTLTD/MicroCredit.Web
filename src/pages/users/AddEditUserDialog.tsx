@@ -13,8 +13,16 @@ import toast from "react-hot-toast"
 const nameRegex = /^[A-Za-z ]+$/
 
 const sanitizeName = (value: string) => value.replace(/[^A-Za-z ]/g, "")
-const sanitizePhone = (value: string) => value.replace(/\D/g, "")
-const sanitizeZip = (value: string) => value.replace(/\D/g, "")
+const sanitizePhone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 10)
+  return digits
+}
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 6)
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
+const passwordValidationMessage =
+  "Password must be at least 8 characters and include uppercase, lowercase, number, special character (@$!%*?&#), and no spaces"
+const duplicateRecordMessage = "A record with the same unique value already exists."
+const duplicateEmailUiMessage = "Email already exists. Please use a different email."
 
 const baseFields = {
   firstName: z
@@ -37,12 +45,8 @@ const baseFields = {
     .string()
     .optional()
     .refine(
-      (val) => !val || /^\d+$/.test(val),
-      { message: "Phone can contain digits only" }
-    )
-    .refine(
-      (val) => !val || val.length === 10,
-      { message: "Phone must be exactly 10 digits" }
+      (val) => !val || /^[6-9]\d{9}$/.test(val),
+      { message: "Invalid mobile number" }
     ),
   address1: z.string().max(225, "Address 1 must be at most 225 characters").optional(),
   address2: z.string().max(225, "Address 2 must be at most 225 characters").optional(),
@@ -62,11 +66,7 @@ const baseFields = {
     .string()
     .optional()
     .refine(
-      (val) => !val || /^\d+$/.test(val),
-      { message: "Zip code can contain digits only" }
-    )
-    .refine(
-      (val) => !val || val.length === 6,
+      (val) => !val || /^\d{6}$/.test(val),
       { message: "Zip code must be exactly 6 digits" }
     ),
   level: z.string().min(1, "Level is required"),
@@ -75,13 +75,43 @@ const baseFields = {
 const createSchema = z
   .object({
     ...baseFields,
-    password: z.string().min(6, "Password must be at least 6 characters").optional(),
+    password: z
+      .string()
+      .optional(),
     confirmPassword: z.string().optional(),
   })
-  .refine(
-    (data) => !data.password || data.password === data.confirmPassword,
-    { message: "Passwords do not match", path: ["confirmPassword"] }
-  )
+  .superRefine((data, ctx) => {
+    if (!data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Password is required",
+        path: ["password"],
+      })
+    } else if (!passwordRegex.test(data.password)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: passwordValidationMessage,
+        path: ["password"],
+      })
+    }
+
+    if (!data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Confirm password is required",
+        path: ["confirmPassword"],
+      })
+      return
+    }
+
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      })
+    }
+  })
 
 const editSchema = z.object({
   ...baseFields,
@@ -94,7 +124,12 @@ type CreateFormData = z.infer<typeof createSchema>
 const inputClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
-const ROLES = ["Owner", "Investor", "BRANCH_ADMIN", "STAFF", "BRANCH_USER"]
+const ROLE_OPTIONS = [
+  { label: "Owner", value: "Owner" },
+  { label: "Investor", value: "Investor" },
+  { label: "Branch Admin", value: "BranchAdmin" },
+  { label: "Staff", value: "Staff" },
+]
 
 export type AddEditUserDialogMode = { mode: "add" } | { mode: "edit"; user: UserResponse }
 
@@ -167,6 +202,12 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
     onClose()
   }
 
+  const extractApiMessage = (err: unknown) => {
+    const responseData = (err as { response?: { data?: { message?: string; error?: string } } })
+      ?.response?.data
+    return responseData?.message ?? responseData?.error ?? ""
+  }
+
   const onSubmit = async (data: CreateFormData) => {
     setErrorMessage(null)
     setSaving(true)
@@ -190,11 +231,6 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
         })
         toast.success("User updated")
       } else {
-        if (!data.password) {
-          form.setError("password", { message: "Password is required" })
-          setSaving(false)
-          return
-        }
         if (!data.confirmPassword) {
           form.setError("confirmPassword", { message: "Confirm password is required" })
           setSaving(false)
@@ -211,13 +247,36 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
       onSuccess()
       close()
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Something went wrong while creating/updating the user."
+      const apiMessage = extractApiMessage(err)
+      const isDuplicateError =
+        apiMessage.toLowerCase().includes(duplicateRecordMessage.toLowerCase()) ||
+        apiMessage.toLowerCase().includes("already exists") ||
+        apiMessage.toLowerCase().includes("duplicate")
+
+      if (isDuplicateError) {
+        form.setError("email", { message: duplicateEmailUiMessage })
+        setErrorMessage(`${duplicateEmailUiMessage} (Unique field: Email)`)
+        toast.error(`${duplicateEmailUiMessage} (Unique field: Email)`)
+        return
+      }
+
+      const msg = apiMessage || "Something went wrong while creating/updating the user."
       setErrorMessage(msg)
       toast.error(msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const onInvalid = (errors: typeof form.formState.errors) => {
+    const passwordError = errors.password?.message
+    if (passwordError) {
+      toast.error(passwordError)
+      return
+    }
+    const firstError = Object.values(errors)[0]?.message
+    if (firstError) {
+      toast.error(firstError)
     }
   }
 
@@ -236,7 +295,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
         </h2>
       </div>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={form.handleSubmit(onSubmit, onInvalid)}
         className="flex flex-col min-h-0 overflow-hidden"
       >
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
@@ -298,7 +357,23 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                   })}
                   maxLength={10}
                   placeholder="Enter phone number"
-                  className={inputClass}
+                  className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
+                  onKeyDown={(e) => {
+                    const allowedKeys = [
+                      "Backspace",
+                      "Tab",
+                      "ArrowLeft",
+                      "ArrowRight",
+                      "Delete",
+                    ]
+                    if (allowedKeys.includes(e.key)) return
+
+                    const isDigit = /^\d$/.test(e.key)
+
+                    if (!isDigit) {
+                      e.preventDefault()
+                    }
+                  }}
                 />
                 {form.formState.errors.phoneNumber && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
@@ -307,8 +382,10 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
               <div>
                 <label className="text-sm font-medium mb-1 block">Role <span className="text-destructive">*</span></label>
                 <select {...form.register("role")} className={inputClass}>
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>{r}</option>
+                  {ROLE_OPTIONS.map((roleOption) => (
+                    <option key={roleOption.value} value={roleOption.value}>
+                      {roleOption.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -419,6 +496,21 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
                   maxLength={6}
                   placeholder="Enter zip code"
                   className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
+                  onKeyDown={(e) => {
+                    const allowedKeys = [
+                      "Backspace",
+                      "Tab",
+                      "ArrowLeft",
+                      "ArrowRight",
+                      "Delete",
+                    ]
+                    if (allowedKeys.includes(e.key)) return
+
+                    const isDigit = /^\d$/.test(e.key)
+                    if (!isDigit) {
+                      e.preventDefault()
+                    }
+                  }}
                 />
                 {form.formState.errors.pinCode && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.pinCode.message}</p>
