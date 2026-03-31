@@ -353,6 +353,12 @@ function BranchReportDashboard() {
     queryFn: () => reportService.getPocsByBranch(branchId!),
   })
 
+  const pocErrorMessage = useMemo(
+    () => (isError && error ? getApiErrorMessage(error, "") : ""),
+    [isError, error]
+  )
+  const noPocInBranchError = pocErrorMessage.toLowerCase().includes("no poc in current branch")
+
   const pocs = pocsRaw ?? EMPTY_POCS
 
   const pocIds = useMemo(() => {
@@ -433,9 +439,10 @@ function BranchReportDashboard() {
 
   useEffect(() => {
     if (isError && error) {
+      if (noPocInBranchError) return
       toast.error(getApiErrorMessage(error, "Failed to load POC report"))
     }
-  }, [isError, error])
+  }, [isError, error, noPocInBranchError])
 
   const handleRefreshAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
@@ -608,12 +615,18 @@ function BranchReportDashboard() {
       {isLoading && pocs.length === 0 ? (
         <DashboardSkeleton />
       ) : isError ? (
+        noPocInBranchError ? (
+          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+            No POCs
+          </div>
+        ) : (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
           <p className="font-medium text-destructive">Could not load dashboard data.</p>
           <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
             Try again
           </Button>
         </div>
+        )
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

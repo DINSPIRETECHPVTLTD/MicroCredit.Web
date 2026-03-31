@@ -198,6 +198,7 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 }
 
 const aadhaarDuplicateMessage = "Member already exists with this Aadhaar number."
+const duplicateRecordMessage = "A record with the same unique value already exists."
 
 function firstFieldErrorMessage(errors: FieldErrors<CreateFormData>): string | undefined {
   for (const v of Object.values(errors)) {
@@ -551,7 +552,10 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
       close()
     } catch (err: unknown) {
       const message = getApiErrorMessage(err, isEdit ? "Failed to update member" : "Failed to create member")
-      if (message.toLowerCase().includes("aadhaar") && message.toLowerCase().includes("already exists")) {
+      if (
+        message.toLowerCase().includes("aadhaar") && message.toLowerCase().includes("already exists") ||
+        message.toLowerCase().includes(duplicateRecordMessage.toLowerCase())
+      ) {
         form.setError("aadhaar", { type: "manual", message: aadhaarDuplicateMessage })
         setErrorMessage(aadhaarDuplicateMessage)
         return

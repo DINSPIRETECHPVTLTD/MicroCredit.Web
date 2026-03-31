@@ -77,14 +77,41 @@ const createSchema = z
     ...baseFields,
     password: z
       .string()
-      .min(1, "Password is required")
-      .regex(passwordRegex, passwordValidationMessage),
+      .optional(),
     confirmPassword: z.string().optional(),
   })
-  .refine(
-    (data) => !data.password || data.password === data.confirmPassword,
-    { message: "Passwords do not match", path: ["confirmPassword"] }
-  )
+  .superRefine((data, ctx) => {
+    if (!data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Password is required",
+        path: ["password"],
+      })
+    } else if (!passwordRegex.test(data.password)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: passwordValidationMessage,
+        path: ["password"],
+      })
+    }
+
+    if (!data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Confirm password is required",
+        path: ["confirmPassword"],
+      })
+      return
+    }
+
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      })
+    }
+  })
 
 const editSchema = z.object({
   ...baseFields,
