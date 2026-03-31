@@ -11,10 +11,19 @@ export interface PocBranchReportRow {
 }
 
 export interface MemberByPocReportRow {
+  pocId: number
   memberId: string
   memberName: string
+  /** Scheduled due EMI amount (API field naming varies). */
+  due: number
+  /** Actual EMI amount paid/collected (API field naming varies). */
+  actualEmi: number
+  /**
+   * Back-compat alias for existing UI columns.
+   * Prefer `actualEmi` for new logic.
+   */
   amountPaid: number
-  /** Schedule due datetime from API (ISO string). Used for today / tomorrow EMI window. */
+  /** Schedule due datetime / key from API (ISO string or `YYYY-MM-DD`). */
   scheduleDate: string | null
   statusRaw: string | boolean | null | undefined
 }

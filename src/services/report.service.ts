@@ -75,6 +75,9 @@ function normalizePocRow(raw: Record<string, unknown>): PocBranchReportRow | nul
 
 /** Normalize one member row from Report/members-by-poc. */
 function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow | null {
+  const pocId = pickId(raw.pocId ?? raw.PocId ?? raw.pocID ?? raw.PocID ?? raw.pocid)
+  if (!pocId) return null
+
   const memberId = pickStr(
     raw.memberId ?? raw.MemberId ?? raw.code ?? raw.Code ?? raw.id ?? raw.Id
   )
@@ -102,6 +105,19 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
       raw.WeeklyDue
   )
 
+  const due = pickNum(
+    raw.due ?? raw.Due ?? raw.amountDue ?? raw.AmountDue ?? raw.weeklyDue ?? raw.WeeklyDue
+  )
+
+  const actualEmi = pickNum(
+    raw.actualEmi ??
+      raw.ActualEmi ??
+      raw.actualEmiAmount ??
+      raw.ActualEmiAmount ??
+      // Fallback: keep legacy behavior when the API doesn't separate due vs actual.
+      amountPaid
+  )
+
   const statusRaw = (raw.status ?? raw.Status ?? raw.paymentStatus ?? raw.PaymentStatus) as
     | string
     | boolean
@@ -111,9 +127,12 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
   const scheduleDate = pickScheduleDateIso(raw.scheduleDate ?? raw.ScheduleDate)
 
   return {
+    pocId,
     memberId,
     memberName: memberName || "—",
-    amountPaid,
+    due,
+    actualEmi,
+    amountPaid: actualEmi,
     scheduleDate,
     statusRaw,
   }
@@ -143,6 +162,16 @@ export const reportService = {
 
   async getMembersByPoc(branchId: number, pocId: number): Promise<MemberByPocReportRow[]> {
     const { data } = await axios.get<unknown>(api.report.membersByPoc(branchId, pocId))
+    return asObjectArray(data)
+      .map(normalizeMemberRow)
+      .filter((r): r is MemberByPocReportRow => r !== null)
+  },
+
+  async getMembersByPocs(branchId: number, pocIds: number[]): Promise<MemberByPocReportRow[]> {
+    const { data } = await axios.post<unknown>(
+      api.report.membersByPocs(branchId),
+      pocIds
+    )
     return asObjectArray(data)
       .map(normalizeMemberRow)
       .filter((r): r is MemberByPocReportRow => r !== null)

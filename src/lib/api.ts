@@ -181,5 +181,7 @@ export const api = {
       `${getApiBase()}/Report/pocs-by-branch/${branchId}`,
     membersByPoc: (branchId: number, pocId: number) =>
       `${getApiBase()}/Report/members-by-poc/${branchId}/${pocId}`,
+    membersByPocs: (branchId: number) =>
+      `${getApiBase()}/Report/members-by-pocs/${branchId}`,
   },
 }
