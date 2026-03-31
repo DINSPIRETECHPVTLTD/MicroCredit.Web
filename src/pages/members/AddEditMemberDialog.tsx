@@ -20,10 +20,13 @@ import type { UserResponse } from "@/types/user"
 import Autocomplete from "@mui/material/Autocomplete"
 import TextField from "@mui/material/TextField"
 
-const phoneRegex = /^\d{10}$/
+const phoneRegex = /^[6-9]\d{9}$/
 const aadhaarRegex = /^\d{12}$/
-const pincodeRegex = /^\d{6}$/
-const sanitizeDigits = (value: string) => value.replace(/\D/g, "")
+const pincodeRegex = /^\d{5}$/
+const sanitizeDigits = (value: string, maxLength?: number) => {
+  const digits = value.replace(/\D/g, "")
+  return typeof maxLength === "number" ? digits.slice(0, maxLength) : digits
+}
 
 function toDateInputValue(value: string | null | undefined): string {
   if (value == null || String(value).trim() === "") return ""
@@ -77,7 +80,7 @@ const baseFields = z
       .string()
       .min(1, "Phone is required")
       .transform((s) => s.trim())
-      .refine((s) => phoneRegex.test(s), "Phone must be exactly 10 digits"),
+      .refine((s) => phoneRegex.test(s), "Invalid mobile number"),
     aadhaar: z
       .string()
       .min(1, "Aadhaar is required")
@@ -86,7 +89,7 @@ const baseFields = z
     altPhone: z
       .string()
       .optional()
-      .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Alt phone must be exactly 10 digits"),
+      .refine((val) => !val || val.trim() === "" || phoneRegex.test(val.trim()), "Invalid mobile number"),
     // Address Details
     address1: z.string().min(1, "Address line 1 is required").max(200, "Address must be 200 characters or less"),
     address2: z.string().max(200, "Address must be 200 characters or less").optional(),
@@ -96,7 +99,7 @@ const baseFields = z
       .string()
       .min(1, "Pincode is required")
       .transform((s) => s.trim())
-      .refine((s) => pincodeRegex.test(s), "Pincode must be exactly 6 digits"),
+      .refine((s) => pincodeRegex.test(s), "Pincode must be exactly 5 digits"),
     // Member Entry Joining Fee — validated in superRefine only when formMode === "add"
     paymentMode: z.string().optional(),
     joiningFeeAmount: z.union([z.string(), z.number()]).optional(),
@@ -109,8 +112,7 @@ const baseFields = z
     guardianPhone: z
       .string()
       .optional()
-      .refine((val) => !val || /^\d+$/.test(val), { message: "Guardian phone can contain digits only" })
-      .refine((val) => !val || val.length === 10, { message: "Guardian phone must be exactly 10 digits" }),
+      .refine((val) => !val || phoneRegex.test(val), { message: "Invalid mobile number" }),
     relationship: z.string().min(1, "Relationship is required"),
     relationshipOther: z.string().max(100, "Relationship must be 100 characters or less").optional(),
     guardianDOB: z
@@ -693,13 +695,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("phoneNumber", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 10)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="Enter phone number"
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.phoneNumber && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
@@ -727,13 +734,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("altPhone", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 10)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.altPhone && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="10 digits"
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.altPhone && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.altPhone.message}</p>
@@ -795,13 +807,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("zipCode", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 5)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.zipCode && "border-destructive")}
-                  placeholder="Enter 6-digit pincode"
+                  placeholder="Enter 5-digit pincode"
                   inputMode="numeric"
-                  maxLength={6}
+                  maxLength={5}
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.zipCode && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.zipCode.message}</p>
@@ -918,13 +935,18 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 <input
                   {...form.register("guardianPhone", {
                     onChange: (e) => {
-                      e.target.value = sanitizeDigits(e.target.value)
+                      e.target.value = sanitizeDigits(e.target.value, 10)
                     },
                   })}
                   className={cn(inputClass, form.formState.errors.guardianPhone && "border-destructive")}
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="Enter phone number"
+                  onKeyDown={(e) => {
+                    const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                    if (allowedKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key)) e.preventDefault()
+                  }}
                 />
                 {form.formState.errors.guardianPhone && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.guardianPhone.message}</p>

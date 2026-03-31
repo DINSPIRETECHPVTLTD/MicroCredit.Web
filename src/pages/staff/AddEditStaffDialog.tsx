@@ -12,8 +12,8 @@ import toast from "react-hot-toast"
 
 const alphaNumericRegex = /^[A-Za-z0-9 ]+$/
 const alphabeticRegex = /^[A-Za-z ]+$/
-const sanitizePhone = (value: string) => value.replace(/\D/g, "")
-const sanitizeZip = (value: string) => value.replace(/\D/g, "")
+const sanitizePhone = (value: string) => value.replace(/\D/g, "").slice(0, 10)
+const sanitizeZip = (value: string) => value.replace(/\D/g, "").slice(0, 5)
 
 const baseFields = {
     firstName: z
@@ -36,12 +36,8 @@ const baseFields = {
         .string()
         .optional()
         .refine(
-            (val) => !val || /^\d+$/.test(val),
-            { message: "Phone can contain digits only" }
-        )
-        .refine(
-            (val) => !val || val.length === 10,
-            { message: "Phone must be exactly 10 digits" }
+            (val) => !val || /^[6-9]\d{9}$/.test(val),
+            { message: "Invalid mobile number" }
         ),
     address1: z.string().min(1, "Address 1 is required").max(250, "Address 1 must be at most 250 characters"),
     address2: z.string().max(225, "Address 2 must be at most 225 characters").optional(),
@@ -55,12 +51,8 @@ const baseFields = {
         .string()
         .optional()
         .refine(
-            (val) => !val || /^\d+$/.test(val),
-            { message: "Zip code can contain digits only" }
-        )
-        .refine(
-            (val) => !val || val.length === 6,
-            { message: "Zip code must be exactly 6 digits" },
+            (val) => !val || /^\d{5}$/.test(val),
+            { message: "Zip code must be exactly 5 digits" },
         ),
 }
 
@@ -279,6 +271,11 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                     maxLength={10}
                                     placeholder="Enter phone number"
                                     className={cn(inputClass, form.formState.errors.phoneNumber && "border-destructive")}
+                                    onKeyDown={(e) => {
+                                        const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                                        if (allowedKeys.includes(e.key)) return
+                                        if (!/^\d$/.test(e.key)) e.preventDefault()
+                                    }}
                                 />
                                 {form.formState.errors.phoneNumber && (
                                     <p className="text-xs text-destructive mt-1">{form.formState.errors.phoneNumber.message}</p>
@@ -395,8 +392,13 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                     })}
                                     placeholder="Enter zip code"
                                     inputMode="numeric"
-                                    maxLength={6}
+                                    maxLength={5}
                                     className={cn(inputClass, form.formState.errors.pinCode && "border-destructive")}
+                                    onKeyDown={(e) => {
+                                        const allowedKeys = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "Delete"]
+                                        if (allowedKeys.includes(e.key)) return
+                                        if (!/^\d$/.test(e.key)) e.preventDefault()
+                                    }}
                                 />
                                 {form.formState.errors.pinCode && (
                                     <p className="text-xs text-destructive mt-1">{form.formState.errors.pinCode.message}</p>
