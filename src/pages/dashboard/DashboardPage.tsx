@@ -678,17 +678,6 @@ function BranchReportDashboard() {
                 </div>
               </div>
 
-              {pocs.length > 0 &&
-              !isLoading &&
-              !membersIsLoading &&
-              !membersIsFetching &&
-              filteredMembers.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  No members are due on{" "}
-                  <strong>{scheduleWindow === "today" ? "Today" : "Tomorrow"}</strong> for this
-                  branch. Try switching the day window.
-                </div>
-              ) : null}
             </div>
             {pocs.length === 0 && !isLoading ? (
               <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">

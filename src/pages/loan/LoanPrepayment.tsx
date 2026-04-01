@@ -125,10 +125,12 @@ function mapSchedulerRow(raw: LoanSchedulerApiRow): PrepaymentRow {
   const loanId = toNumber(raw.LoanID ?? raw.loanId)
   const actualEmiAmount = toNumber(raw.ActualEmiAmount ?? raw.actualEmiAmount)
   const paymentAmountRaw = toNumber(raw.PaymentAmount ?? raw.paymentAmount)
+  const postedPrincipalAmount = toNumber(raw.PrincipalAmount ?? raw.principalAmount)
+  const postedInterestAmount = toNumber(raw.InterestAmount ?? raw.interestAmount)
   const principalFromActualRaw = raw.ActualPrincipalAmount ?? raw.actualPrincipalAmount
   const interestFromActualRaw = raw.ActualInterestAmount ?? raw.actualInterestAmount
-  const principalFromScheduled = toNumber(raw.PrincipalAmount ?? raw.principalAmount)
-  const interestFromScheduled = toNumber(raw.InterestAmount ?? raw.interestAmount)
+  const principalFromScheduled = postedPrincipalAmount
+  const interestFromScheduled = postedInterestAmount
   const principalFromActual =
     principalFromActualRaw == null ? null : toNumber(principalFromActualRaw)
   const interestFromActual =
@@ -148,9 +150,16 @@ function mapSchedulerRow(raw: LoanSchedulerApiRow): PrepaymentRow {
     raw.Status ?? raw.status ?? derivePrepaymentStatus({ paymentAmount: paymentAmountRaw, actualEmiAmount })
   )
   const normalizedInitialStatus = normalizePrepaymentStatus(initialStatus)
+  const isPaidOrPartial =
+    normalizedInitialStatus === PREPAYMENT_STATUS.PAID ||
+    normalizedInitialStatus === PREPAYMENT_STATUS.PARTIAL_PAID
   const paymentAmount =
-    normalizedInitialStatus === PREPAYMENT_STATUS.PAID
-      ? (paymentAmountRaw > 0 ? paymentAmountRaw : actualEmiAmount)
+    isPaidOrPartial
+      ? (paymentAmountRaw > 0
+        ? paymentAmountRaw
+        : normalizedInitialStatus === PREPAYMENT_STATUS.PAID
+          ? actualEmiAmount
+          : 0)
       : 0
 
   const split = calculatePrepaymentSplit(
@@ -172,8 +181,10 @@ function mapSchedulerRow(raw: LoanSchedulerApiRow): PrepaymentRow {
     paymentDate: raw.PaymentDate ?? raw.paymentDate ?? null,
     actualEmiAmount,
     paymentAmount,
-    principalAmount: split.principalAmount,
-    interestAmount: split.interestAmount,
+    principalAmount:
+      isPaidOrPartial && postedPrincipalAmount > 0 ? postedPrincipalAmount : split.principalAmount,
+    interestAmount:
+      isPaidOrPartial && postedInterestAmount > 0 ? postedInterestAmount : split.interestAmount,
     paymentMode: String(raw.PaymentMode ?? raw.paymentMode ?? ""),
     status: initialStatus,
     comments: String(raw.Comments ?? raw.comments ?? ""),
@@ -238,7 +249,9 @@ export default function LoanPrepayment() {
   const apiPaidByRowKey = useMemo<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {}
     for (const r of baseRows) {
-      map[r.rowKey] = normalizePrepaymentStatus(r.status) === PREPAYMENT_STATUS.PAID
+      const normalized = normalizePrepaymentStatus(r.status)
+      map[r.rowKey] =
+        normalized === PREPAYMENT_STATUS.PAID || normalized === PREPAYMENT_STATUS.PARTIAL_PAID
     }
     return map
   }, [baseRows])

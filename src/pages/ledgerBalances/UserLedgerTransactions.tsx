@@ -31,14 +31,15 @@ export default function UserLedgerTransactions() {
     )
   }, [users])
 
+  const numericUserId = Number(userId)
+
   const { data = [], isLoading } = useQuery({
-    queryKey: ["ledgerTransactions"],
+    queryKey: ["ledgerTransactions", numericUserId],
     queryFn: () =>
       ledgerTransactionService.getTransactions({
-        userId: Number(userId),
+        userId: numericUserId,
       }),
     enabled: !!userId,
-        
   })
 
   const backToLedgers = () => {
@@ -72,6 +73,7 @@ export default function UserLedgerTransactions() {
         Cell: ({ cell }) =>
           new Date(cell.getValue<string>()).toLocaleDateString(),
       },
+      { accessorKey: "transactionType", header: "Transaction Type" },
       { accessorKey: "comments", header: "Comments" },
     ],
     [userMap]
@@ -85,6 +87,10 @@ export default function UserLedgerTransactions() {
     enableColumnFilters: true,
     enableGrouping: true,
     enableColumnPinning: true,
+    initialState: {
+      sorting: [{ id: "createdDate", desc: true }],
+      pagination: { pageSize: 20, pageIndex: 0 },
+    },
   })
 
   return (
