@@ -176,4 +176,22 @@ export const reportService = {
       .map(normalizeMemberRow)
       .filter((r): r is MemberByPocReportRow => r !== null)
   },
+
+  async getMemeberWiseCollectionReport() {
+      const { data } = await axios.get(api.report.memberWiseCollectionReport(), {
+        responseType: 'blob'  // ← tells axios to treat response as binary
+    });
+
+    // Create a download link and trigger it
+    const url = window.URL.createObjectURL(new Blob([data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `MemberWiseCollection_${new Date().toLocaleDateString().slice(0, 10)}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+
+    // Cleanup
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
 }

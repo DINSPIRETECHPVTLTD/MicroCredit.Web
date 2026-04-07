@@ -183,5 +183,6 @@ export const api = {
       `${getApiBase()}/Report/members-by-poc/${branchId}/${pocId}`,
     membersByPocs: (branchId: number) =>
       `${getApiBase()}/Report/members-by-pocs/${branchId}`,
+    memberWiseCollectionReport: () => `${getApiBase()}/Report/MemberWiseCollectionSheet`
   },
 }
