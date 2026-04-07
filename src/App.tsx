@@ -23,6 +23,7 @@ import LoanSchedulerList from "./pages/loanScheduler/LoanSchedulerList"
 import RecoveryPostingList from "./pages/recoveryPosting/RecoveryPostingList"
 import LoanPrintPage from "@/pages/loan/LoanPrintPage"
 import DashboardPage from "@/pages/dashboard/DashboardPage"
+import Reports from "./pages/Reports/Reports"
 
 function App() {
   return (
@@ -73,6 +74,7 @@ function App() {
           <Route path="recovery-posting" element={<RecoveryPostingList />} />
           <Route path="ledger-transactions/:userId" element={<UserLedgerTransactions />} />
           <Route path="loan-print" element={<LoanPrintPage />} />
+          <Route path="reports" element={<Reports />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
