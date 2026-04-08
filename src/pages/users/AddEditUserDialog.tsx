@@ -127,8 +127,6 @@ const inputClass =
 const ROLE_OPTIONS = [
   { label: "Owner", value: "Owner" },
   { label: "Investor", value: "Investor" },
-  { label: "Branch Admin", value: "BranchAdmin" },
-  { label: "Staff", value: "Staff" },
 ]
 
 export type AddEditUserDialogMode = { mode: "add" } | { mode: "edit"; user: UserResponse }

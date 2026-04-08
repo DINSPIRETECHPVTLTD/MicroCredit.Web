@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
@@ -36,6 +36,15 @@ type Props = {
   onSuccess: () => Promise<void> | void
 }
 
+function toNumberOrZero(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+function normalizeText(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase()
+}
+
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
   if (typeof data === "string") return data
@@ -53,6 +62,10 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
 
   const isEdit = value?.mode === "edit"
   const editItem = value?.mode === "edit" ? value.paymentTerm : null
+  const editItemSource = (editItem ?? null) as
+    | (PaymentTermResponse & { paymentTermName?: string; paymentTypeName?: string })
+    | null
+  const editPaymentTermValue = String(editItemSource?.paymentTerm ?? editItemSource?.paymentTermName ?? "").trim()
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -76,17 +89,31 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
     dialogRef.current?.showModal()
     masterlookupService
       .getMasterLookupsByKey("PAYMENT_TERM")
-      .then((items) => setPaymentTermOptions(items.map((x) => x.lookupValue)))
-      .catch(() => setPaymentTermOptions([]))
+      .then((items) => {
+        const options = items.map((x) => x.lookupValue)
+        const normalizedMatch = options.find(
+          (term) => normalizeText(term) === normalizeText(editPaymentTermValue)
+        )
+        if (editPaymentTermValue && !normalizedMatch) {
+          options.unshift(editPaymentTermValue)
+        }
+        setPaymentTermOptions(options)
+        if (normalizedMatch) {
+          // Keep the select value exactly equal to one option value.
+          form.setValue("paymentTerm", normalizedMatch)
+        }
+      })
+      .catch(() => setPaymentTermOptions(editPaymentTermValue ? [editPaymentTermValue] : []))
 
     if (editItem) {
+      const source = editItemSource
       form.reset({
-        paymentTerm: editItem.paymentTerm,
-        paymentType: editItem.paymentType,
-        noOfTerms: editItem.noOfTerms,
-        processingFee: editItem.processingFee,
-        rateOfInterest: editItem.rateOfInterest,
-        insuranceFee: editItem.insuranceFee,
+        paymentTerm: source?.paymentTerm ?? source?.paymentTermName ?? "",
+        paymentType: source?.paymentType ?? source?.paymentTypeName ?? "",
+        noOfTerms: toNumberOrZero(source?.noOfTerms),
+        processingFee: toNumberOrZero(source?.processingFee),
+        rateOfInterest: toNumberOrZero(source?.rateOfInterest),
+        insuranceFee: toNumberOrZero(source?.insuranceFee),
       })
     } else {
       form.reset({
@@ -98,7 +125,7 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
         insuranceFee: 0,
       })
     }
-  }, [value, editItem?.id, form])
+  }, [value, editItem?.id, editPaymentTermValue, form])
 
   const close = () => {
     dialogRef.current?.close()
@@ -149,17 +176,24 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
           <label className="text-sm font-medium mb-1 block">
             Payment Term <span className="text-destructive">*</span>
           </label>
-          <select
-            {...form.register("paymentTerm")}
-            className={cn(inputClass, form.formState.errors.paymentTerm && "border-destructive")}
-          >
-            <option value="">Select Payment Term</option>
-            {paymentTermOptions.map((term) => (
-              <option key={term} value={term}>
-                {term}
-              </option>
-            ))}
-          </select>
+          <Controller
+            control={form.control}
+            name="paymentTerm"
+            render={({ field }) => (
+              <select
+                {...field}
+                value={field.value ?? ""}
+                className={cn(inputClass, form.formState.errors.paymentTerm && "border-destructive")}
+              >
+                <option value="">Select Payment Term</option>
+                {paymentTermOptions.map((term) => (
+                  <option key={term} value={term}>
+                    {term}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
           {form.formState.errors.paymentTerm && (
             <p className="text-xs text-destructive mt-1">
               {form.formState.errors.paymentTerm.message}

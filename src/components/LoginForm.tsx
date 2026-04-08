@@ -13,6 +13,18 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+function getLoginErrorMessage(err: unknown): string {
+  const responseData = (err as { response?: { data?: unknown } })?.response?.data
+  if (typeof responseData === "string" && responseData.trim()) return responseData
+  if (responseData && typeof responseData === "object") {
+    const obj = responseData as { message?: string; error?: string; title?: string }
+    const apiMessage = obj.message ?? obj.error ?? obj.title
+    if (apiMessage?.trim()) return apiMessage
+  }
+  const generic = (err as { message?: string })?.message
+  return generic?.trim() || "Login failed. Please try again."
+}
+
 export default function LoginForm() {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
@@ -29,11 +41,7 @@ export default function LoginForm() {
       await authService.login(data)
       navigate("/dashboard", { replace: true })
     } catch (err: unknown) {
-      const message =
-        (err as Error)?.message ??
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Login failed. Please try again."
-      setErrorMessage(message)
+      setErrorMessage(getLoginErrorMessage(err))
     } finally {
       setIsLoading(false)
     }

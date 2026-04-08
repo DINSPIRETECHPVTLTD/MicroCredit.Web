@@ -258,8 +258,8 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   })
 
   const { data: users = [] } = useQuery<UserResponse[]>({
-    queryKey: ["users"],
-    queryFn: () => userService.getUsers(),
+    queryKey: ["users", "collected-by"],
+    queryFn: () => userService.getCollectedByUsers(),
     enabled: isOpen,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
