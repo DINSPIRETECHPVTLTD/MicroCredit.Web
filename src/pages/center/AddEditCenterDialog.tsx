@@ -9,9 +9,9 @@ import { centerService } from "../../services/center.service"
 import type { CenterResponse } from "../../types/center"
 
 const baseFields = z.object({
-    name: z.string().min(1, "Name is required"),
-    address: z.string().min(1, "Address is required"),
-    city: z.string().min(1, "City is required"),
+    name: z.string().min(1, "Name is required").max(100, "Name must be at most 100 characters"),
+    address: z.string().min(1, "Address is required").max(250, "Address must be at most 250 characters"),
+    city: z.string().min(1, "City is required").max(50, "City must be at most 50 characters"),
 })
 
 type CreateFormData = z.infer<typeof baseFields>
@@ -116,6 +116,7 @@ export function AddEditCenterDialog({ value, onClose, onSuccess }: Props) {
                         <input
                             {...form.register("name")}
                             placeholder="Enter center name"
+                            maxLength={100}
                             className={cn(inputClass, form.formState.errors.name && "border-destructive")}
                         />
                         {form.formState.errors.name && (
@@ -128,6 +129,7 @@ export function AddEditCenterDialog({ value, onClose, onSuccess }: Props) {
                         <input
                             {...form.register("address")}
                             placeholder="Enter address"
+                            maxLength={250}
                             className={cn(inputClass, form.formState.errors.address && "border-destructive")}
                         />
                         {form.formState.errors.address && (
@@ -140,6 +142,7 @@ export function AddEditCenterDialog({ value, onClose, onSuccess }: Props) {
                         <input
                             {...form.register("city")}
                             placeholder="Enter city"
+                            maxLength={50}
                             className={cn(inputClass, form.formState.errors.city && "border-destructive")}
                         />
                         {form.formState.errors.city && (

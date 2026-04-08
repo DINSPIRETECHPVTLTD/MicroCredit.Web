@@ -9,6 +9,11 @@ export const userService = {
     return data
   },
 
+  async getCollectedByUsers(): Promise<UserResponse[]> {
+    const { data } = await axios.get<UserResponse[]>(api.users.collectedBy)
+    return data
+  },
+
   async createUser(request: CreateUserRequest): Promise<unknown> {
     const { data } = await axios.post(api.users.create, request)
     return data

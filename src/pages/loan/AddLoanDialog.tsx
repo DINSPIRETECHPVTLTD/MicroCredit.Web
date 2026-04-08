@@ -163,8 +163,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
     useEffect(() => {
       if (selectedPaymentTerm) {
-        form.setValue("insuranceFee", selectedPaymentTerm.insuranceFee)
-        form.setValue("processingFee", selectedPaymentTerm.processingFee)
         form.setValue("noOfTerms", selectedPaymentTerm.noOfTerms)
         form.setValue("collectionTerm", selectedPaymentTerm.paymentTerm)
       } else {
@@ -180,6 +178,16 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       const rate = toNumber(selectedPaymentTerm?.rateOfInterest ?? 0)
       const interest = Number(((loanAmount * rate) / 100).toFixed(2))
       form.setValue("interestAmount", interest)
+    }, [loanAmountValue, selectedPaymentTerm, form])
+
+    useEffect(() => {
+      const loanAmount = toNumber(loanAmountValue)
+      const processingRate = toNumber(selectedPaymentTerm?.processingFee ?? 0)
+      const insuranceRate = toNumber(selectedPaymentTerm?.insuranceFee ?? 0)
+      const processing = Number(((loanAmount * processingRate) / 100).toFixed(2))
+      const insurance = Number(((loanAmount * insuranceRate) / 100).toFixed(2))
+      form.setValue("processingFee", processing)
+      form.setValue("insuranceFee", insurance)
     }, [loanAmountValue, selectedPaymentTerm, form])
 
     useEffect(() => {

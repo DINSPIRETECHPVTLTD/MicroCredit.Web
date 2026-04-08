@@ -19,13 +19,13 @@ import {
   DEFAULT_API_ERROR_MESSAGE,
   type ApiErrorDetails,
 } from "@/lib/apiErrorHandler"
-import { getBranch, getSession } from "@/services/auth.service"
+import { getBranch } from "@/services/auth.service"
 import { centerService } from "@/services/center.service"
 import { pocService } from "@/services/poc.service"
-import { staffService } from "@/services/staff.service"
+import { userService } from "@/services/user.service"
 import type { CenterResponse } from "@/types/center"
 import type { PocResponse } from "@/types/poc"
-import type { StaffResponse } from "@/types/staff"
+import type { UserResponse } from "@/types/user"
 import { masterlookupService } from "@/services/masterLookup.service"
 import type { MasterLookupResponse } from "@/types/masterLookup"
 import {
@@ -51,10 +51,7 @@ const EMPTY_RECOVERY_ROWS: RecoveryPostingRow[] = []
 const EMPTY_CENTERS: CenterResponse[] = []
 const EMPTY_POCS: PocResponse[] = []
 const EMPTY_LOOKUPS: MasterLookupResponse[] = []
-const EMPTY_STAFF: StaffResponse[] = []
-
-/** API may send isActive on branch users; keep typing local to this page. */
-type BranchUserForCollectedBy = StaffResponse & { isActive?: boolean }
+const EMPTY_USERS: UserResponse[] = []
 type RecoveryRowDraft = {
   paymentAmount: number
   principalAmount: number
@@ -102,16 +99,6 @@ function todayDateKey(): string {
   const mo = String(t.getMonth() + 1).padStart(2, "0")
   const day = String(t.getDate()).padStart(2, "0")
   return `${y}-${mo}-${day}`
-}
-
-/** Compare role strings from API (e.g. "Owner" vs "OWNER"). */
-function normalizeUserRole(role: string | undefined): string {
-  if (!role) return ""
-  return role.trim().toUpperCase().replace(/\s+/g, "_")
-}
-
-function isOwnerRole(role: string | undefined): boolean {
-  return normalizeUserRole(role) === "OWNER"
 }
 
 function clearRowFieldError(
@@ -176,6 +163,7 @@ function RecoveryPostingList() {
   const [pocId, setPocId] = useState(0)
   const [collectedById, setCollectedById] = useState(0)
   const [rowSelection, setRowSelection] = useState<MRT_RowSelectionState>({})
+  const [paymentAmountDraft, setPaymentAmountDraft] = useState<Record<string, string>>({})
   const [paymentModeDraft, setPaymentModeDraft] = useState<Record<string, string>>({})
   const [commentsDraft, setCommentsDraft] = useState<Record<string, string>>({})
   const [rowEdits, setRowEdits] = useState<Record<string, RecoveryRowDraft>>({})
@@ -203,23 +191,14 @@ function RecoveryPostingList() {
     return pocsByBranch.filter((p) => p.centerId === centerId)
   }, [pocsByBranch, centerId])
 
-  const { data: staffData } = useQuery({
-    queryKey: ["staff"],
-    queryFn: () => staffService.getStaffs(),
+  const { data: collectedByUsersData } = useQuery({
+    queryKey: ["users", "collected-by"],
+    queryFn: () => userService.getCollectedByUsers(),
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
   })
 
-  /** Active branch users; Owner role appears only for BRANCH_ADMIN or OWNER. */
-  const collectedByOptions = useMemo(() => {
-    const rows = (staffData ?? EMPTY_STAFF) as BranchUserForCollectedBy[]
-    const active = rows.filter((u) => u.isActive !== false)
-    const sessionRole = getSession()?.role
-    const maySeeOwner =
-      sessionRole === "BRANCH_ADMIN" || sessionRole === "OWNER"
-    if (maySeeOwner) return active
-    return active.filter((u) => !isOwnerRole(u.role))
-  }, [staffData])
+  const collectedByOptions = collectedByUsersData ?? EMPTY_USERS
 
   const {
     data: recoveryData,
@@ -267,6 +246,7 @@ function RecoveryPostingList() {
 
   const resetTableDrafts = useCallback(() => {
     setRowSelection({})
+    setPaymentAmountDraft({})
     setPaymentModeDraft({})
     setCommentsDraft({})
     setRowEdits({})
@@ -303,6 +283,76 @@ function RecoveryPostingList() {
       return next
     })
   }, [gridRows])
+
+  const handleRowSelectionChange = useCallback(
+    (updater: MRT_RowSelectionState | ((prev: MRT_RowSelectionState) => MRT_RowSelectionState)) => {
+      setRowSelection((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater
+        const newlySelected = Object.keys(next).filter((k) => next[k] && !prev[k])
+        const newlyDeselected = Object.keys(prev).filter((k) => prev[k] && !next[k])
+
+        if (newlySelected.length > 0) {
+          setRowEdits((draftPrev) => {
+            const draftNext = { ...draftPrev }
+            for (const rowKey of newlySelected) {
+              const row = gridRows.find((r) => r.rowKey === rowKey)
+              if (!row) continue
+              const amount = row.actualEmiAmount
+              const split = calculatePaymentSplitFromSchedule(row, amount)
+              draftNext[rowKey] = {
+                paymentAmount: amount,
+                principalAmount: split.principalAmount,
+                interestAmount: split.interestAmount,
+                status: deriveStatusFromAmounts({ ...row, paymentAmount: amount }),
+              }
+            }
+            return draftNext
+          })
+        }
+
+        if (newlyDeselected.length > 0) {
+          setRowEdits((draftPrev) => {
+            const draftNext = { ...draftPrev }
+            for (const rowKey of newlyDeselected) {
+              delete draftNext[rowKey]
+            }
+            return draftNext
+          })
+          setPaymentAmountDraft((prevDraft) => {
+            const nextDraft = { ...prevDraft }
+            for (const rowKey of newlyDeselected) {
+              delete nextDraft[rowKey]
+            }
+            return nextDraft
+          })
+          setPaymentModeDraft((prevDraft) => {
+            const nextDraft = { ...prevDraft }
+            for (const rowKey of newlyDeselected) {
+              delete nextDraft[rowKey]
+            }
+            return nextDraft
+          })
+          setCommentsDraft((prevDraft) => {
+            const nextDraft = { ...prevDraft }
+            for (const rowKey of newlyDeselected) {
+              delete nextDraft[rowKey]
+            }
+            return nextDraft
+          })
+          setFieldErrors((prevErrors) => {
+            const nextRows = { ...prevErrors.rows }
+            for (const rowKey of newlyDeselected) {
+              delete nextRows[rowKey]
+            }
+            return { ...prevErrors, rows: nextRows }
+          })
+        }
+
+        return next
+      })
+    },
+    [gridRows]
+  )
 
   const selectedTotal = useMemo(() => {
     let sum = 0
@@ -365,6 +415,7 @@ function RecoveryPostingList() {
       setFieldErrors(EMPTY_FIELD_ERRORS)
       setRowEdits({})
       setRowSelection({})
+      setPaymentAmountDraft({})
       await refetch()
     } catch (err: unknown) {
       const details = getApiErrorDetails(err)
@@ -417,23 +468,48 @@ function RecoveryPostingList() {
         header: "Payment Amount",
         size: 120,
         Cell: ({ row }) => {
+          const key = row.original.rowKey
           const rowFieldErrors = fieldErrors.rows[row.original.rowKey]
+          const isSelected = !!rowSelection[row.original.rowKey]
           const v = row.original.paymentAmount
+          const value = isSelected
+            ? (paymentAmountDraft[key] ?? (Number.isFinite(v) ? String(v) : ""))
+            : ""
           return (
             <div className="space-y-1">
               <input
-                type="number"
-                step="0.01"
-                min={0}
+                type="text"
+                inputMode="decimal"
                 className={cn(
                   inputClass,
                   "py-1.5 tabular-nums max-w-[7.5rem]",
+                  !isSelected && "cursor-not-allowed bg-muted text-muted-foreground",
                   rowFieldErrors?.paymentAmount && "border-destructive"
                 )}
-                value={Number.isFinite(v) ? v : 0}
+                value={value}
+                readOnly={!isSelected}
                 onChange={(e) => {
-                  const n = parseFloat(e.target.value)
-                  updatePaymentAmount(row.original.rowKey, Number.isNaN(n) ? 0 : n)
+                  const raw = e.target.value
+                  if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return
+                  setPaymentAmountDraft((prev) => ({ ...prev, [key]: raw }))
+                  if (raw === "") return
+                  const n = Number(raw)
+                  if (Number.isFinite(n)) {
+                    updatePaymentAmount(key, n)
+                  }
+                }}
+                onBlur={() => {
+                  if (!isSelected) return
+                  const raw = paymentAmountDraft[key]
+                  if (raw == null) return
+                  if (raw.trim() === "") {
+                    updatePaymentAmount(key, 0)
+                    return
+                  }
+                  const n = Number(raw)
+                  if (!Number.isFinite(n)) return
+                  setPaymentAmountDraft((prev) => ({ ...prev, [key]: String(n) }))
+                  updatePaymentAmount(key, n)
                 }}
               />
               {rowFieldErrors?.paymentAmount ? (
@@ -450,13 +526,27 @@ function RecoveryPostingList() {
         id: "principalAmt",
         header: "Principal Amt",
         accessorFn: (row) => row.principalAmount,
-        Cell: ({ row }) => formatCurrency(row.original.principalAmount ?? 0),
+        Cell: ({ row }) => {
+          const key = row.original.rowKey
+          const isSelected = !!rowSelection[key]
+          const paymentDraft = paymentAmountDraft[key]
+          const isPaymentTemporarilyEmpty = paymentDraft != null && paymentDraft.trim() === ""
+          if (!isSelected || isPaymentTemporarilyEmpty) return "—"
+          return formatCurrency(row.original.principalAmount ?? 0)
+        },
       },
       {
         id: "interestAmt",
         header: "Interest Amt",
         accessorFn: (row) => row.interestAmount,
-        Cell: ({ row }) => formatCurrency(row.original.interestAmount ?? 0),
+        Cell: ({ row }) => {
+          const key = row.original.rowKey
+          const isSelected = !!rowSelection[key]
+          const paymentDraft = paymentAmountDraft[key]
+          const isPaymentTemporarilyEmpty = paymentDraft != null && paymentDraft.trim() === ""
+          if (!isSelected || isPaymentTemporarilyEmpty) return "—"
+          return formatCurrency(row.original.interestAmount ?? 0)
+        },
       },
       {
         id: "paymentMode",
@@ -467,19 +557,24 @@ function RecoveryPostingList() {
         Cell: ({ row }) => {
           const rowFieldErrors = fieldErrors.rows[row.original.rowKey]
           const key = row.original.rowKey
+          const isSelected = !!rowSelection[key]
           const value =
-            paymentModeDraft[key] ??
-            row.original.paymentMode ??
-            (paymentModeLookups[0]?.lookupValue ?? "")
+            isSelected
+              ? (paymentModeDraft[key] ??
+                row.original.paymentMode ??
+                (paymentModeLookups[0]?.lookupValue ?? ""))
+              : ""
           return (
             <div>
               <select
                 className={cn(
                   inputClass,
                   "py-1.5 w-full max-w-[9.5rem] min-w-0 text-sm",
+                  !isSelected && "cursor-not-allowed bg-muted text-muted-foreground",
                   rowFieldErrors?.paymentMode && "border-destructive"
                 )}
                 value={value || ""}
+                disabled={!isSelected}
                 onChange={(e) => {
                   setPaymentModeDraft((prev) => ({ ...prev, [key]: e.target.value }))
                   setFieldErrors((prev) => {
@@ -508,6 +603,8 @@ function RecoveryPostingList() {
         header: "Status",
         size: 110,
         Cell: ({ row }) => {
+          const isSelected = !!rowSelection[row.original.rowKey]
+          if (!isSelected) return <span className="text-muted-foreground">—</span>
           const rowFieldErrors = fieldErrors.rows[row.original.rowKey]
           const s = normalizeStatusValue(row.original.status)
           const cls =
@@ -534,13 +631,20 @@ function RecoveryPostingList() {
         Cell: ({ row }) => {
           const rowFieldErrors = fieldErrors.rows[row.original.rowKey]
           const key = row.original.rowKey
-          const value = commentsDraft[key] ?? row.original.comments ?? ""
+          const isSelected = !!rowSelection[key]
+          const value = isSelected ? (commentsDraft[key] ?? row.original.comments ?? "") : ""
           return (
             <div className="space-y-1">
               <input
                 type="text"
-                className={cn(inputClass, "py-1.5", rowFieldErrors?.comments && "border-destructive")}
+                className={cn(
+                  inputClass,
+                  "py-1.5",
+                  !isSelected && "cursor-not-allowed bg-muted text-muted-foreground",
+                  rowFieldErrors?.comments && "border-destructive"
+                )}
                 value={value}
+                readOnly={!isSelected}
                 placeholder="Comments"
                 onChange={(e) =>
                   {
@@ -561,7 +665,7 @@ function RecoveryPostingList() {
         },
       },
     ],
-    [paymentModeDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows]
+    [paymentAmountDraft, paymentModeDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows, rowSelection]
   )
 
   if (!branchId) {
@@ -695,7 +799,7 @@ function RecoveryPostingList() {
               }}
             >
               <option value="">Select staff</option>
-              {collectedByOptions.map((s: StaffResponse) => (
+              {collectedByOptions.map((s: UserResponse) => (
                 <option key={s.id} value={s.id}>
                   {[s.firstName, s.surname].filter(Boolean).join(" ") || s.email}
                 </option>
@@ -734,7 +838,7 @@ function RecoveryPostingList() {
             data={editableRows}
             getRowId={(row) => row.rowKey}
             enableRowSelection
-            onRowSelectionChange={setRowSelection}
+            onRowSelectionChange={handleRowSelectionChange}
             state={{ rowSelection, isLoading }}
             initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
             enableSorting

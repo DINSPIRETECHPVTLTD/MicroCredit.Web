@@ -37,6 +37,9 @@ export const api = {
     get list() {
       return `${getApiBase()}/Users/Org`
     },
+    get collectedBy() {
+      return `${getApiBase()}/users/collected-by`
+    },
     get create() {
       return `${getApiBase()}/users`
     },
