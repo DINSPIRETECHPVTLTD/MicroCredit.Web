@@ -41,6 +41,12 @@ export const APP_MENU: AppMenuItem[] = [
     ],
   },
   { label: "Recovery Posting", key: "Recovery Posting", route: "recovery-posting", modes: ["BRANCH"] },
+  {
+    label: "Reports",
+    key: "Reports",
+    modes: ["BRANCH"],
+    route: "reports",
+  },
 ]
 
 export function getFilteredMenu(

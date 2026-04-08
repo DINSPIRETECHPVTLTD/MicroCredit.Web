@@ -64,6 +64,7 @@ const MENU_ICONS: Record<string, LucideIcon> = {
   "Add Loan": Plus,
   "Manage Loan": List,
   "Recovery Posting": RefreshCw,
+  Reports: Building2,
 }
 
 function getMenuIcon(key: string): LucideIcon | null {
