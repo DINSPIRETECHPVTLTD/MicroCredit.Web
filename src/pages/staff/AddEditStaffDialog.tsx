@@ -39,11 +39,10 @@ const baseFields = {
     role: z.string().min(1, "Role is required"),
     phoneNumber: z
         .string()
-        .optional()
-        .refine(
-            (val) => !val || /^[6-9]\d{9}$/.test(val),
-            { message: "Invalid mobile number" }
-        ),
+        .min(1, "Phone number is required")
+        .refine((val) => /^[6-9]\d{9}$/.test(val), {
+            message: "Invalid mobile number",
+        }),
     address1: z.string().min(1, "Address 1 is required").max(250, "Address 1 must be at most 250 characters"),
     address2: z.string().max(225, "Address 2 must be at most 225 characters").optional(),
     city: z
@@ -54,11 +53,10 @@ const baseFields = {
     state: z.string().min(1, "State is required"),
     pinCode: z
         .string()
-        .optional()
-        .refine(
-            (val) => !val || /^\d{6}$/.test(val),
-            { message: "Zip code must be exactly 6 digits" },
-        ),
+        .min(1, "Zip code is required")
+        .refine((val) => /^\d{6}$/.test(val), {
+            message: "Zip code must be exactly 6 digits",
+        }),
 }
 
 const createSchema = z
@@ -325,7 +323,7 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                 )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium mb-1 block">Phone number</label>
+                                <label className="text-sm font-medium mb-1 block">Phone number <span className="text-destructive">*</span></label>
                                 <input
                                     {...form.register("phoneNumber", {
                                         onChange: (e) => {
@@ -448,7 +446,7 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                                 )}
                             </div>
                             <div className="sm:col-span-2">
-                                <label className="text-sm font-medium mb-1 block">Zip code</label>
+                                <label className="text-sm font-medium mb-1 block">Zip code <span className="text-destructive">*</span></label>
                                 <input
                                     {...form.register("pinCode", {
                                         onChange: (e) => {
