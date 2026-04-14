@@ -57,6 +57,24 @@ function calculateAgeFromIso(dobIso: string): number | null {
   return years
 }
 
+function getTodayDateInputValue(): string {
+  const today = new Date()
+  const y = today.getFullYear()
+  const mo = String(today.getMonth() + 1).padStart(2, "0")
+  const day = String(today.getDate()).padStart(2, "0")
+  return `${y}-${mo}-${day}`
+}
+
+function isFutureDateInputValue(value: string): boolean {
+  if (!value) return false
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  if (!match) return false
+  const selected = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  const today = new Date()
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  return selected.getTime() > todayOnly.getTime()
+}
+
 const baseFields = z
   .object({
     formMode: z.enum(["add", "edit"]),
@@ -156,6 +174,12 @@ const baseFields = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Paid date is required",
+          path: ["paidDate"],
+        })
+      } else if (isFutureDateInputValue(String(data.paidDate))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Paid date cannot be a future date",
           path: ["paidDate"],
         })
       }
@@ -303,7 +327,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
       zipCode: "",
       paymentMode: "",
       joiningFeeAmount: "",
-      paidDate: "",
+      paidDate: getTodayDateInputValue(),
       collectedBy: 0,
       comments: "",
       guardianFirstName: "",
@@ -448,7 +472,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         zipCode: "",
         paymentMode: "",
         joiningFeeAmount: "",
-        paidDate: "",
+        paidDate: getTodayDateInputValue(),
         collectedBy: 0,
         comments: "",
         guardianFirstName: "",
@@ -882,6 +906,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                   <input
                     type="date"
                     {...form.register("paidDate")}
+                    max={getTodayDateInputValue()}
                     className={cn(inputClass, form.formState.errors.paidDate && "border-destructive")}
                   />
                   {form.formState.errors.paidDate && (

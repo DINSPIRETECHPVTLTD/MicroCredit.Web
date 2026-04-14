@@ -30,6 +30,39 @@ interface AddLoanDialogProps {
 const inputClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 
+function toDateInputValueLocal(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
+function getTodayDateInputValue(): string {
+  return toDateInputValueLocal(new Date())
+}
+
+function parseDateInputAsLocal(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec((value ?? "").trim())
+  if (!match) return null
+  const parsed = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed
+}
+
+function addDaysDateInputValue(baseDateInput: string, days: number): string {
+  const base = parseDateInputAsLocal(baseDateInput)
+  if (!base) return baseDateInput
+  const shifted = new Date(base.getFullYear(), base.getMonth(), base.getDate() + days)
+  return toDateInputValueLocal(shifted)
+}
+
+function isBeforeDateInput(a: string, b: string): boolean {
+  const left = parseDateInputAsLocal(a)
+  const right = parseDateInputAsLocal(b)
+  if (!left || !right) return false
+  return left.getTime() < right.getTime()
+}
+
 const schema = z.object({
   memberId: z.coerce.number().min(1, "Member is required"),
   loanAmount: z.coerce.number().positive("Loan amount must be a positive number"),
@@ -44,6 +77,36 @@ const schema = z.object({
   collectionStartDate: z.string().min(1, "Payment date is required"),
   collectionTerm: z.string().min(2, "Collection term is required"),
   noOfTerms: z.coerce.number().min(1, "Number of terms is required")
+}).superRefine((data, ctx) => {
+  const today = getTodayDateInputValue()
+
+  if (data.disbursementDate && isBeforeDateInput(data.disbursementDate, today)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["disbursementDate"],
+      message: "Disbursement date cannot be in the past",
+    })
+  }
+
+  if (data.collectionStartDate && isBeforeDateInput(data.collectionStartDate, today)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["collectionStartDate"],
+      message: "Collection start date cannot be in the past",
+    })
+  }
+
+  if (
+    data.disbursementDate &&
+    data.collectionStartDate &&
+    isBeforeDateInput(data.collectionStartDate, data.disbursementDate)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["collectionStartDate"],
+      message: "Collection start date must be on or after disbursement date",
+    })
+  }
 })
 
 type FormInput = z.input<typeof schema>
@@ -70,8 +133,8 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
   const form = useForm<FormInput, unknown, FormOutput>({
       resolver: zodResolver(schema),
       defaultValues: async () => {
-        const today = new Date().toISOString().slice(0, 10)
-        const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        const today = getTodayDateInputValue()
+        const nextWeek = addDaysDateInputValue(today, 7)
         return {
             memberId: member?.id ?? 0,
             loanAmount: 0,
@@ -96,8 +159,8 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         return
       }
     setApiErrorMessage(null)
-    const today = new Date().toISOString().slice(0, 10)
-    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const today = getTodayDateInputValue()
+    const nextWeek = addDaysDateInputValue(today, 7)
     form.reset({
     memberId: member?.id ?? 0,
     loanAmount: 0,
@@ -155,6 +218,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     const processingFeeValue = form.watch("processingFee")
     const insuranceFeeValue = form.watch("insuranceFee")
     const interestAmountValue = form.watch("interestAmount")
+    const disbursementDateValue = form.watch("disbursementDate")
 
     const selectedPaymentTerm = useMemo(
       () => paymentTerms.find((term) => term.id === Number(selectedPaymentTermId)) ?? null,
@@ -467,6 +531,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                   <input
                     type="date"
                     {...form.register("disbursementDate")}
+                    min={getTodayDateInputValue()}
                     className={cn(inputClass, form.formState.errors.disbursementDate && "border-destructive")}
                   />
                   {form.formState.errors.disbursementDate && (
@@ -478,6 +543,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                   <input
                     type="date"
                     {...form.register("collectionStartDate")}
+                    min={disbursementDateValue || getTodayDateInputValue()}
                     className={cn(inputClass, (form.formState.errors.collectionStartDate || collectionDayError) && "border-destructive")}
                   />
                   {form.formState.errors.collectionStartDate && (

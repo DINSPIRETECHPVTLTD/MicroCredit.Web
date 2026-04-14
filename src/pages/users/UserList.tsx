@@ -16,10 +16,17 @@ import { Plus, Pencil, Key, UserX } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
 
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
+const passwordValidationMessage =
+  "Password must be at least 8 characters and include uppercase, lowercase, number, special character (@$!%*?&#), and no spaces"
+
 const resetPasswordSchema = z
   .object({
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
+    password: z
+      .string()
+      .min(1, "Password is required")
+      .refine((value) => passwordRegex.test(value), passwordValidationMessage),
+    confirmPassword: z.string().min(1, "Confirm password is required"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -185,7 +192,7 @@ function ResetPasswordDialog({
     <dialog
       ref={dialogRef}
       onCancel={close}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50"
+      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-md w-full"
       aria-labelledby="reset-password-title"
       aria-describedby="reset-password-desc"
     >
@@ -228,7 +235,9 @@ function ResetPasswordDialog({
               {...form.register("password")}
             />
             {form.formState.errors.password && (
-              <p className="text-xs text-destructive mt-1">{form.formState.errors.password.message}</p>
+              <p className="text-xs text-destructive mt-1 break-words whitespace-normal">
+                {form.formState.errors.password.message}
+              </p>
             )}
           </div>
           <div>
@@ -243,7 +252,9 @@ function ResetPasswordDialog({
               {...form.register("confirmPassword")}
             />
             {form.formState.errors.confirmPassword && (
-              <p className="text-xs text-destructive mt-1">{form.formState.errors.confirmPassword.message}</p>
+              <p className="text-xs text-destructive mt-1 break-words whitespace-normal">
+                {form.formState.errors.confirmPassword.message}
+              </p>
             )}
           </div>
         </div>
