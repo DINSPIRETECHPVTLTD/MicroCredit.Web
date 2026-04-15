@@ -8,6 +8,10 @@ export const userService = {
     console.log("Fetched users:", data) // Debug log to check fetched data
     return data
   },
+  async getInvestors(): Promise<UserResponse[]> {
+    const { data } = await axios.get<UserResponse[]>(api.users.investors)
+    return data
+  },
 
   async getCollectedByUsers(): Promise<UserResponse[]> {
     const { data } = await axios.get<UserResponse[]>(api.users.collectedBy)

@@ -21,7 +21,7 @@ function InvestmentsList() {
     isLoading: usersLoading,
   } = useQuery({
     queryKey: ["users"],
-    queryFn: () => userService.getUsers() as Promise<UserResponse[]>,
+    queryFn: () => userService.getInvestors() as Promise<UserResponse[]>,
   })
 
   const userMap = useMemo(() => {
