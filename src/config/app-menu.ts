@@ -5,8 +5,8 @@ export const DASHBOARD_BASE = ""
 export const APP_MENU: AppMenuItem[] = [
   { label: "Dashboard", key: "Dashboard", route: "dashboard", modes: ["ORG"] },
   { label: "Org Info", key: "Info", route: "org-info", modes: ["ORG"] },
-  { label: "Users", key: "Users", route: "users", modes: ["ORG"], roles: ["OWNER"] },
-  { label: "Branches", key: "Branches", route: "branches", modes: ["ORG"], roles: ["OWNER"] },
+  { label: "Users", key: "Users", route: "users", modes: ["ORG"], roles: ["Owner"] },
+  { label: "Branches", key: "Branches", route: "branches", modes: ["ORG"], roles: ["Owner"] },
   {
     label: "Master",
     key: "Master",
@@ -29,7 +29,7 @@ export const APP_MENU: AppMenuItem[] = [
   { label: "Dashboard", key: "Dashboard", route: "dashboard", modes: ["BRANCH"] },
   { label: "Centers", key: "Centers", route: "centers", modes: ["BRANCH"] },
   { label: "POCs", key: "POCs", route: "pocs", modes: ["BRANCH"] },
-  { label: "Staff", key: "Staff", route: "staff", modes: ["BRANCH"], roles: ["OWNER", "BRANCH_ADMIN"] },
+  { label: "Staff", key: "Staff", route: "staff", modes: ["BRANCH"], roles: ["Owner", "BranchAdmin"] },
   { label: "Members", key: "Members", route: "members", modes: ["BRANCH"] },
   {
     label: "Loans",

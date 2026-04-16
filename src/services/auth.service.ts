@@ -109,6 +109,7 @@ export const authService = {
       lastName: data.lastName ?? session!.lastName,
       role: data.role ?? session!.role,
       mode: data.mode ?? session?.mode,
+      branchId: data.branchId ?? session?.branchId,
       organization: data.organization ?? session?.organization,
       branch: data.branch !== undefined ? data.branch : session?.branch,
     }

@@ -8,6 +8,7 @@ import {
   getExpandedKeyForUrl,
 } from "@/config/app-menu"
 import type { AppMode, AppRole } from "@/types/menu"
+import { getNormalizedSessionMeta } from "@/lib/authz"
 import type { OrgResponse, BranchResponse } from "@/types/auth"
 import {
   getSession,
@@ -77,22 +78,14 @@ export default function DashboardLayout() {
   const [session, setSession] = useState(getSession())
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
-  const mode: AppMode =
-    session?.mode === "ORG" || session?.mode === "BRANCH"
-      ? session.mode
-      : "ORG"
-  const role: AppRole =
-    session?.role === "OWNER" ||
-    session?.role === "BRANCH_ADMIN" ||
-    session?.role === "STAFF" ||
-    session?.role === "BRANCH_USER"
-      ? session.role
-      : "OWNER"
+  const { mode, role } = getNormalizedSessionMeta(session)
+  const safeMode: AppMode = mode
+  const safeRole: AppRole = role ?? "Owner"
 
   const organization: OrgResponse | null = getOrganization()
   const selectedBranch: BranchResponse | null = getBranch()
   const userDisplayName = getDisplayName()
-  const filteredMenu = getFilteredMenu(APP_MENU, mode, role)
+  const filteredMenu = getFilteredMenu(APP_MENU, safeMode, safeRole)
 
 
   useEffect(() => {
@@ -271,12 +264,12 @@ export default function DashboardLayout() {
             <span
               className={cn(
                 "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider",
-                mode === "ORG"
+                safeMode === "ORG"
                   ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
                   : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
               )}
             >
-              {mode === "ORG" ? "Org" : "Branch"}
+              {safeMode === "ORG" ? "Org" : "Branch"}
             </span>
           </div>
 
@@ -287,7 +280,7 @@ export default function DashboardLayout() {
                 {userDisplayName}
               </span>
             </div>
-            {mode === "BRANCH" && role === "OWNER" && (
+            {safeMode === "BRANCH" && safeRole === "Owner" && (
               <Button variant="outline" size="sm" onClick={handleReturnToOrg}>
                 Back to Org
               </Button>
