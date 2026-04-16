@@ -29,6 +29,7 @@ export interface AuthResponse {
   lastName: string
   role: string
   mode?: string // "ORG" | "BRANCH"
+  branchId?: number | null
   organization?: OrgResponse
   branch?: BranchResponse | null
 }

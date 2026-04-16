@@ -1,5 +1,5 @@
 export type AppMode = "ORG" | "BRANCH"
-export type AppRole = "OWNER" | "BRANCH_ADMIN" | "STAFF" | "BRANCH_USER"
+export type AppRole = "Owner" | "BranchAdmin" | "Staff" | "Investor"
 
 export interface AppMenuItem {
   label: string
