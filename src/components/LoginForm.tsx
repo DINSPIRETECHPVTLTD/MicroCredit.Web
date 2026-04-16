@@ -38,10 +38,30 @@ export default function LoginForm() {
     setErrorMessage(null)
     setIsLoading(true)
     try {
-      await authService.login(data)
+      // First try Org mode (for Owner / org users)
+      await authService.login({ ...data, mode: "ORG" })
       navigate("/dashboard", { replace: true })
-    } catch (err: unknown) {
-      setErrorMessage(getLoginErrorMessage(err))
+      return
+    } catch (firstErr: unknown) {
+      const firstMessage = getLoginErrorMessage(firstErr)
+
+      // If API indicates the user must use Branch mode, retry automatically in Branch mode
+      if (
+        firstMessage &&
+        firstMessage.toLowerCase().includes("branch users can login only in branch mode")
+      ) {
+        try {
+          await authService.login({ ...data, mode: "BRANCH" })
+          navigate("/dashboard", { replace: true })
+          return
+        } catch (secondErr: unknown) {
+          setErrorMessage(getLoginErrorMessage(secondErr))
+          return
+        }
+      }
+
+      // Any other error: show the original message
+      setErrorMessage(firstMessage)
     } finally {
       setIsLoading(false)
     }
