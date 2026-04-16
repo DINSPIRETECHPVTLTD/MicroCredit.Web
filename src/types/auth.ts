@@ -17,6 +17,11 @@ export interface BranchResponse {
 export interface AuthRequest {
   email: string
   password: string
+  /**
+   * Login mode hint for the backend.
+   * When omitted, API default is used.
+   */
+  mode?: "ORG" | "BRANCH"
 }
 
 export interface AuthResponse {
