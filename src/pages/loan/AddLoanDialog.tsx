@@ -388,7 +388,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                       <p className="text-sm font-semibold">{latest.totalAmountPaid}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Weeks Paid</p>
+                      <p className="text-xs text-muted-foreground mb-0.5">(Paid+Partial)/Total EMIs</p>
                       <p className="text-sm font-semibold">{latest.noOfTerms}</p>
                     </div>
                     <div>
