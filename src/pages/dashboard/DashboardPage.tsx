@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { getBranch, getOrganization, getSession } from "@/services/auth.service"
+import { getBranch, getSession } from "@/services/auth.service"
 import { reportService } from "@/services/report.service"
 import { dashboardService } from "@/services/dashboard.service"
 import type { MemberByPocReportRow, PocBranchReportRow } from "@/types/report"
@@ -241,7 +241,6 @@ function OrgModeDateHighlight() {
 
 /** Org mode: simple home — branch POC report is only shown in Branch mode after opening a branch. */
 function OrgDashboardHome() {
-  const org = getOrganization()
   const [chartView, setChartView] = useState<"collections" | "capital">("collections")
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["dashboardSummary"],

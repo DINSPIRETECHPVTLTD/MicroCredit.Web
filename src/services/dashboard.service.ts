@@ -1,5 +1,5 @@
 import axios from "axios"
-import { api, getApiUrl } from "@/lib/api"
+import { api } from "@/lib/api"
 import type { DashboardSummaryResponse } from "@/types/dashboard"
 
 function pickNum(value: unknown): number {
@@ -28,18 +28,8 @@ function normalizeSummary(raw: Record<string, unknown>): DashboardSummaryRespons
 
 export const dashboardService = {
   async getSummary(): Promise<DashboardSummaryResponse> {
-    try {
-      const { data } = await axios.get<unknown>(api.report.summary())
-      const safe = data && typeof data === "object" ? (data as Record<string, unknown>) : {}
-      return normalizeSummary(safe)
-    } catch (error) {
-      // Backward compatibility for environments that still expose /report/summary.
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        const { data } = await axios.get<unknown>(getApiUrl("/report/summary"))
-        const safe = data && typeof data === "object" ? (data as Record<string, unknown>) : {}
-        return normalizeSummary(safe)
-      }
-      throw error
-    }
+    const { data } = await axios.get<unknown>(api.report.summary())
+    const safe = data && typeof data === "object" ? (data as Record<string, unknown>) : {}
+    return normalizeSummary(safe)
   },
 }

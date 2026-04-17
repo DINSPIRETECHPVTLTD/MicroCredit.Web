@@ -183,7 +183,7 @@ export const api = {
     },
   },
   report: {
-    summary: () => `${getApiBase()}/api/report/summary`,
+    summary: () => `${getApiBase()}/report/summary`,
     pocsByBranch: (branchId: number) =>
       `${getApiBase()}/Report/pocs-by-branch/${branchId}`,
     membersByPoc: (branchId: number, pocId: number) =>
