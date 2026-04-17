@@ -101,9 +101,16 @@ export function buildPromissoryNoteHtml(memberName: string, memberId: string, da
         .borrower-sign {
           margin: 20px 0 12px;
           display: flex;
-          justify-content: flex-end;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 6px;
         }
-        .borrower-sign .line { min-width: 220px; text-align: center; }
+        .borrower-sign-en {
+          font-size: 13px;
+        }
+        .borrower-sign-te {
+          font-size: 14px;
+        }
         .guarantee-title {
           margin-top: 12px;
           text-align: center;
@@ -118,17 +125,37 @@ export function buildPromissoryNoteHtml(memberName: string, memberId: string, da
         .list-lines li { margin: 6px 0; }
         .office-title {
           text-align: center;
-          margin-top: 14px;
+          margin-top: 10px;
           font-weight: 800;
           text-decoration: underline;
         }
+        /* Table layout avoids bad Telugu syllable breaks in narrow flex columns */
         .office-signs {
-          margin-top: 12px;
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
+          width: 100%;
+          margin-top: 8px;
+          border-collapse: collapse;
+          table-layout: fixed;
+          font-size: 11px;
         }
-        .office-signs > div { width: 33.33%; text-align: center; }
+        .office-signs td {
+          width: 33.33%;
+          vertical-align: top;
+          text-align: center;
+          padding: 4px 6px;
+          line-height: 1.35;
+          word-break: normal;
+          overflow-wrap: break-word;
+        }
+        .office-signs .office-te {
+          display: block;
+          font-size: 12px;
+        }
+        .office-signs .office-en {
+          display: block;
+          margin-top: 2px;
+          font-size: 10px;
+          color: #111;
+        }
         @media print {
           @page { size: A4 portrait; margin: 8mm; }
           .page { padding: 0; }
@@ -182,7 +209,10 @@ export function buildPromissoryNoteHtml(memberName: string, memberId: string, da
         <span class="line line-sm"></span> installments on a weekly/monthly basis.
       </div>
       <br><br>
-      <div class="borrower-sign">Borrower's signature / Thumb impression: <span class="line"></span></div>
+      <div class="borrower-sign">
+        <div class="borrower-sign-te">ఋణగ్రహిత సంతకము / వేలిముద్ర</div>
+        <div class="borrower-sign-en">(Borrower's signature / Thumb impression):</div>
+      </div>
       
       <div class="borrower">జామీను / Guarantee</div>
 
@@ -222,21 +252,25 @@ export function buildPromissoryNoteHtml(memberName: string, memberId: string, da
 
       <div class="rule"></div>
       <div class="office-title">ఆఫీసు కొరకు / OFFICE USE ONLY</div>
-      <br><br>
-      <div class="office-signs">
-        <div>
-          <div>సిబ్బంది సంతకము</div>
-          <div>(Staff Signature)</div>
-        </div>
-        <div>
-          <div>క్యాషియర్ సంతకము</div>
-          <div>(Cashier's Signature)</div>
-        </div>
-        <div>
-          <div>మేనేజరు సంతకము</div>
-          <div>(Manager Signature)</div>
-        </div>
-      </div>
+      <br />
+      <table class="office-signs" role="presentation">
+        <tbody>
+          <tr>
+            <td>
+              <span class="office-te" lang="te">సిబ్బంది సంతకము</span>
+              <span class="office-en" lang="en">(Staff Signature)</span>
+            </td>
+            <td>
+              <span class="office-te" lang="te">క్యాషియర్ సంతకము</span>
+              <span class="office-en" lang="en">(Cashier's Signature)</span>
+            </td>
+            <td>
+              <span class="office-te" lang="te">మేనేజరు సంతకము</span>
+              <span class="office-en" lang="en">(Manager Signature)</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       </div>
     </body>
     </html>

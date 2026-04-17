@@ -1,4 +1,3 @@
-import axios from "axios"
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -7,8 +6,8 @@ import {
 } from "material-react-table"
 import { useParams } from "react-router-dom"
 
-import { api } from "@/lib/api"
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
+import { fetchLoanSchedulerList } from "@/services/loanScheduler.service"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -27,50 +26,28 @@ export default function LoanSchedulerList() {
 
   const { data: rows = [], isLoading, isError, error } = useQuery<LoanSchedulerResponse[]>({
     queryKey: ["loanSchedulers", loanId],
-    queryFn: async () => {
-      // Backend typically serializes property names in camelCase, so we normalize
-      // the response to the PascalCase keys our table columns expect.
-      const { data } = await axios.get<any[]>(api.loanScheduler.list(loanId))
-
-      return (data ?? []).map((x) => ({
-        LoanschedulerId: x?.LoanschedulerId ?? x?.loanSchedulerId ?? x?.loanSchedulerID,
-        LoanID: x?.LoanID ?? x?.loanId ?? x?.loanID,
-        InstallmentNo: x?.InstallmentNo ?? x?.installmentNo,
-        ScheduleDate: x?.ScheduleDate ?? x?.scheduleDate,
-        PaymentDate: x?.PaymentDate ?? x?.paymentDate,
-        Status: x?.Status ?? x?.status,
-        ActualEmiAmount: x?.ActualEmiAmount ?? x?.actualEmiAmount,
-        PaymentMode: x?.PaymentMode ?? x?.paymentMode,
-        Comments: x?.Comments ?? x?.comments,
-        PaymentAmount: x?.PaymentAmount ?? x?.paymentAmount,
-      })) as LoanSchedulerResponse[]
-    },
+    queryFn: () => fetchLoanSchedulerList(loanId),
     enabled: Number.isFinite(loanId),
   })
 
   const totals = useMemo(() => {
     let totalAmount = 0
-    let remainingBalance = 0
     let totalPaidAmount = 0
 
+    const parseMoney = (raw: unknown): number => {
+      const n = typeof raw === "string" ? Number(raw) : Number(raw ?? 0)
+      return Number.isFinite(n) ? n : 0
+    }
+
     for (const r of rows) {
-      const emiRaw = r.ActualEmiAmount as unknown
-      const emi = typeof emiRaw === "string" ? Number(emiRaw) : (emiRaw ?? 0)
-      const emiNum = Number.isFinite(Number(emi)) ? Number(emi) : 0
+      const emiNum = parseMoney(r.ActualEmiAmount)
+      const paidNum = parseMoney(r.PaymentAmount)
 
       totalAmount += emiNum
-
-      const statusNorm = String(r.Status ?? "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .toLowerCase()
-
-      if (statusNorm === "not paid") {
-        remainingBalance += emiNum
-      } else if (statusNorm === "paid") {
-        totalPaidAmount += emiNum
-      }
+      totalPaidAmount += paidNum
     }
+
+    const remainingBalance = Math.max(0, totalAmount - totalPaidAmount)
 
     return { totalAmount, remainingBalance, totalPaidAmount }
   }, [rows])
@@ -186,7 +163,7 @@ export default function LoanSchedulerList() {
             <div className="mt-1 text-lg font-semibold">{formatCurrency(totals.totalAmount)}</div>
           </div>
           <div className="rounded-lg border bg-card p-4">
-            <div className="text-sm text-muted-foreground">RemaningBalance</div>
+            <div className="text-sm text-muted-foreground">RemainingBalance</div>
             <div className="mt-1 text-lg font-semibold">
               {formatCurrency(totals.remainingBalance)}
             </div>
