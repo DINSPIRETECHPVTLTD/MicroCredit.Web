@@ -17,12 +17,26 @@ import {
   type MRT_TableInstance,
 } from "material-react-table"
 import toast from "react-hot-toast"
-import { RefreshCw, Users, IndianRupee, UserCheck } from "lucide-react"
+import {
+  RefreshCw,
+  Users,
+  IndianRupee,
+  UserCheck,
+  Wallet,
+  TrendingUp,
+  HandCoins,
+  Landmark,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getBranch, getOrganization, getSession } from "@/services/auth.service"
 import { reportService } from "@/services/report.service"
+import { dashboardService } from "@/services/dashboard.service"
 import type { MemberByPocReportRow, PocBranchReportRow } from "@/types/report"
+import type { DashboardChartItem } from "@/types/dashboard"
+import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
+import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
+import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
 
 /** POC row with counts/amounts derived from members-by-poc (POC API often omits memberCount/totalAmount). */
 type PocTableRow = PocBranchReportRow & {
@@ -197,22 +211,204 @@ function DashboardSkeleton() {
   )
 }
 
+function OrgModeDateHighlight() {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(t)
+  }, [])
+
+  const datePart = now.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
+  const timePart = now.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+
+  return (
+    <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
+      <span className="text-sm font-semibold text-primary">{datePart}</span>
+      <span className="text-xs text-primary/80">• {timePart}</span>
+    </div>
+  )
+}
+
 /** Org mode: simple home — branch POC report is only shown in Branch mode after opening a branch. */
 function OrgDashboardHome() {
   const org = getOrganization()
+  const [chartView, setChartView] = useState<"collections" | "capital">("collections")
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: ["dashboardSummary"],
+    queryFn: dashboardService.getSummary,
+  })
+
+  const hasNoData = useMemo(() => {
+    if (!data) return false
+    const values = Object.values(data)
+    return values.every((v) => typeof v === "number" && v === 0)
+  }, [data])
+
+  const netIncome = useMemo(() => {
+    if (!data) return 0
+    // Net Income = Received Interest + Joining Fee + Processing Fee - Expenses
+    const income = data.receivedInterest + data.totalJoiningFee + data.totalProcessingFee
+    const expenses = data.totalLedgerExpenseAmount
+    return income - expenses
+  }, [data])
+
+  const cashInHand = useMemo(() => {
+    if (!data) return 0
+    return (
+      data.totalOwnerAmount +
+      data.totalInvestorAmount +
+      data.receivedPrinciple +
+      data.receivedInterest +
+      data.totalJoiningFee +
+      data.totalProcessingFee -
+      data.totalLedgerExpenseAmount
+    )
+  }, [data])
+
+  const chartItems = useMemo<DashboardChartItem[]>(() => {
+    if (!data) return []
+    if (chartView === "collections") {
+      return [
+        { label: "Received Principle", value: data.receivedPrinciple },
+        { label: "Received Interest", value: data.receivedInterest },
+        { label: "Joining Fee", value: data.totalJoiningFee },
+        { label: "Processing Fee", value: data.totalProcessingFee },
+        { label: "Expenses", value: data.totalLedgerExpenseAmount },
+      ]
+    }
+    return [
+      { label: "Owner Amount", value: data.totalOwnerAmount },
+      { label: "Investor Amount", value: data.totalInvestorAmount },
+      { label: "Insurance", value: data.totalInsuranceAmount },
+      { label: "Outstanding Principle", value: data.outstandingPrinciple },
+      { label: "Interest Accrued", value: data.interestAccured },
+    ]
+  }, [data, chartView])
+
+  const errorMessage = useMemo(
+    () => (error ? getApiErrorMessage(error, "Failed to load dashboard summary.") : ""),
+    [error]
+  )
+
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-      <p className="mt-2 text-muted-foreground">
-        Welcome to MicroCredit (MCS)
-        {org?.name ? (
-          <>
-            {" "}
-            — <span className="font-medium text-foreground">{org.name}</span>
-          </>
-        ) : null}
-        .
-      </p>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Org Dashboard</h1>
+          <OrgModeDateHighlight />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} aria-hidden />
+          Refresh
+        </Button>
+      </div>
+
+      {isError ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+          <p className="font-medium text-destructive">{errorMessage}</p>
+          <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
+            Try again
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryMetricCard
+              title="Remittance (Owner)"
+              value={formatInr(data?.totalOwnerAmount ?? 0)}
+              icon={Landmark}
+              loading={isLoading}
+            />
+            <SummaryMetricCard
+              title="Credit (Investor)"
+              value={formatInr(data?.totalInvestorAmount ?? 0)}
+              icon={Wallet}
+              loading={isLoading}
+            />
+            <SummaryMetricCard
+              title="Insurance"
+              value={formatInr(data?.totalInsuranceAmount ?? 0)}
+              icon={IndianRupee}
+              loading={isLoading}
+            />
+            <SummaryMetricCard
+              title="Net Income"
+              value={formatInr(netIncome)}
+              icon={TrendingUp}
+              loading={isLoading}
+            />
+            <SummaryMetricCard
+              title="Cash In Hand"
+              value={formatInr(cashInHand)}
+              icon={HandCoins}
+              loading={isLoading}
+            />
+          </div>
+
+          {hasNoData && !isLoading ? (
+            <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-muted-foreground">
+              No summary data is available yet.
+            </div>
+          ) : (
+            <>
+              {data ? <SummaryDataTable data={data} /> : null}
+              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-foreground">Financial Breakdown</h3>
+                  <div className="inline-flex rounded-lg border border-border bg-muted p-1">
+                    <button
+                      type="button"
+                      className={cn(
+                        "rounded-md px-3 py-1 text-xs font-medium",
+                        chartView === "collections"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-background"
+                      )}
+                      onClick={() => setChartView("collections")}
+                    >
+                      Collections
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        "rounded-md px-3 py-1 text-xs font-medium",
+                        chartView === "capital"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-background"
+                      )}
+                      onClick={() => setChartView("capital")}
+                    >
+                      Capital
+                    </button>
+                  </div>
+                </div>
+                <HorizontalBarChart
+                  title="Distribution Chart"
+                  items={chartItems}
+                  emptyMessage="No chart data to display."
+                />
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 }
