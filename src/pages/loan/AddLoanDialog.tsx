@@ -216,6 +216,8 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     const loanAmountValue = form.watch("loanAmount")
     const interestAmountValue = form.watch("interestAmount")
     const disbursementDateValue = form.watch("disbursementDate")
+    const totalAmountValue = form.watch("totalAmount")
+    const noOfTermsValue = form.watch("noOfTerms")
 
     const selectedPaymentTerm = useMemo(
       () => paymentTerms.find((term) => term.id === Number(selectedPaymentTermId)) ?? null,
@@ -270,6 +272,18 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         }
         return null
     }, [collectionStartDate, pocs?.collectionDay])
+
+    const emiPreviewRows = useMemo(() => {
+      const totalAmount = toNumber(totalAmountValue)
+      const noOfTerms = Math.trunc(toNumber(noOfTermsValue))
+      if (totalAmount <= 0 || noOfTerms <= 0) return []
+
+      const emiPerTerm = Number((totalAmount / noOfTerms).toFixed(2))
+      return Array.from({ length: noOfTerms }, (_, idx) => ({
+        termNo: idx + 1,
+        emiAmount: emiPerTerm,
+      }))
+    }, [totalAmountValue, noOfTermsValue])
 
 
     const submit = async (data: FormOutput) => {
@@ -579,6 +593,35 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                 </div>
               </div>
             </section>
+
+            {emiPreviewRows.length > 0 ? (
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium">EMI Preview</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Per-term EMI = Total Amount / No Of Terms
+                  </p>
+                </div>
+                <div className="rounded-md border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">Term #</th>
+                        <th className="text-right px-3 py-2 font-medium">EMI Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emiPreviewRows.map((row) => (
+                        <tr key={row.termNo} className="border-t">
+                          <td className="px-3 py-2">{row.termNo}</td>
+                          <td className="px-3 py-2 text-right">{row.emiAmount.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
           </div>
 
           <div className="flex justify-end gap-2 p-6 border-t shrink-0">
