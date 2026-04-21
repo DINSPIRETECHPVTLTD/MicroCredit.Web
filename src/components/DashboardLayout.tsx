@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import toast from "react-hot-toast"
 import { Outlet, useNavigate, useLocation, NavLink } from "react-router-dom"
 import {
@@ -85,12 +85,15 @@ export default function DashboardLayout() {
   const organization: OrgResponse | null = getOrganization()
   const selectedBranch: BranchResponse | null = getBranch()
   const userDisplayName = getDisplayName()
-  const filteredMenu = getFilteredMenu(APP_MENU, safeMode, safeRole)
+  const filteredMenu = useMemo(
+    () => getFilteredMenu(APP_MENU, safeMode, safeRole),
+    [safeMode, safeRole]
+  )
 
 
   useEffect(() => {
     const key = getExpandedKeyForUrl(filteredMenu, location.pathname, DASHBOARD_BASE)
-    if (key) setExpandedKey(key)
+    setExpandedKey(key ?? null)
   }, [location.pathname, filteredMenu])
 
 
