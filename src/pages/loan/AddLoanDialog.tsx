@@ -214,9 +214,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     })
     const selectedPaymentTermId = form.watch("paymentTermId")
     const loanAmountValue = form.watch("loanAmount")
-    const savingAmountValue = form.watch("savingAmount")
-    const processingFeeValue = form.watch("processingFee")
-    const insuranceFeeValue = form.watch("insuranceFee")
     const interestAmountValue = form.watch("interestAmount")
     const disbursementDateValue = form.watch("disbursementDate")
 
@@ -257,12 +254,9 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     useEffect(() => {
       const loanAmount = toNumber(loanAmountValue)
       const interest = toNumber(interestAmountValue)
-      const processing = toNumber(processingFeeValue)
-      const insurance = toNumber(insuranceFeeValue)
-      const saving = toNumber(savingAmountValue)
-      const total = Number((loanAmount + interest + processing + insurance + saving).toFixed(2))
+      const total = Number((loanAmount + interest).toFixed(2))
       form.setValue("totalAmount", total)
-    }, [loanAmountValue, interestAmountValue, processingFeeValue, insuranceFeeValue, savingAmountValue, form])
+    }, [loanAmountValue, interestAmountValue, form])
 
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
