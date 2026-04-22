@@ -39,6 +39,7 @@ import {
   normalizeStatusValue,
   round2,
   RECOVERY_STATUS,
+  validateRecoveryPostRows,
 } from "./recoveryPostingCalculations"
 
 const inputClass =
@@ -168,12 +169,14 @@ function RecoveryPostingList() {
   const [commentsDraft, setCommentsDraft] = useState<Record<string, string>>({})
   const [rowEdits, setRowEdits] = useState<Record<string, RecoveryRowDraft>>({})
   const [fieldErrors, setFieldErrors] = useState<RecoveryPostingFieldErrorState>(EMPTY_FIELD_ERRORS)
+  const [isPosting, setIsPosting] = useState(false)
 
   const { data: centersData } = useQuery({
     queryKey: ["centers"],
     queryFn: () => centerService.getCenters(),
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
+    refetchOnMount: "always",
   })
   const centers = centersData ?? EMPTY_CENTERS
 
@@ -183,6 +186,7 @@ function RecoveryPostingList() {
     enabled: !!branchId && centerId > 0,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
+    refetchOnMount: "always",
   })
   const pocsByBranch = pocsData ?? EMPTY_POCS
 
@@ -196,6 +200,7 @@ function RecoveryPostingList() {
     queryFn: () => userService.getCollectedByUsers(),
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
+    refetchOnMount: "always",
   })
 
   const collectedByOptions = collectedByUsersData ?? EMPTY_USERS
@@ -216,6 +221,7 @@ function RecoveryPostingList() {
       }),
     enabled: !!branchId && !!dateKey,
     staleTime: 1000 * 60 * 2,
+    refetchOnMount: "always",
   })
 
   const gridRows = recoveryData ?? EMPTY_RECOVERY_ROWS
@@ -229,6 +235,7 @@ function RecoveryPostingList() {
     enabled: hasGridData,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
+    refetchOnMount: "always",
   })
   const allLookups = masterLookupsData ?? EMPTY_LOOKUPS
 
@@ -365,6 +372,7 @@ function RecoveryPostingList() {
   }, [editableRows, rowSelection])
 
   const handlePost = useCallback(async () => {
+    if (isPosting) return
     setFieldErrors(EMPTY_FIELD_ERRORS)
     const keys = Object.keys(rowSelection).filter((k) => rowSelection[k])
     if (keys.length === 0) {
@@ -381,18 +389,51 @@ function RecoveryPostingList() {
       .map((k) => editableRows.find((r) => r.rowKey === k))
       .filter((r): r is RecoveryPostingRow => r != null)
 
-    const rowsToPost = selectedRows
+    const selectedRowsWithDrafts = selectedRows
       .map((r) => ({
         ...r,
         paymentMode: (paymentModeDraft[r.rowKey] ?? r.paymentMode ?? "").trim(),
         comments: commentsDraft[r.rowKey] ?? r.comments,
       }))
-      .filter((r) => (r.paymentAmount ?? 0) > 0)
-    if (rowsToPost.length === 0) {
-      toast.error("Enter a payment amount greater than zero for at least one row.")
+
+    const validationIssues = validateRecoveryPostRows(
+      selectedRowsWithDrafts.map((r) => ({
+        rowKey: r.rowKey,
+        status: r.status,
+        paymentAmount: r.paymentAmount ?? 0,
+        principalAmount: r.principalAmount ?? 0,
+        interestAmount: r.interestAmount ?? 0,
+        actualEmiAmount: r.actualEmiAmount ?? 0,
+        paymentMode: r.paymentMode ?? "",
+      }))
+    )
+    if (validationIssues.length > 0) {
+      const nextRows: RecoveryPostingFieldErrorState["rows"] = {}
+      for (const issue of validationIssues) {
+        const rowErrors = nextRows[issue.rowKey] ?? {}
+        if (issue.type === "paymentMode") {
+          rowErrors.paymentMode = "Select payment mode."
+        } else if (issue.type === "status") {
+          rowErrors.paymentAmount = "Payment amount must be greater than zero."
+        } else if (issue.type === "sum") {
+          rowErrors.general = "Payment must equal Principal + Interest."
+        } else if (issue.type === "exceedsEmi") {
+          rowErrors.paymentAmount = `Payment cannot exceed actual EMI (${formatCurrency(issue.actualEmi)}).`
+        }
+        nextRows[issue.rowKey] = rowErrors
+      }
+      setFieldErrors({ rows: nextRows })
+      toast.error("Fix validation errors in selected rows.")
+      return
+    }
+    const rowsToPost = selectedRowsWithDrafts
+    const invalidSchedulerRows = rowsToPost.filter((row) => !Number.isFinite(row.loanSchedulerId) || row.loanSchedulerId <= 0)
+    if (invalidSchedulerRows.length > 0) {
+      toast.error("Selected row has invalid LoanSchedulerId. Please reload and try again.")
       return
     }
 
+    setIsPosting(true)
     try {
       const result = await postRecoveryPosting({
         collectedBy: effectiveCollectedById,
@@ -424,8 +465,10 @@ function RecoveryPostingList() {
         setFieldErrors(mappedFieldErrors)
       }
       toast.error(details.message || DEFAULT_API_ERROR_MESSAGE)
+    } finally {
+      setIsPosting(false)
     }
-  }, [rowSelection, effectiveCollectedById, editableRows, paymentModeDraft, commentsDraft, refetch])
+  }, [rowSelection, effectiveCollectedById, editableRows, paymentModeDraft, commentsDraft, refetch, isPosting])
 
   const columns = useMemo<MRT_ColumnDef<RecoveryPostingRow>[]>(
     () => [
@@ -816,9 +859,9 @@ function RecoveryPostingList() {
                 {formatCurrency(selectedTotal)}
               </div>
             </div>
-            <Button type="button" className="gap-2 shrink-0" onClick={handlePost}>
+            <Button type="button" className="gap-2 shrink-0" onClick={handlePost} disabled={isPosting}>
               <Check className="h-4 w-4" aria-hidden />
-              Post recovery
+              {isPosting ? "Posting..." : "Post recovery"}
             </Button>
           </div>
         </div>

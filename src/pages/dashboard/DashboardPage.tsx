@@ -591,7 +591,6 @@ function BranchReportDashboard() {
     return map
   }, [filteredMembers])
 
-  const totalPocs = pocs.length
   const totalMembersInBranch = membersIsError
     ? pocs.reduce((sum, poc) => sum + (poc.memberCount ?? 0), 0)
     : filteredMembers.length
@@ -625,6 +624,21 @@ function BranchReportDashboard() {
       }
     })
   }, [pocs, membersByPoc, membersIsError, membersIsLoading, membersRaw])
+
+  const visiblePocTableRows = useMemo(() => {
+    // Avoid "show then hide" flicker: wait for member query to settle before rendering filtered rows.
+    if (membersIsLoading || membersIsFetching || membersRaw === undefined) {
+      return []
+    }
+    // If members API fails, keep POC fallback rows visible.
+    if (membersIsError) {
+      return pocTableRows
+    }
+    // On successful member result, only show POCs that have members in the selected window.
+    return pocTableRows.filter((row) => (row.resolvedMemberCount ?? 0) > 0)
+  }, [pocTableRows, membersIsLoading, membersIsFetching, membersIsError, membersRaw])
+
+  const totalPocs = visiblePocTableRows.length
 
   useEffect(() => {
     if (membersIsError && membersError) {
@@ -741,7 +755,7 @@ function BranchReportDashboard() {
 
   const pocTable = useMaterialReactTable({
     columns: pocColumns,
-    data: pocTableRows,
+    data: visiblePocTableRows,
     getRowId: (row) => String(row.pocId),
     state: { isLoading },
     enableGlobalFilter: true,
@@ -874,9 +888,9 @@ function BranchReportDashboard() {
               </div>
 
             </div>
-            {pocs.length === 0 && !isLoading ? (
+            {visiblePocTableRows.length === 0 && !isLoading && !membersIsLoading && !membersIsFetching ? (
               <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-                No POC data for this branch.
+                No Schedules Available
               </div>
             ) : (
               <div className="[caret-color:transparent]">

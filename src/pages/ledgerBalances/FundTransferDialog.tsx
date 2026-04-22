@@ -11,14 +11,19 @@ import { getSession } from "@/services/auth.service"
 import { X } from "lucide-react"
 import { ledgerBalanceService } from "@/services/ledgerBalance.service"
 
-const schema = z.object({
-  paidFromUserId: z.coerce.number().min(1, "From user is required"),
-  paidToUserId: z.coerce.number().min(1, "To user is required"),
-  amount: z.coerce.number().positive("Amount must be greater than zero"),
-  paymentDate: z.string().min(1, "Payment date is required"),
-  createdDate: z.string().min(1, "Created date is required"),
-  comments: z.string().min(2, "Comments are required"),
-})
+const schema = z
+  .object({
+    paidFromUserId: z.coerce.number().min(1, "From user is required"),
+    paidToUserId: z.coerce.number().min(1, "To user is required"),
+    amount: z.coerce.number().positive("Amount must be greater than zero"),
+    paymentDate: z.string().min(1, "Payment date is required"),
+    createdDate: z.string().min(1, "Created date is required"),
+    comments: z.string().min(2, "Comments are required"),
+  })
+  .refine((data) => data.paidFromUserId !== data.paidToUserId, {
+    message: "From user and To user cannot be the same",
+    path: ["paidToUserId"],
+  })
 
 type FormInput = z.input<typeof schema>
 type FormOutput = z.output<typeof schema>

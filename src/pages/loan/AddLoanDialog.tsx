@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { cn } from "@/lib/utils"
 import { useQuery } from "@tanstack/react-query"
+import { useNavigate } from "react-router-dom"
 import type { PaymentTermResponse } from "@/types/paymentTerm"
 import { paymentTermService } from "@/services/paymentTerm.service"
 import { pocService } from "@/services/poc.service"
@@ -122,6 +123,7 @@ function toNumber(value: unknown): number {
 export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }: AddLoanDialogProps) {
 
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
   const [currentMode, setCurrentMode] = useState<"add" | "view">(mode)
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
@@ -207,22 +209,34 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     const {
             data: loans = [],
             isLoading: loansLoading,
+            refetch: refetchMemberLoans,
         } = useQuery({
             queryKey: ["memberLoans", member?.id],
             queryFn: () => loanService.getLoanByMemId(member!.id) as Promise<LoanResponse[]>,
             enabled: !!member?.id && open && currentMode === "view",
     })
+    const hasExistingLoan = loans.length > 0
+
     const selectedPaymentTermId = form.watch("paymentTermId")
     const loanAmountValue = form.watch("loanAmount")
-    const savingAmountValue = form.watch("savingAmount")
-    const processingFeeValue = form.watch("processingFee")
-    const insuranceFeeValue = form.watch("insuranceFee")
     const interestAmountValue = form.watch("interestAmount")
     const disbursementDateValue = form.watch("disbursementDate")
+    const totalAmountValue = form.watch("totalAmount")
+    const noOfTermsValue = form.watch("noOfTerms")
+    const paymentTermField = form.register("paymentTermId", { valueAsNumber: true })
+
+    const selectablePaymentTerms = useMemo(
+      () =>
+        paymentTerms.map((term, idx) => ({
+          term,
+          selectionId: term.id > 0 ? term.id : idx + 1,
+        })),
+      [paymentTerms]
+    )
 
     const selectedPaymentTerm = useMemo(
-      () => paymentTerms.find((term) => term.id === Number(selectedPaymentTermId)) ?? null,
-      [paymentTerms, selectedPaymentTermId]
+      () => selectablePaymentTerms.find((item) => item.selectionId === Number(selectedPaymentTermId))?.term ?? null,
+      [selectablePaymentTerms, selectedPaymentTermId]
     )
 
     useEffect(() => {
@@ -257,12 +271,9 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     useEffect(() => {
       const loanAmount = toNumber(loanAmountValue)
       const interest = toNumber(interestAmountValue)
-      const processing = toNumber(processingFeeValue)
-      const insurance = toNumber(insuranceFeeValue)
-      const saving = toNumber(savingAmountValue)
-      const total = Number((loanAmount + interest + processing + insurance + saving).toFixed(2))
+      const total = Number((loanAmount + interest).toFixed(2))
       form.setValue("totalAmount", total)
-    }, [loanAmountValue, interestAmountValue, processingFeeValue, insuranceFeeValue, savingAmountValue, form])
+    }, [loanAmountValue, interestAmountValue, form])
 
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -276,6 +287,18 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         }
         return null
     }, [collectionStartDate, pocs?.collectionDay])
+
+    const emiPreviewRows = useMemo(() => {
+      const totalAmount = toNumber(totalAmountValue)
+      const noOfTerms = Math.trunc(toNumber(noOfTermsValue))
+      if (totalAmount <= 0 || noOfTerms <= 0) return []
+
+      const emiPerTerm = Number((totalAmount / noOfTerms).toFixed(2))
+      return Array.from({ length: noOfTerms }, (_, idx) => ({
+        termNo: idx + 1,
+        emiAmount: emiPerTerm,
+      }))
+    }, [totalAmountValue, noOfTermsValue])
 
 
     const submit = async (data: FormOutput) => {
@@ -306,6 +329,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       }
 
       await loanService.addLoan(payload)
+      await refetchMemberLoans()
       toast.success("Added Loan successfully")
       onSuccess()
       close("success")
@@ -317,6 +341,8 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     }
   }
 
+
+  const isExistingLoanView = currentMode === "view" && hasExistingLoan
 
   if (!open) return null
 
@@ -333,14 +359,34 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
             {currentMode === "view" ? "View Loan" : "Add Loan"} — {member?.name}
           </h2>
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentMode(currentMode === "view" ? "add" : "view")}
-            >
-              {currentMode === "view" ? "+ Add Loan" : "View Loans"}
-            </Button>
+            {currentMode === "view" && loans.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const latest = loans[loans.length - 1]
+                  close("cancel")
+                  navigate(`/loans/${latest.loanId}/scheduler`)
+                }}
+              >
+                View Loan
+              </Button>
+            ) : null}
+            {isExistingLoanView ? (
+              <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                Existing Loan
+              </span>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentMode(currentMode === "view" ? "add" : "view")}
+              >
+                {currentMode === "view" ? "+ Add Loan" : "View Loans"}
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -444,12 +490,18 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                 <div>
                   <label className="text-sm font-medium mb-1 block">Payment Term</label>
                   <select
-                    {...form.register("paymentTermId")}
+                    {...paymentTermField}
+                    onChange={(event) => {
+                      paymentTermField.onChange(event)
+                      void form.trigger("paymentTermId")
+                    }}
                     className={cn(inputClass, form.formState.errors.paymentTermId && "border-destructive")}
                   >
                     <option value={0}>Select Payment Term</option>
-                    {paymentTerms.map((p) => (
-                      <option key={p.id} value={p.id}>{p.paymentType}</option>
+                    {selectablePaymentTerms.map((item) => (
+                      <option key={`${item.term.id}-${item.selectionId}-${item.term.paymentType}`} value={item.selectionId}>
+                        {item.term.paymentType}
+                      </option>
                     ))}
                   </select>
                   {form.formState.errors.paymentTermId && (
@@ -585,6 +637,35 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                 </div>
               </div>
             </section>
+
+            {emiPreviewRows.length > 0 ? (
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium">EMI Preview</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Per-term EMI = Total Amount / No Of Terms
+                  </p>
+                </div>
+                <div className="rounded-md border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">Term #</th>
+                        <th className="text-right px-3 py-2 font-medium">EMI Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emiPreviewRows.map((row) => (
+                        <tr key={row.termNo} className="border-t">
+                          <td className="px-3 py-2">{row.termNo}</td>
+                          <td className="px-3 py-2 text-right">{row.emiAmount.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
           </div>
 
           <div className="flex justify-end gap-2 p-6 border-t shrink-0">

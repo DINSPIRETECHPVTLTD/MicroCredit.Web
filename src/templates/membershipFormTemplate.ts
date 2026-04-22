@@ -44,12 +44,19 @@ function buildAddress(member: MemberResponse): string {
   return valueOrDash(member.fullAddress)
 }
 
-export function buildMembershipFormHtml(member: MemberResponse, printDate: string): string {
+export function buildMembershipFormHtml(
+  member: MemberResponse,
+  printDate: string,
+  branchName?: string | null
+): string {
   const memberName = buildMemberName(member)
   const guardianName = buildGuardianName(member)
   const memberAge = member.age != null ? String(member.age) : "—"
   const guardianAge = member.guardianAge != null ? String(member.guardianAge) : "—"
-  const village = valueOrDash(member.center ?? member.centerName)
+  const centerPart = (member.center ?? member.centerName ?? "").trim()
+  const branchPart = (branchName ?? "").trim()
+  const villageParts = [centerPart, branchPart].filter(Boolean)
+  const village = villageParts.length ? villageParts.join(" / ") : "—"
   const code = valueOrDash(member.memberId ?? member.id)
   const mobile = valueOrDash(member.memberPhone ?? member.phoneNumber)
   const occupation = valueOrDash(member.occupation)
@@ -115,6 +122,11 @@ export function buildMembershipFormHtml(member: MemberResponse, printDate: strin
       .line-sm { min-width: 70px; }
       .line-md { min-width: 180px; }
       .line-lg { min-width: 300px; }
+      .value {
+        display: inline-block;
+        border-bottom: 1px dotted #000;
+        padding: 0 2px;
+      }
       .section-title { margin-top: 12px; font-weight: 700; }
       .signature-row {
         display: flex;
@@ -154,7 +166,7 @@ export function buildMembershipFormHtml(member: MemberResponse, printDate: strin
 
       <div class="form-title">సభ్యత్వ దరఖాస్తు / Member Form</div>
 
-      <div class="row">Date: <span class="line line-md">${escapeHtml(printDate)}</span> &nbsp;&nbsp; Village: <span class="line line-md">${escapeHtml(village)}</span> &nbsp;&nbsp; Code: <span class="line line-sm">${escapeHtml(code)}</span></div>
+      <div class="row">Date: <span class="value">${escapeHtml(printDate)}</span> &nbsp;&nbsp; Village: <span class="line line-lg">${escapeHtml(village)}</span> &nbsp;&nbsp; Code: <span class="value">${escapeHtml(code)}</span></div>
 
       <div class="section-title">1. వ్యక్తిగత వివరములు (Personal Details):</div>
       <div class="row">సభ్యుల పేరు (Member's Full Name): <span class="line line-lg">${escapeHtml(memberName)}</span> వయస్సు (Age): <span class="line line-sm">${escapeHtml(memberAge)}</span></div>

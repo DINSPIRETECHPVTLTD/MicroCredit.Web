@@ -52,7 +52,14 @@ if (!apiUrl) {
     return config
   })
 
-  const queryClient = new QueryClient()
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Always refresh query data when a page remounts after navigation.
+        refetchOnMount: "always",
+      },
+    },
+  })
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

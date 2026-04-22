@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import type { MemberResponse } from "@/types/member"
 import { buildPromissoryNoteHtml } from "@/templates/promissoryNoteTemplate"
 import { buildMembershipFormHtml } from "@/templates/membershipFormTemplate"
+import { getBranch } from "@/services/auth.service"
 
 function buildDisplayName(row: MemberResponse): string {
   const primary =
@@ -74,7 +75,8 @@ export default function MemberGrid({
       }
 
       const formattedDate = new Date().toLocaleDateString("en-IN")
-      const html = buildMembershipFormHtml(row, formattedDate)
+      const branchName = getBranch()?.name ?? ""
+      const html = buildMembershipFormHtml(row, formattedDate, branchName)
 
       popup.document.write(html)
       popup.document.close()
