@@ -427,6 +427,11 @@ function RecoveryPostingList() {
       return
     }
     const rowsToPost = selectedRowsWithDrafts
+    const invalidSchedulerRows = rowsToPost.filter((row) => !Number.isFinite(row.loanSchedulerId) || row.loanSchedulerId <= 0)
+    if (invalidSchedulerRows.length > 0) {
+      toast.error("Selected row has invalid LoanSchedulerId. Please reload and try again.")
+      return
+    }
 
     setIsPosting(true)
     try {
