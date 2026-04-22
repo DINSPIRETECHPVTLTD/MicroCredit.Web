@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -53,6 +53,12 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
   const [lookupKeys, setLookupKeys] = useState<string[]>([])
   const isEdit = value?.mode === "edit"
   const editLookup = value?.mode === "edit" ? value.lookup : null
+  const lookupKeyOptions = useMemo(() => {
+    if (!editLookup?.lookupKey) return lookupKeys
+    return lookupKeys.includes(editLookup.lookupKey)
+      ? lookupKeys
+      : [editLookup.lookupKey, ...lookupKeys]
+  }, [lookupKeys, editLookup?.lookupKey])
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -149,7 +155,7 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
             className={cn(inputClass, form.formState.errors.lookupKey && "border-destructive")}
           >
             <option value="">Select LookupKey</option>
-            {lookupKeys.map((key) => (
+            {lookupKeyOptions.map((key) => (
               <option key={key} value={key}>
                 {key}
               </option>
