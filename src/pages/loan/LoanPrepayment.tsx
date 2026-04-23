@@ -246,12 +246,14 @@ export default function LoanPrepayment() {
       return d ? { ...r, ...d } : r
     })
   }, [baseRows, rowDrafts])
-  const apiPaidByRowKey = useMemo<Record<string, boolean>>(() => {
+  const apiReadOnlyByRowKey = useMemo<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {}
     for (const r of baseRows) {
       const normalized = normalizePrepaymentStatus(r.status)
       map[r.rowKey] =
-        normalized === PREPAYMENT_STATUS.PAID || normalized === PREPAYMENT_STATUS.PARTIAL_PAID
+        normalized === PREPAYMENT_STATUS.PAID ||
+        normalized === PREPAYMENT_STATUS.PARTIAL_PAID ||
+        normalized === PREPAYMENT_STATUS.OVERDUE
     }
     return map
   }, [baseRows])
@@ -259,7 +261,7 @@ export default function LoanPrepayment() {
   const selectedRows = useMemo(() => {
     return rows.filter((r) => rowSelection[r.rowKey])
   }, [rows, rowSelection])
-  const pendingRows = useMemo(() => rows.filter((r) => !apiPaidByRowKey[r.rowKey]), [apiPaidByRowKey, rows])
+  const pendingRows = useMemo(() => rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey]), [apiReadOnlyByRowKey, rows])
 
   const selectedTotal = useMemo(() => {
     return selectedRows.reduce((sum, row) => sum + (row.paymentAmount || 0), 0)
@@ -345,8 +347,8 @@ export default function LoanPrepayment() {
             for (const rowKey of newlySelected) {
               const row = rows.find((r) => r.rowKey === rowKey)
               if (!row) continue
-              const isPaid = apiPaidByRowKey[row.rowKey]
-              if (isPaid) continue
+              const isReadOnly = apiReadOnlyByRowKey[row.rowKey]
+              if (isReadOnly) continue
               const amount = row.actualEmiAmount
               const split = calculatePrepaymentSplit(row, amount)
               draftNext[rowKey] = {
@@ -374,7 +376,7 @@ export default function LoanPrepayment() {
         return next
       })
     },
-    [apiPaidByRowKey, rows]
+    [apiReadOnlyByRowKey, rows]
   )
 
   const handleApplyBulkDetails = useCallback(() => {
@@ -422,7 +424,7 @@ export default function LoanPrepayment() {
       toast.error("Select at least one EMI row.")
       return
     }
-    const closableRows = rows.filter((r) => !apiPaidByRowKey[r.rowKey])
+    const closableRows = rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey])
     const isFullClosureSelection =
       closableRows.length > 0 &&
       selectedRows.length === closableRows.length &&
@@ -434,6 +436,10 @@ export default function LoanPrepayment() {
       const emi = round2(row.actualEmiAmount || 0)
       if (amount <= 0) {
         toast.error(`Week ${row.installmentNo}: payment amount must be greater than zero.`)
+        return
+      }
+      if (status === PREPAYMENT_STATUS.OVERDUE) {
+        toast.error(`Week ${row.installmentNo}: overdue EMI is read-only and cannot be posted here.`)
         return
       }
       if (emi > 0 && amount > emi) {
@@ -527,14 +533,14 @@ export default function LoanPrepayment() {
     } finally {
       setIsSaving(false)
     }
-  }, [apiPaidByRowKey, loanId, loanSummary.memberName, refetch, rowSelection, rows, selectedRows, sessionUserId])
+  }, [apiReadOnlyByRowKey, loanId, loanSummary.memberName, refetch, rowSelection, rows, selectedRows, sessionUserId])
 
   const handleSave = useCallback(() => {
     if (pendingRows.length === 0) {
       toast("All EMIs are already paid. Loan is closed.")
       return
     }
-    const closableRows = rows.filter((r) => !apiPaidByRowKey[r.rowKey])
+    const closableRows = rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey])
     const isFullClosureSelection =
       closableRows.length > 0 &&
       selectedRows.length === closableRows.length &&
@@ -546,7 +552,7 @@ export default function LoanPrepayment() {
     }
 
     void executeSave()
-  }, [apiPaidByRowKey, executeSave, pendingRows.length, rowSelection, rows, selectedRows])
+  }, [apiReadOnlyByRowKey, executeSave, pendingRows.length, rowSelection, rows, selectedRows])
 
   const columns = useMemo<MRT_ColumnDef<PrepaymentRow>[]>(
     () => [
@@ -571,6 +577,8 @@ export default function LoanPrepayment() {
               ? "text-green-700 dark:text-green-400"
               : s === PREPAYMENT_STATUS.PARTIAL_PAID
                 ? "text-amber-700 dark:text-amber-400"
+                : s === PREPAYMENT_STATUS.OVERDUE
+                  ? "text-red-700 dark:text-red-400"
                 : "text-muted-foreground"
           return (
             <span className={cn("text-sm font-medium", cls)}>{row.original.status}</span>
@@ -581,7 +589,7 @@ export default function LoanPrepayment() {
         accessorKey: "paymentAmount",
         header: "Paid Amount",
         Cell: ({ row }) => {
-          const isPaid = !!apiPaidByRowKey[row.original.rowKey]
+          const isReadOnly = !!apiReadOnlyByRowKey[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
           return (
             <input
@@ -590,10 +598,10 @@ export default function LoanPrepayment() {
               step="0.01"
               className={cn(
                 "h-8 w-[110px] rounded-md border border-input bg-background px-2 text-sm",
-                (isPaid || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={Number.isFinite(row.original.paymentAmount) ? row.original.paymentAmount : 0}
-              readOnly={isPaid || !isSelected}
+              readOnly={isReadOnly || !isSelected}
               onChange={(e) => handlePaymentAmountChange(row.original, parseFloat(e.target.value))}
               onBlur={() => handlePaymentAmountBlur(row.original)}
             />
@@ -619,17 +627,17 @@ export default function LoanPrepayment() {
         accessorKey: "paymentMode",
         header: "Payment Mode",
         Cell: ({ row }) => {
-          const isPaid = !!apiPaidByRowKey[row.original.rowKey]
+          const isReadOnly = !!apiReadOnlyByRowKey[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
           const value = row.original.paymentMode || ""
           return (
             <select
               className={cn(
                 "h-8 w-[120px] rounded-md border border-input bg-background px-2 text-sm",
-                (isPaid || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={value}
-              disabled={isPaid || !isSelected}
+              disabled={isReadOnly || !isSelected}
               onChange={(e) => updateDraft(row.original, { paymentMode: e.target.value })}
             >
               <option value="">Select</option>
@@ -646,24 +654,24 @@ export default function LoanPrepayment() {
         accessorKey: "comments",
         header: "Reasons",
         Cell: ({ row }) => {
-          const isPaid = !!apiPaidByRowKey[row.original.rowKey]
+          const isReadOnly = !!apiReadOnlyByRowKey[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
           return (
             <input
               type="text"
               className={cn(
                 "h-8 w-[160px] rounded-md border border-input bg-background px-2 text-sm",
-                (isPaid || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={row.original.comments || ""}
-              readOnly={isPaid || !isSelected}
+              readOnly={isReadOnly || !isSelected}
               onChange={(e) => updateDraft(row.original, { comments: e.target.value })}
             />
           )
         },
       },
     ],
-    [apiPaidByRowKey, handlePaymentAmountBlur, handlePaymentAmountChange, paymentModes, rowSelection, updateDraft]
+    [apiReadOnlyByRowKey, handlePaymentAmountBlur, handlePaymentAmountChange, paymentModes, rowSelection, updateDraft]
   )
 
   if (!Number.isFinite(loanId) || loanId <= 0) {
@@ -732,14 +740,14 @@ export default function LoanPrepayment() {
             columns={columns}
             data={rows}
             getRowId={(row) => row.rowKey}
-            enableRowSelection={(row) => !apiPaidByRowKey[row.original.rowKey]}
+            enableRowSelection={(row) => !apiReadOnlyByRowKey[row.original.rowKey]}
             enableSelectAll={pendingRows.length > 0}
             muiSelectAllCheckboxProps={{
               disabled: pendingRows.length === 0,
               sx: pendingRows.length === 0 ? { visibility: "hidden" } : undefined,
             }}
             muiSelectCheckboxProps={({ row }) => ({
-              sx: apiPaidByRowKey[row.original.rowKey] ? { visibility: "hidden" } : undefined,
+              sx: apiReadOnlyByRowKey[row.original.rowKey] ? { visibility: "hidden" } : undefined,
             })}
             onRowSelectionChange={handleRowSelectionChange}
             state={{ rowSelection, isLoading }}

@@ -2,6 +2,7 @@ export const PREPAYMENT_STATUS = {
   NOT_PAID: "Not Paid",
   PAID: "Paid",
   PARTIAL_PAID: "Partial Paid",
+  OVERDUE: "Overdue",
 } as const
 
 export function round2(n: number): number {
@@ -15,6 +16,7 @@ export function normalizePrepaymentStatus(status: string | null | undefined): st
   if (s === "not paid" || s === "") return PREPAYMENT_STATUS.NOT_PAID
   if (s === "paid") return PREPAYMENT_STATUS.PAID
   if (s === "partial paid" || s === "partial") return PREPAYMENT_STATUS.PARTIAL_PAID
+  if (s === "overdue") return PREPAYMENT_STATUS.OVERDUE
   return s
 }
 
