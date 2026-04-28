@@ -13,6 +13,7 @@ import type { UserResponse } from "@/types/user"
 import { Plus } from "lucide-react"
 import FundTransferDialog from "./FundTransferDialog"
 import { useNavigate } from "react-router-dom"
+import { getApiErrorDetails, DEFAULT_API_ERROR_MESSAGE } from "@/lib/apiErrorHandler"
 
 
 function LedgerBalancesList() {
@@ -21,7 +22,9 @@ function LedgerBalancesList() {
 
     const {
         data: users = [],
-        isLoading: usersLoading
+        isLoading: usersLoading,
+        isError: usersError,
+        error: usersErrorDetails,
         } = useQuery({
         queryKey: ["users"],
         queryFn: () => userService.getUsers() as Promise<UserResponse[]>
@@ -35,14 +38,17 @@ function LedgerBalancesList() {
     const {
         data: ledgerBalances = [], 
         isLoading: ledgerBalancesLoading,
+        isError: ledgerBalancesError,
+        error: ledgerBalancesErrorDetails,
         refetch
         } = useQuery({
         queryKey: ["ledgerBalances"],
         queryFn: () => ledgerBalanceService.getLedgerBalances(),
-        enabled: !!users.length, // Debug log to check fetched data
     });
 
     const isLoading = ledgerBalancesLoading || usersLoading;
+    const usersApiError = usersError ? getApiErrorDetails(usersErrorDetails) : null
+    const ledgerApiError = ledgerBalancesError ? getApiErrorDetails(ledgerBalancesErrorDetails) : null
 
     const openTransactions = (userId: number) => {
         navigate(`/ledger-transactions/${userId}`)
@@ -108,7 +114,25 @@ function LedgerBalancesList() {
         </Button>
       </div>
 
-      {!isLoading && ledgerBalances.length === 0 ? (
+      {(usersApiError || ledgerApiError) ? (
+        <div className="rounded-lg border border-destructive/40 p-4 text-sm text-destructive">
+          <p className="font-medium">
+            {usersApiError?.message || ledgerApiError?.message || DEFAULT_API_ERROR_MESSAGE}
+          </p>
+          {usersApiError ? (
+            <p className="mt-1 text-xs">
+              Source: Users API (`/Users/Org`)
+              {usersApiError.statusCode ? ` - Status ${usersApiError.statusCode}` : ""}
+            </p>
+          ) : null}
+          {ledgerApiError ? (
+            <p className="mt-1 text-xs">
+              Source: Ledger Balances API (`/ledger-balances`)
+              {ledgerApiError.statusCode ? ` - Status ${ledgerApiError.statusCode}` : ""}
+            </p>
+          ) : null}
+        </div>
+      ) : !isLoading && ledgerBalances.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
           <p>No ledger balances found</p>
         </div>
