@@ -194,7 +194,8 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         queryKey: ["paymentTerms"],
         queryFn: () => paymentTermService.getPaymentTerms() as Promise<PaymentTermResponse[]>,
         enabled: open,
-        staleTime: 1000 * 60 * 10,
+        staleTime: 0,
+        refetchOnMount: "always",
         refetchOnWindowFocus: false,
     })
 
@@ -219,7 +220,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
     const selectedPaymentTermId = form.watch("paymentTermId")
     const loanAmountValue = form.watch("loanAmount")
-    const interestAmountValue = form.watch("interestAmount")
     const disbursementDateValue = form.watch("disbursementDate")
     const totalAmountValue = form.watch("totalAmount")
     const noOfTermsValue = form.watch("noOfTerms")
@@ -229,7 +229,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       () =>
         paymentTerms.map((term, idx) => ({
           term,
-          selectionId: term.id > 0 ? term.id : idx + 1,
+          selectionId: idx + 1,
         })),
       [paymentTerms]
     )
@@ -240,40 +240,22 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     )
 
     useEffect(() => {
-      if (selectedPaymentTerm) {
-        form.setValue("noOfTerms", selectedPaymentTerm.noOfTerms)
-        form.setValue("collectionTerm", selectedPaymentTerm.paymentTerm)
-      } else {
-        form.setValue("insuranceFee", 0)
-        form.setValue("processingFee", 0)
-        form.setValue("noOfTerms", 0)
-        form.setValue("collectionTerm", "")
-      }
-    }, [selectedPaymentTerm, form])
-
-    useEffect(() => {
       const loanAmount = toNumber(loanAmountValue)
-      const rate = toNumber(selectedPaymentTerm?.rateOfInterest ?? 0)
-      const interest = Number(((loanAmount * rate) / 100).toFixed(2))
-      form.setValue("interestAmount", interest)
-    }, [loanAmountValue, selectedPaymentTerm, form])
-
-    useEffect(() => {
-      const loanAmount = toNumber(loanAmountValue)
+      const interestRate = toNumber(selectedPaymentTerm?.rateOfInterest ?? 0)
       const processingRate = toNumber(selectedPaymentTerm?.processingFee ?? 0)
       const insuranceRate = toNumber(selectedPaymentTerm?.insuranceFee ?? 0)
+      const interest = Number(((loanAmount * interestRate) / 100).toFixed(2))
       const processing = Number(((loanAmount * processingRate) / 100).toFixed(2))
       const insurance = Number(((loanAmount * insuranceRate) / 100).toFixed(2))
-      form.setValue("processingFee", processing)
-      form.setValue("insuranceFee", insurance)
-    }, [loanAmountValue, selectedPaymentTerm, form])
-
-    useEffect(() => {
-      const loanAmount = toNumber(loanAmountValue)
-      const interest = toNumber(interestAmountValue)
       const total = Number((loanAmount + interest).toFixed(2))
-      form.setValue("totalAmount", total)
-    }, [loanAmountValue, interestAmountValue, form])
+
+      form.setValue("interestAmount", interest, { shouldValidate: true })
+      form.setValue("processingFee", processing, { shouldValidate: true })
+      form.setValue("insuranceFee", insurance, { shouldValidate: true })
+      form.setValue("totalAmount", total, { shouldValidate: true })
+      form.setValue("noOfTerms", selectedPaymentTerm?.noOfTerms ?? 0, { shouldValidate: true })
+      form.setValue("collectionTerm", selectedPaymentTerm?.paymentTerm ?? "", { shouldValidate: true })
+    }, [loanAmountValue, selectedPaymentTerm, form])
 
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -319,6 +301,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
         interestAmount: data.interestAmount,
         processingFee: data.processingFee,
         insuranceFee: data.insuranceFee,
+        insuranceAmount: data.insuranceFee,
         isSavingEnabled: false,
         savingAmount: data.savingAmount,
         totalAmount: data.totalAmount,

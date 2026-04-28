@@ -78,7 +78,7 @@ function ManageLoanList() {
   const handlePrepayment = useCallback(
     (loan: LoanResponse) => {
       navigate(`/loans/${loan.loanId}/prepayment`, {
-        state: { memberName: loan.fullName },
+        state: { memberName: loan.fullName, loanStatus: loan.status },
       })
     },
     [navigate]
@@ -89,6 +89,13 @@ function ManageLoanList() {
       {
         accessorKey: "fullName",
         header: "Full Name",
+      },
+      {
+        id: "status",
+        accessorKey: "status",
+        header: "Status",
+        enableHiding: false,
+        Cell: ({ cell }) => cell.getValue<string>() || "-",
       },
       {
         accessorKey: "loanTotalAmount",
@@ -138,7 +145,7 @@ function ManageLoanList() {
             </Button>
             <Button variant="ghost" size="sm" onClick={() => handlePrepayment(row.original)}>
               <IndianRupee className="mr-1 h-4 w-4" />
-              Prepayment
+              Modify
             </Button>
           </div>
         ),
@@ -150,7 +157,7 @@ function ManageLoanList() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Active Loans({isLoading ? "-" : totalRecords})</h1>
+        <h1 className="text-2xl font-semibold">Active/Pending/Claimed Loans({isLoading ? "-" : totalRecords})</h1>
       </div>
 
       {isError ? (
@@ -169,6 +176,7 @@ function ManageLoanList() {
           state={{ isLoading }}
           initialState={{
             columnVisibility: {
+              status: true,
               loanId: false,
               memberId: false,
               schedulerTotalAmount: false,

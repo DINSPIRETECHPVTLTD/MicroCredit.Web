@@ -3,13 +3,20 @@ import { api } from "../lib/api"
 import type { PaymentTermResponse, SavePaymentTermRequest } from "../types/paymentTerm"
 
 type ApiPaymentTermResponse = {
-    paymentTermId: number
-    paymentTermName: string
-    paymentType: string
-    noOfTerms: number
-    processingFee: number | null
-    rateOfInterest: number | null
-    insuranceFee: number | null
+    paymentTermId?: number | string
+    PaymentTermId?: number | string
+    paymentTermName?: string
+    PaymentTermName?: string
+    paymentType?: string
+    PaymentType?: string
+    noOfTerms?: number | string
+    NoOfTerms?: number | string
+    processingFee?: number | string | null
+    ProcessingFee?: number | string | null
+    rateOfInterest?: number | string | null
+    RateOfInterest?: number | string | null
+    insuranceFee?: number | string | null
+    InsuranceFee?: number | string | null
 }
 
 type ApiSavePaymentTermRequest = {
@@ -21,15 +28,29 @@ type ApiSavePaymentTermRequest = {
     insuranceFee: number
 }
 
+function toNumber(value: unknown): number {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0
+    if (typeof value === "string") {
+        const n = Number(value)
+        return Number.isFinite(n) ? n : 0
+    }
+    return 0
+}
+
+function toText(value: unknown): string {
+    if (value === null || value === undefined) return ""
+    return String(value).trim()
+}
+
 function toUi(item: ApiPaymentTermResponse): PaymentTermResponse {
     return {
-        id: item.paymentTermId,
-        paymentTerm: item.paymentTermName,
-        paymentType: item.paymentType,
-        noOfTerms: item.noOfTerms,
-        processingFee: item.processingFee ?? 0,
-        rateOfInterest: item.rateOfInterest ?? 0,
-        insuranceFee: item.insuranceFee ?? 0,
+        id: toNumber(item.paymentTermId ?? item.PaymentTermId),
+        paymentTerm: toText(item.paymentTermName ?? item.PaymentTermName),
+        paymentType: toText(item.paymentType ?? item.PaymentType),
+        noOfTerms: toNumber(item.noOfTerms ?? item.NoOfTerms),
+        processingFee: toNumber(item.processingFee ?? item.ProcessingFee),
+        rateOfInterest: toNumber(item.rateOfInterest ?? item.RateOfInterest),
+        insuranceFee: toNumber(item.insuranceFee ?? item.InsuranceFee),
     }
 }
 
