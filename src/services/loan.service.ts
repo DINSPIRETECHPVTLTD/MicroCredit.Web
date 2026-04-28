@@ -8,6 +8,8 @@ type ApiLoanLike = {
     memberId?: number | string
     fullName?: string
     memberName?: string
+    status?: string
+    Status?: string
     loanTotalAmount?: number | string
     totalAmount?: number | string
     noOfTerms?: number | string
@@ -32,6 +34,11 @@ type ApiLoanLike = {
     schedulerTotalAmount?: number | string
     remainingBal?: number | string
     remainingBalance?: number | string
+}
+
+type ClaimLoanResponse = {
+    loanId?: number
+    status?: string
 }
 
 function toNumber(value: unknown): number {
@@ -158,6 +165,7 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
     const loanId = getValueCaseInsensitive(x, ['loanId', 'id'])
     const memberId = getValueCaseInsensitive(x, ['memberId'])
     const fullName = getValueCaseInsensitive(x, ['fullName', 'memberName'])
+    const status = getValueCaseInsensitive(x, ['status'])
     const loanTotalAmount = getValueCaseInsensitive(x, ['loanTotalAmount', 'totalAmount'])
     const totalAmountPaid = getValueCaseInsensitive(x, ['totalAmountPaid'])
     const schedulerTotalAmount = getValueCaseInsensitive(x, ['schedulerTotalAmount', 'loanTotalAmount', 'totalAmount'])
@@ -167,6 +175,7 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
         loanId: toNumber(loanId),
         memberId: toNumber(memberId),
         fullName: typeof fullName === 'string' ? fullName : '',
+        status: typeof status === 'string' ? status : '',
         loanTotalAmount: toNumber(loanTotalAmount),
         noOfTerms: buildActiveLoanTermsLabel(x),
         totalAmountPaid: toNumber(totalAmountPaid),
@@ -190,8 +199,18 @@ export const loanService = {
         return data
     },
 
+    async updateLoanStatus(loanId: number, status: string): Promise<LoanResponse> {
+        const { data } = await axios.post<ApiLoanLike>(api.loans.updateStatus(loanId), { status })
+        return normalizeLoan(data)
+    },
+
     async getLoanByMemId(memberId: number): Promise<LoanResponse[]> {
         const { data } = await axios.get<ApiLoanLike[]>(api.loans.loanByMemId(memberId))
         return (data ?? []).map(normalizeLoan)
+    },
+
+    async claimLoan(loanId: number): Promise<ClaimLoanResponse> {
+        const { data } = await axios.post<ClaimLoanResponse>(api.loans.claim(loanId))
+        return data ?? {}
     },
 }

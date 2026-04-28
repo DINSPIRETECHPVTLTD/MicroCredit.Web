@@ -7,6 +7,7 @@ export const RECOVERY_STATUS = {
   NOT_PAID: "Not Paid",
   PAID: "Paid",
   PARTIAL_PAID: "Partial Paid",
+  OVERDUE: "Overdue",
 } as const
 
 /** Round off to two decimal places (standard money precision). */
@@ -96,6 +97,7 @@ export function normalizeStatusValue(status: string | null | undefined): string 
   if (s === "not paid" || s === "") return RECOVERY_STATUS.NOT_PAID
   if (s === "paid") return RECOVERY_STATUS.PAID
   if (s === "partial paid" || s === "partial") return RECOVERY_STATUS.PARTIAL_PAID
+  if (s === "overdue") return RECOVERY_STATUS.OVERDUE
   return s
 }
 
@@ -131,8 +133,9 @@ export function validateRecoveryPostRows(
     const payment = row.paymentAmount ?? 0
     const pr = row.principalAmount ?? 0
     const int = row.interestAmount ?? 0
+    const isOverdue = st === RECOVERY_STATUS.OVERDUE
 
-    if (!String(row.paymentMode ?? "").trim()) {
+    if (!isOverdue && !String(row.paymentMode ?? "").trim()) {
       issues.push({ type: "paymentMode", rowKey: row.rowKey })
     }
 
@@ -140,13 +143,13 @@ export function validateRecoveryPostRows(
       issues.push({ type: "status", rowKey: row.rowKey })
     }
 
-    if (toPaise(payment) !== toPaise(pr + int)) {
+    if (!isOverdue && toPaise(payment) !== toPaise(pr + int)) {
       issues.push({ type: "sum", rowKey: row.rowKey })
     }
 
     const actualEmi = row.actualEmiAmount ?? 0
     // Compare in paise units to avoid false "exceeds" from JS float representation.
-    if (actualEmi > 0 && toPaise(payment) > toPaise(actualEmi)) {
+    if (!isOverdue && actualEmi > 0 && toPaise(payment) > toPaise(actualEmi)) {
       issues.push({ type: "exceedsEmi", rowKey: row.rowKey, payment, actualEmi })
     }
   }

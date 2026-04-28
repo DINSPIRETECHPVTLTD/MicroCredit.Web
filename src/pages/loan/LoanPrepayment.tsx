@@ -1,5 +1,5 @@
 import axios from "axios"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -96,6 +96,14 @@ type CloseSuccessInfo = {
   memberName: string
   loanId: number
   receivedAmount: number
+}
+
+const LOAN_STATUS_OPTIONS = ["Pending", "Active"] as const
+
+function normalizeLoanStatus(value: unknown): string {
+  const status = String(value ?? "").trim()
+  if (status.toLowerCase() === "claimed") return "Claimed"
+  return LOAN_STATUS_OPTIONS.find((option) => option.toLowerCase() === status.toLowerCase()) ?? ""
 }
 
 function toNumber(v: unknown): number {
@@ -200,8 +208,10 @@ export default function LoanPrepayment() {
   const params = useParams()
   const loanId = Number(params.loanId)
   const sessionUserId = getSession()?.userId ?? 0
+  const navigationState = location.state as { memberName?: string; loanStatus?: string } | null | undefined
   const memberNameFromState =
-    (location.state as { memberName?: string } | null | undefined)?.memberName ?? "-"
+    navigationState?.memberName ?? "-"
+  const loanStatusFromState = navigationState?.loanStatus ?? "-"
 
   const [rowSelection, setRowSelection] = useState<MRT_RowSelectionState>({})
   const [rowDrafts, setRowDrafts] = useState<Record<string, RowDraft>>({})
@@ -209,8 +219,12 @@ export default function LoanPrepayment() {
   const [bulkPaymentMode, setBulkPaymentMode] = useState("")
   const [bulkReason, setBulkReason] = useState("")
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false)
+  const [claimConfirmOpen, setClaimConfirmOpen] = useState(false)
   const [closeSuccessInfo, setCloseSuccessInfo] = useState<CloseSuccessInfo | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const initialLoanStatus = normalizeLoanStatus(loanStatusFromState)
+  const [loanStatusDraft, setLoanStatusDraft] = useState(initialLoanStatus)
+  const [savedLoanStatus, setSavedLoanStatus] = useState(initialLoanStatus)
 
   const { data: baseRows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["loan-prepayment-schedulers", loanId],
@@ -231,11 +245,12 @@ export default function LoanPrepayment() {
   const paymentModes = useMemo<MasterLookupResponse[]>(() => {
     return lookups.filter((x) => x.lookupKey?.toLowerCase() === "paymentmode")
   }, [lookups])
-  const shouldFetchMemberFallback = !memberNameFromState || memberNameFromState === "-"
+  const shouldFetchLoanSummaryFallback =
+    !memberNameFromState || memberNameFromState === "-" || !loanStatusFromState || loanStatusFromState === "-"
   const { data: activeLoans = [] } = useQuery({
     queryKey: ["activeLoans", "prepayment-member-fallback"],
     queryFn: () => loanService.getActiveLoans(),
-    enabled: shouldFetchMemberFallback,
+    enabled: shouldFetchLoanSummaryFallback,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   })
@@ -246,12 +261,15 @@ export default function LoanPrepayment() {
       return d ? { ...r, ...d } : r
     })
   }, [baseRows, rowDrafts])
-  const apiPaidByRowKey = useMemo<Record<string, boolean>>(() => {
+  const apiReadOnlyByRowKey = useMemo<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {}
     for (const r of baseRows) {
       const normalized = normalizePrepaymentStatus(r.status)
       map[r.rowKey] =
-        normalized === PREPAYMENT_STATUS.PAID || normalized === PREPAYMENT_STATUS.PARTIAL_PAID
+        normalized === PREPAYMENT_STATUS.PAID ||
+        normalized === "claimed" ||
+        normalized === PREPAYMENT_STATUS.PARTIAL_PAID ||
+        normalized === PREPAYMENT_STATUS.OVERDUE
     }
     return map
   }, [baseRows])
@@ -259,7 +277,7 @@ export default function LoanPrepayment() {
   const selectedRows = useMemo(() => {
     return rows.filter((r) => rowSelection[r.rowKey])
   }, [rows, rowSelection])
-  const pendingRows = useMemo(() => rows.filter((r) => !apiPaidByRowKey[r.rowKey]), [apiPaidByRowKey, rows])
+  const pendingRows = useMemo(() => rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey]), [apiReadOnlyByRowKey, rows])
 
   const selectedTotal = useMemo(() => {
     return selectedRows.reduce((sum, row) => sum + (row.paymentAmount || 0), 0)
@@ -269,17 +287,43 @@ export default function LoanPrepayment() {
     const totalAmount = rows.reduce((sum, r) => sum + (r.actualEmiAmount || 0), 0)
     const remainingBalance = rows.reduce((sum, r) => {
       const st = normalizePrepaymentStatus(r.status)
-      if (st === PREPAYMENT_STATUS.PAID) return sum
+      if (st === PREPAYMENT_STATUS.PAID || st === "claimed") return sum
       const remaining = Math.max(0, (r.actualEmiAmount || 0) - (r.paymentAmount || 0))
       return sum + remaining
     }, 0)
-    const fallbackMemberName = activeLoans.find((l) => l.loanId === loanId)?.fullName || "-"
+    const fallbackLoan = activeLoans.find((l) => l.loanId === loanId)
     return {
-      memberName: shouldFetchMemberFallback ? fallbackMemberName : memberNameFromState,
+      memberName:
+        !memberNameFromState || memberNameFromState === "-"
+          ? fallbackLoan?.fullName || "-"
+          : memberNameFromState,
+      loanStatus:
+        !loanStatusFromState || loanStatusFromState === "-"
+          ? fallbackLoan?.status || "-"
+          : loanStatusFromState,
       totalAmount,
       remainingBalance,
     }
-  }, [activeLoans, loanId, memberNameFromState, rows, shouldFetchMemberFallback])
+  }, [activeLoans, loanId, loanStatusFromState, memberNameFromState, rows])
+
+  useEffect(() => {
+    const nextStatus = normalizeLoanStatus(loanSummary.loanStatus)
+    if (!nextStatus) return
+
+    setSavedLoanStatus((currentSavedStatus) => {
+      setLoanStatusDraft((currentDraftStatus) => {
+        if (!currentDraftStatus || currentDraftStatus === currentSavedStatus) {
+          return nextStatus
+        }
+        return currentDraftStatus
+      })
+      return nextStatus
+    })
+  }, [loanSummary.loanStatus])
+
+  const loanStatusChanged = !!loanStatusDraft && !!savedLoanStatus && loanStatusDraft !== savedLoanStatus
+  const isClaimedLoan =
+    String(savedLoanStatus || loanStatusDraft || loanSummary.loanStatus).trim().toLowerCase() === "claimed"
 
   const updateDraft = useCallback((row: PrepaymentRow, patch: Partial<RowDraft>) => {
     setRowDrafts((prev) => {
@@ -345,8 +389,8 @@ export default function LoanPrepayment() {
             for (const rowKey of newlySelected) {
               const row = rows.find((r) => r.rowKey === rowKey)
               if (!row) continue
-              const isPaid = apiPaidByRowKey[row.rowKey]
-              if (isPaid) continue
+              const isReadOnly = apiReadOnlyByRowKey[row.rowKey]
+              if (isReadOnly) continue
               const amount = row.actualEmiAmount
               const split = calculatePrepaymentSplit(row, amount)
               draftNext[rowKey] = {
@@ -374,7 +418,7 @@ export default function LoanPrepayment() {
         return next
       })
     },
-    [apiPaidByRowKey, rows]
+    [apiReadOnlyByRowKey, rows]
   )
 
   const handleApplyBulkDetails = useCallback(() => {
@@ -413,16 +457,37 @@ export default function LoanPrepayment() {
     navigate("/loans/manage")
   }, [navigate])
 
+  const handleConfirmClaim = useCallback(async () => {
+    try {
+      setIsSaving(true)
+      await loanService.claimLoan(loanId)
+      setSavedLoanStatus("Claimed")
+      setLoanStatusDraft("Claimed")
+      setClaimConfirmOpen(false)
+      toast.success("Loan claimed successfully.")
+      await refetch()
+    } catch (err) {
+      const details = getApiErrorDetails(err)
+      toast.error(details.message || DEFAULT_API_ERROR_MESSAGE)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [loanId, refetch])
+
   const executeSave = useCallback(async () => {
     if (!sessionUserId) {
       toast.error("Unable to identify current user.")
       return
     }
-    if (selectedRows.length === 0) {
-      toast.error("Select at least one EMI row.")
+    if (selectedRows.length === 0 && !loanStatusChanged) {
+      toast.error("Select at least one EMI row or change loan status.")
       return
     }
-    const closableRows = rows.filter((r) => !apiPaidByRowKey[r.rowKey])
+    if (selectedRows.length > 0 && loanStatusChanged) {
+      toast.error("Please update loan status or pay EMI separately.")
+      return
+    }
+    const closableRows = rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey])
     const isFullClosureSelection =
       closableRows.length > 0 &&
       selectedRows.length === closableRows.length &&
@@ -434,6 +499,10 @@ export default function LoanPrepayment() {
       const emi = round2(row.actualEmiAmount || 0)
       if (amount <= 0) {
         toast.error(`Week ${row.installmentNo}: payment amount must be greater than zero.`)
+        return
+      }
+      if (status === PREPAYMENT_STATUS.OVERDUE) {
+        toast.error(`Week ${row.installmentNo}: overdue EMI is read-only and cannot be posted here.`)
         return
       }
       if (emi > 0 && amount > emi) {
@@ -477,7 +546,7 @@ export default function LoanPrepayment() {
           comments: String(r.comments ?? "").trim() || undefined,
         }
       })
-      if (isFullClosureSelection) {
+      if (selectedRows.length > 0 && isFullClosureSelection) {
         const receivedAmount = items.reduce((sum, item) => sum + Number(item.paymentAmount || 0), 0)
         await postPrepaymentRecoveries({
           collectedBy: sessionUserId,
@@ -503,13 +572,22 @@ export default function LoanPrepayment() {
           )
           return
         }
-      } else {
+      } else if (selectedRows.length > 0) {
         const result = await postPrepaymentRecoveries({
           collectedBy: sessionUserId,
           items,
         })
         emiPosted = true
         toast.success(result.message || `Posted ${result.postedCount || selectedRows.length} EMI row(s).`)
+      }
+      if (loanStatusChanged) {
+        const updatedLoan = await loanService.updateLoanStatus(loanId, loanStatusDraft)
+        const updatedStatus = normalizeLoanStatus(updatedLoan.status) || loanStatusDraft
+        setSavedLoanStatus(updatedStatus)
+        setLoanStatusDraft(updatedStatus)
+        if (selectedRows.length === 0) {
+          toast.success("Loan status updated.")
+        }
       }
       setRowSelection({})
       setRowDrafts({})
@@ -527,14 +605,18 @@ export default function LoanPrepayment() {
     } finally {
       setIsSaving(false)
     }
-  }, [apiPaidByRowKey, loanId, loanSummary.memberName, refetch, rowSelection, rows, selectedRows, sessionUserId])
+  }, [apiReadOnlyByRowKey, loanId, loanStatusChanged, loanStatusDraft, loanSummary.memberName, refetch, rowSelection, rows, selectedRows, sessionUserId])
 
   const handleSave = useCallback(() => {
-    if (pendingRows.length === 0) {
+    if (pendingRows.length === 0 && !loanStatusChanged) {
       toast("All EMIs are already paid. Loan is closed.")
       return
     }
-    const closableRows = rows.filter((r) => !apiPaidByRowKey[r.rowKey])
+    if (selectedRows.length > 0 && loanStatusChanged) {
+      toast.error("Please update loan status or pay EMI separately.")
+      return
+    }
+    const closableRows = rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey])
     const isFullClosureSelection =
       closableRows.length > 0 &&
       selectedRows.length === closableRows.length &&
@@ -546,7 +628,7 @@ export default function LoanPrepayment() {
     }
 
     void executeSave()
-  }, [apiPaidByRowKey, executeSave, pendingRows.length, rowSelection, rows, selectedRows])
+  }, [apiReadOnlyByRowKey, executeSave, loanStatusChanged, pendingRows.length, rowSelection, rows, selectedRows])
 
   const columns = useMemo<MRT_ColumnDef<PrepaymentRow>[]>(
     () => [
@@ -569,8 +651,12 @@ export default function LoanPrepayment() {
           const cls =
             s === PREPAYMENT_STATUS.PAID
               ? "text-green-700 dark:text-green-400"
+              : s === "claimed"
+                ? "text-red-700 dark:text-red-400"
               : s === PREPAYMENT_STATUS.PARTIAL_PAID
                 ? "text-amber-700 dark:text-amber-400"
+                : s === PREPAYMENT_STATUS.OVERDUE
+                  ? "text-red-700 dark:text-red-400"
                 : "text-muted-foreground"
           return (
             <span className={cn("text-sm font-medium", cls)}>{row.original.status}</span>
@@ -581,7 +667,7 @@ export default function LoanPrepayment() {
         accessorKey: "paymentAmount",
         header: "Paid Amount",
         Cell: ({ row }) => {
-          const isPaid = !!apiPaidByRowKey[row.original.rowKey]
+          const isReadOnly = !!apiReadOnlyByRowKey[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
           return (
             <input
@@ -590,10 +676,10 @@ export default function LoanPrepayment() {
               step="0.01"
               className={cn(
                 "h-8 w-[110px] rounded-md border border-input bg-background px-2 text-sm",
-                (isPaid || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={Number.isFinite(row.original.paymentAmount) ? row.original.paymentAmount : 0}
-              readOnly={isPaid || !isSelected}
+              readOnly={isReadOnly || !isSelected}
               onChange={(e) => handlePaymentAmountChange(row.original, parseFloat(e.target.value))}
               onBlur={() => handlePaymentAmountBlur(row.original)}
             />
@@ -619,17 +705,17 @@ export default function LoanPrepayment() {
         accessorKey: "paymentMode",
         header: "Payment Mode",
         Cell: ({ row }) => {
-          const isPaid = !!apiPaidByRowKey[row.original.rowKey]
+          const isReadOnly = !!apiReadOnlyByRowKey[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
           const value = row.original.paymentMode || ""
           return (
             <select
               className={cn(
                 "h-8 w-[120px] rounded-md border border-input bg-background px-2 text-sm",
-                (isPaid || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={value}
-              disabled={isPaid || !isSelected}
+              disabled={isReadOnly || !isSelected}
               onChange={(e) => updateDraft(row.original, { paymentMode: e.target.value })}
             >
               <option value="">Select</option>
@@ -646,24 +732,24 @@ export default function LoanPrepayment() {
         accessorKey: "comments",
         header: "Reasons",
         Cell: ({ row }) => {
-          const isPaid = !!apiPaidByRowKey[row.original.rowKey]
+          const isReadOnly = !!apiReadOnlyByRowKey[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
           return (
             <input
               type="text"
               className={cn(
                 "h-8 w-[160px] rounded-md border border-input bg-background px-2 text-sm",
-                (isPaid || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={row.original.comments || ""}
-              readOnly={isPaid || !isSelected}
+              readOnly={isReadOnly || !isSelected}
               onChange={(e) => updateDraft(row.original, { comments: e.target.value })}
             />
           )
         },
       },
     ],
-    [apiPaidByRowKey, handlePaymentAmountBlur, handlePaymentAmountChange, paymentModes, rowSelection, updateDraft]
+    [apiReadOnlyByRowKey, handlePaymentAmountBlur, handlePaymentAmountChange, paymentModes, rowSelection, updateDraft]
   )
 
   if (!Number.isFinite(loanId) || loanId <= 0) {
@@ -677,7 +763,7 @@ export default function LoanPrepayment() {
   return (
     <div className="mx-auto max-w-[1500px] space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Prepayment / Part-Payment</h1>
+        <h1 className="text-2xl font-semibold">Modify Loan</h1>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -686,19 +772,27 @@ export default function LoanPrepayment() {
           >
             Apply to Selected
           </Button>
+          <Button
+            type="button"
+            onClick={() => setClaimConfirmOpen(true)}
+            className="bg-amber-500 text-white hover:bg-amber-600"
+            disabled={isSaving || isClaimedLoan}
+          >
+            Claim
+          </Button>
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || pendingRows.length === 0}>
+          <Button onClick={handleSave} disabled={isSaving || isClaimedLoan || (pendingRows.length === 0 && !loanStatusChanged)}>
             <Save className="h-4 w-4" />
-            {pendingRows.length === 0 ? "All Paid" : isSaving ? "Saving..." : "Save"}
+            {isSaving ? "Saving..." : pendingRows.length === 0 && !loanStatusChanged ? "All Paid" : "Save"}
           </Button>
         </div>
       </div>
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Loan Summary</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
           <div>
             <p className="text-xs text-muted-foreground">Member Name</p>
             <p className="font-medium">{loanSummary.memberName}</p>
@@ -706,6 +800,24 @@ export default function LoanPrepayment() {
           <div>
             <p className="text-xs text-muted-foreground">Loan Id</p>
             <p className="font-medium">{loanId}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Loan Status</p>
+            <select
+              className="mt-1 h-8 w-28 rounded-md border border-input bg-background px-2 text-sm font-medium"
+              value={loanStatusDraft || normalizeLoanStatus(loanSummary.loanStatus) || "Active"}
+              onChange={(event) => setLoanStatusDraft(event.target.value)}
+              disabled={isClaimedLoan}
+            >
+              {LOAN_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+              {(loanStatusDraft === "Claimed" || normalizeLoanStatus(loanSummary.loanStatus) === "Claimed") ? (
+                <option value="Claimed">Claimed</option>
+              ) : null}
+            </select>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Total Amount</p>
@@ -732,14 +844,14 @@ export default function LoanPrepayment() {
             columns={columns}
             data={rows}
             getRowId={(row) => row.rowKey}
-            enableRowSelection={(row) => !apiPaidByRowKey[row.original.rowKey]}
+            enableRowSelection={(row) => !apiReadOnlyByRowKey[row.original.rowKey]}
             enableSelectAll={pendingRows.length > 0}
             muiSelectAllCheckboxProps={{
               disabled: pendingRows.length === 0,
               sx: pendingRows.length === 0 ? { visibility: "hidden" } : undefined,
             }}
             muiSelectCheckboxProps={({ row }) => ({
-              sx: apiPaidByRowKey[row.original.rowKey] ? { visibility: "hidden" } : undefined,
+              sx: apiReadOnlyByRowKey[row.original.rowKey] ? { visibility: "hidden" } : undefined,
             })}
             onRowSelectionChange={handleRowSelectionChange}
             state={{ rowSelection, isLoading }}
@@ -823,6 +935,25 @@ export default function LoanPrepayment() {
                 disabled={isSaving}
               >
                 Yes, Close Loan
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {claimConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border bg-card p-4 shadow-lg">
+            <h3 className="text-base font-semibold">Confirm Claim</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Are you sure you want to claim this loan?
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setClaimConfirmOpen(false)} disabled={isSaving}>
+                No
+              </Button>
+              <Button onClick={() => void handleConfirmClaim()} disabled={isSaving}>
+                {isSaving ? "Claiming..." : "Yes"}
               </Button>
             </div>
           </div>

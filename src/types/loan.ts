@@ -2,6 +2,7 @@ export interface LoanResponse {
     loanId: number
     memberId: number
     fullName: string
+    status: string
     loanTotalAmount: number
     noOfTerms: string
     totalAmountPaid: number
@@ -15,6 +16,7 @@ export interface AddLoanRequest {
     interestAmount: number
     processingFee: number
     insuranceFee: number
+    insuranceAmount: number
     isSavingEnabled: false
     savingAmount: number
     totalAmount: number

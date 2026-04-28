@@ -94,6 +94,35 @@ function formatCurrency(n: number): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "INR" })
 }
 
+function isOverdueAllowed(scheduleDate: string): boolean {
+  if (!scheduleDate) return false
+  const parsed = new Date(scheduleDate)
+  if (Number.isNaN(parsed.getTime())) return false
+  const scheduleOnly = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
+  const today = new Date()
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  return scheduleOnly < todayOnly
+}
+
+function getAutoStatusForRow(row: RecoveryPostingRow): string {
+  if (isOverdueAllowed(row.scheduleDate)) return RECOVERY_STATUS.OVERDUE
+  return normalizeStatusValue(row.status)
+}
+
+function getStatusToneClass(status: string): string {
+  const s = normalizeStatusValue(status)
+  if (s === RECOVERY_STATUS.PAID) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+  }
+  if (s === RECOVERY_STATUS.PARTIAL_PAID) {
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
+  }
+  if (s === RECOVERY_STATUS.OVERDUE) {
+    return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+  }
+  return "border-border bg-background text-foreground"
+}
+
 function todayDateKey(): string {
   const t = new Date()
   const y = t.getFullYear()
@@ -166,6 +195,7 @@ function RecoveryPostingList() {
   const [rowSelection, setRowSelection] = useState<MRT_RowSelectionState>({})
   const [paymentAmountDraft, setPaymentAmountDraft] = useState<Record<string, string>>({})
   const [paymentModeDraft, setPaymentModeDraft] = useState<Record<string, string>>({})
+  const [statusDraft, setStatusDraft] = useState<Record<string, string>>({})
   const [commentsDraft, setCommentsDraft] = useState<Record<string, string>>({})
   const [rowEdits, setRowEdits] = useState<Record<string, RecoveryRowDraft>>({})
   const [fieldErrors, setFieldErrors] = useState<RecoveryPostingFieldErrorState>(EMPTY_FIELD_ERRORS)
@@ -255,6 +285,7 @@ function RecoveryPostingList() {
     setRowSelection({})
     setPaymentAmountDraft({})
     setPaymentModeDraft({})
+    setStatusDraft({})
     setCommentsDraft({})
     setRowEdits({})
     setFieldErrors(EMPTY_FIELD_ERRORS)
@@ -266,20 +297,29 @@ function RecoveryPostingList() {
   }, [collectedById, collectedByOptions])
 
   const updatePaymentAmount = useCallback((rowKey: string, payment: number) => {
+    const baseRow = gridRows.find((r) => r.rowKey === rowKey)
+    if (!baseRow) return
+    const draft = rowEdits[rowKey]
+    const mergedRow = { ...baseRow, ...(draft ?? {}) }
+    const { principalAmount, interestAmount } = calculatePaymentSplitFromSchedule(mergedRow, payment)
+    const nextAutoStatus = deriveStatusFromAmounts({ ...mergedRow, paymentAmount: payment })
+
     setRowEdits((prev) => {
-      const baseRow = gridRows.find((r) => r.rowKey === rowKey)
-      if (!baseRow) return prev
-      const mergedRow = { ...baseRow, ...(prev[rowKey] ?? {}) }
-      const { principalAmount, interestAmount } = calculatePaymentSplitFromSchedule(mergedRow, payment)
       return {
         ...prev,
         [rowKey]: {
           paymentAmount: payment,
           principalAmount,
           interestAmount,
-          status: deriveStatusFromAmounts({ ...mergedRow, paymentAmount: payment }),
+          status: nextAutoStatus,
         },
       }
+    })
+    setStatusDraft((prev) => {
+      const current = normalizeStatusValue(prev[rowKey] ?? "")
+      // Respect explicit Overdue selection for past-due schedules.
+      if (current === RECOVERY_STATUS.OVERDUE) return prev
+      return { ...prev, [rowKey]: nextAutoStatus }
     })
     setFieldErrors((prev) => {
       let next = clearRowFieldError(prev, rowKey, "paymentAmount")
@@ -289,7 +329,7 @@ function RecoveryPostingList() {
       next = clearRowFieldError(next, rowKey, "general")
       return next
     })
-  }, [gridRows])
+  }, [gridRows, rowEdits])
 
   const handleRowSelectionChange = useCallback(
     (updater: MRT_RowSelectionState | ((prev: MRT_RowSelectionState) => MRT_RowSelectionState)) => {
@@ -299,11 +339,41 @@ function RecoveryPostingList() {
         const newlyDeselected = Object.keys(prev).filter((k) => prev[k] && !next[k])
 
         if (newlySelected.length > 0) {
+          setPaymentAmountDraft((prevDraft) => {
+            const nextDraft = { ...prevDraft }
+            for (const rowKey of newlySelected) {
+              const row = gridRows.find((r) => r.rowKey === rowKey)
+              if (!row) continue
+              if (getAutoStatusForRow(row) === RECOVERY_STATUS.OVERDUE) {
+                nextDraft[rowKey] = ""
+              }
+            }
+            return nextDraft
+          })
+          setStatusDraft((statusPrev) => {
+            const statusNext = { ...statusPrev }
+            for (const rowKey of newlySelected) {
+              const row = gridRows.find((r) => r.rowKey === rowKey)
+              if (!row) continue
+              statusNext[rowKey] = getAutoStatusForRow(row)
+            }
+            return statusNext
+          })
           setRowEdits((draftPrev) => {
             const draftNext = { ...draftPrev }
             for (const rowKey of newlySelected) {
               const row = gridRows.find((r) => r.rowKey === rowKey)
               if (!row) continue
+              const autoStatus = getAutoStatusForRow(row)
+              if (autoStatus === RECOVERY_STATUS.OVERDUE) {
+                draftNext[rowKey] = {
+                  paymentAmount: 0,
+                  principalAmount: 0,
+                  interestAmount: 0,
+                  status: RECOVERY_STATUS.OVERDUE,
+                }
+                continue
+              }
               const amount = row.actualEmiAmount
               const split = calculatePaymentSplitFromSchedule(row, amount)
               draftNext[rowKey] = {
@@ -333,6 +403,13 @@ function RecoveryPostingList() {
             return nextDraft
           })
           setPaymentModeDraft((prevDraft) => {
+            const nextDraft = { ...prevDraft }
+            for (const rowKey of newlyDeselected) {
+              delete nextDraft[rowKey]
+            }
+            return nextDraft
+          })
+          setStatusDraft((prevDraft) => {
             const nextDraft = { ...prevDraft }
             for (const rowKey of newlyDeselected) {
               delete nextDraft[rowKey]
@@ -392,9 +469,23 @@ function RecoveryPostingList() {
     const selectedRowsWithDrafts = selectedRows
       .map((r) => ({
         ...r,
+        status: normalizeStatusValue(statusDraft[r.rowKey] ?? getAutoStatusForRow(r)),
         paymentMode: (paymentModeDraft[r.rowKey] ?? r.paymentMode ?? "").trim(),
         comments: commentsDraft[r.rowKey] ?? r.comments,
       }))
+
+    const overdueNotAllowedRows = selectedRowsWithDrafts.filter(
+      (r) => normalizeStatusValue(r.status) === RECOVERY_STATUS.OVERDUE && !isOverdueAllowed(r.scheduleDate)
+    )
+    if (overdueNotAllowedRows.length > 0) {
+      const nextRows: RecoveryPostingFieldErrorState["rows"] = {}
+      for (const row of overdueNotAllowedRows) {
+        nextRows[row.rowKey] = { status: "Overdue is allowed only after schedule date has passed." }
+      }
+      setFieldErrors({ rows: nextRows })
+      toast.error("Overdue can be posted only for past schedule dates.")
+      return
+    }
 
     const validationIssues = validateRecoveryPostRows(
       selectedRowsWithDrafts.map((r) => ({
@@ -438,14 +529,23 @@ function RecoveryPostingList() {
       const result = await postRecoveryPosting({
         collectedBy: effectiveCollectedById,
         items: rowsToPost.map((r) => ({
+          ...(normalizeStatusValue(r.status) === RECOVERY_STATUS.OVERDUE
+            ? {
+                paymentAmount: null,
+                principalAmount: null,
+                interestAmount: null,
+                paymentMode: undefined,
+              }
+            : {
+                // Backend validates `paymentAmount == principalAmount + interestAmount` using
+                // exact decimal equality. Re-derive interest from the rounded payment to avoid
+                // any floating/rounding drift between fields.
+                paymentAmount: round2(r.paymentAmount),
+                principalAmount: round2(r.principalAmount),
+                interestAmount: round2(round2(r.paymentAmount) - round2(r.principalAmount)),
+                paymentMode: r.paymentMode.trim(),
+              }),
           loanSchedulerId: r.loanSchedulerId,
-          // Backend validates `paymentAmount == principalAmount + interestAmount` using
-          // exact decimal equality. Re-derive interest from the rounded payment to avoid
-          // any floating/rounding drift between fields.
-          paymentAmount: round2(r.paymentAmount),
-          principalAmount: round2(r.principalAmount),
-          interestAmount: round2(round2(r.paymentAmount) - round2(r.principalAmount)),
-          paymentMode: r.paymentMode.trim(),
           status: r.status.trim(),
           comments: r.comments?.trim() || undefined,
         })),
@@ -457,6 +557,7 @@ function RecoveryPostingList() {
       setRowEdits({})
       setRowSelection({})
       setPaymentAmountDraft({})
+      setStatusDraft({})
       await refetch()
     } catch (err: unknown) {
       const details = getApiErrorDetails(err)
@@ -468,7 +569,7 @@ function RecoveryPostingList() {
     } finally {
       setIsPosting(false)
     }
-  }, [rowSelection, effectiveCollectedById, editableRows, paymentModeDraft, commentsDraft, refetch, isPosting])
+  }, [rowSelection, effectiveCollectedById, editableRows, statusDraft, paymentModeDraft, commentsDraft, refetch, isPosting])
 
   const columns = useMemo<MRT_ColumnDef<RecoveryPostingRow>[]>(
     () => [
@@ -514,10 +615,13 @@ function RecoveryPostingList() {
           const key = row.original.rowKey
           const rowFieldErrors = fieldErrors.rows[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
+          const selectedStatus = normalizeStatusValue(statusDraft[key] ?? getAutoStatusForRow(row.original))
+          const isOverdueSelected = selectedStatus === RECOVERY_STATUS.OVERDUE
           const v = row.original.paymentAmount
           const value = isSelected
             ? (paymentAmountDraft[key] ?? (Number.isFinite(v) ? String(v) : ""))
             : ""
+          const isPaymentDisabled = !isSelected || isOverdueSelected
           return (
             <div className="space-y-1">
               <input
@@ -526,12 +630,16 @@ function RecoveryPostingList() {
                 className={cn(
                   inputClass,
                   "py-1.5 tabular-nums max-w-[7.5rem]",
-                  !isSelected && "cursor-not-allowed bg-muted text-muted-foreground",
+                  isPaymentDisabled &&
+                    "cursor-not-allowed border-dashed border-muted-foreground/40 bg-muted/70 text-muted-foreground opacity-80",
                   rowFieldErrors?.paymentAmount && "border-destructive"
                 )}
-                value={value}
-                readOnly={!isSelected}
+                value={isOverdueSelected ? "" : value}
+                placeholder={isOverdueSelected ? "N/A" : ""}
+                disabled={isPaymentDisabled}
+                readOnly={isPaymentDisabled}
                 onChange={(e) => {
+                  if (isOverdueSelected) return
                   const raw = e.target.value
                   if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return
                   setPaymentAmountDraft((prev) => ({ ...prev, [key]: raw }))
@@ -542,7 +650,7 @@ function RecoveryPostingList() {
                   }
                 }}
                 onBlur={() => {
-                  if (!isSelected) return
+                  if (!isSelected || isOverdueSelected) return
                   const raw = paymentAmountDraft[key]
                   if (raw == null) return
                   if (raw.trim() === "") {
@@ -601,6 +709,9 @@ function RecoveryPostingList() {
           const rowFieldErrors = fieldErrors.rows[row.original.rowKey]
           const key = row.original.rowKey
           const isSelected = !!rowSelection[key]
+          const selectedStatus = normalizeStatusValue(statusDraft[key] ?? getAutoStatusForRow(row.original))
+          const isOverdueSelected = selectedStatus === RECOVERY_STATUS.OVERDUE
+          const isPaymentModeDisabled = !isSelected || isOverdueSelected
           const value =
             isSelected
               ? (paymentModeDraft[key] ??
@@ -613,12 +724,14 @@ function RecoveryPostingList() {
                 className={cn(
                   inputClass,
                   "py-1.5 w-full max-w-[9.5rem] min-w-0 text-sm",
-                  !isSelected && "cursor-not-allowed bg-muted text-muted-foreground",
+                  isPaymentModeDisabled &&
+                    "cursor-not-allowed border-dashed border-muted-foreground/40 bg-muted/70 text-muted-foreground opacity-80",
                   rowFieldErrors?.paymentMode && "border-destructive"
                 )}
-                value={value || ""}
-                disabled={!isSelected}
+                value={isOverdueSelected ? "" : value || ""}
+                disabled={isPaymentModeDisabled}
                 onChange={(e) => {
+                  if (isOverdueSelected) return
                   setPaymentModeDraft((prev) => ({ ...prev, [key]: e.target.value }))
                   setFieldErrors((prev) => {
                     let next = clearRowFieldError(prev, key, "paymentMode")
@@ -627,7 +740,7 @@ function RecoveryPostingList() {
                   })
                 }}
               >
-                <option value="">Select</option>
+                <option value="">{isOverdueSelected ? "N/A" : "Select"}</option>
                 {paymentModeLookups.map((m) => (
                   <option key={m.id} value={m.lookupValue}>
                     {m.lookupValue}
@@ -644,21 +757,63 @@ function RecoveryPostingList() {
       {
         accessorKey: "status",
         header: "Status",
-        size: 110,
+        size: 150,
         Cell: ({ row }) => {
-          const isSelected = !!rowSelection[row.original.rowKey]
+          const key = row.original.rowKey
+          const isSelected = !!rowSelection[key]
           if (!isSelected) return <span className="text-muted-foreground">—</span>
-          const rowFieldErrors = fieldErrors.rows[row.original.rowKey]
-          const s = normalizeStatusValue(row.original.status)
-          const cls =
-            s === RECOVERY_STATUS.PAID
-              ? "text-green-700 dark:text-green-400"
-              : s === RECOVERY_STATUS.PARTIAL_PAID
-                ? "text-amber-700 dark:text-amber-400"
-                : "text-muted-foreground"
+          const rowFieldErrors = fieldErrors.rows[key]
+          const value = normalizeStatusValue(statusDraft[key] ?? getAutoStatusForRow(row.original))
+          const statusToneClass = getStatusToneClass(value)
           return (
             <div className="space-y-1">
-              <span className={cn("text-sm font-medium", cls)}>{row.original.status}</span>
+              <select
+                className={cn(
+                  inputClass,
+                  "py-1.5 text-sm max-w-[8.5rem] border",
+                  statusToneClass,
+                  rowFieldErrors?.status && "border-destructive"
+                )}
+                value={value}
+                onChange={(e) => {
+                  const nextStatus = normalizeStatusValue(e.target.value)
+                  setStatusDraft((prev) => ({ ...prev, [key]: nextStatus }))
+                  if (nextStatus === RECOVERY_STATUS.OVERDUE) {
+                    // Overdue must carry forward only, so payment split values are reset.
+                    setPaymentAmountDraft((prev) => ({ ...prev, [key]: "" }))
+                    setPaymentModeDraft((prev) => ({ ...prev, [key]: "" }))
+                    setRowEdits((prev) => ({
+                      ...prev,
+                      [key]: {
+                        ...(prev[key] ?? {
+                          paymentAmount: 0,
+                          principalAmount: 0,
+                          interestAmount: 0,
+                          status: RECOVERY_STATUS.OVERDUE,
+                        }),
+                        paymentAmount: 0,
+                        principalAmount: 0,
+                        interestAmount: 0,
+                        status: RECOVERY_STATUS.OVERDUE,
+                      },
+                    }))
+                  }
+                  setFieldErrors((prev) => {
+                    let next = clearRowFieldError(prev, key, "status")
+                    next = clearRowFieldError(next, key, "general")
+                    return next
+                  })
+                }}
+              >
+                <option value={RECOVERY_STATUS.PAID}>{RECOVERY_STATUS.PAID}</option>
+                <option value={RECOVERY_STATUS.PARTIAL_PAID}>{RECOVERY_STATUS.PARTIAL_PAID}</option>
+                <option
+                  value={RECOVERY_STATUS.OVERDUE}
+                  disabled={!isOverdueAllowed(row.original.scheduleDate)}
+                >
+                  {RECOVERY_STATUS.OVERDUE}
+                </option>
+              </select>
               {rowFieldErrors?.status ? (
                 <p className="text-xs text-destructive">{rowFieldErrors.status}</p>
               ) : null}
@@ -708,7 +863,7 @@ function RecoveryPostingList() {
         },
       },
     ],
-    [paymentAmountDraft, paymentModeDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows, rowSelection]
+    [paymentAmountDraft, paymentModeDraft, statusDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows, rowSelection]
   )
 
   if (!branchId) {
@@ -897,6 +1052,39 @@ function RecoveryPostingList() {
                 boxShadow: "none",
               },
             }}
+            muiTableHeadCellProps={{
+              sx: {
+                backgroundColor: "hsl(var(--muted) / 0.35)",
+                color: "hsl(var(--muted-foreground))",
+                fontWeight: 600,
+                fontSize: "0.78rem",
+                textTransform: "none",
+              },
+            }}
+            muiTableBodyCellProps={{
+              sx: {
+                borderColor: "hsl(var(--border) / 0.6)",
+                fontSize: "0.82rem",
+              },
+            }}
+            muiTableBodyRowProps={({ row }) => ({
+              sx: {
+                "&:nth-of-type(even)": {
+                  backgroundColor: "hsl(var(--muted) / 0.12)",
+                },
+                "&[data-selected='true']": {
+                  backgroundColor: "hsl(var(--primary) / 0.08) !important",
+                },
+                "&[data-selected='true']:hover": {
+                  backgroundColor: "hsl(var(--primary) / 0.14) !important",
+                },
+                "&:hover": {
+                  backgroundColor: row.getIsSelected()
+                    ? "hsl(var(--primary) / 0.14)"
+                    : "hsl(var(--muted) / 0.24)",
+                },
+              },
+            })}
             muiTableContainerProps={{
               sx: {
                 // Avoid empty scroll area / gray bar when there are no rows

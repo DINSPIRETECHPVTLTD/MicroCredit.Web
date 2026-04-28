@@ -11,6 +11,7 @@ export type RecoveryPostingRow = {
   loanSchedulerId: number
   memberId: number
   installmentNo: number
+  scheduleDate: string
   actualEmiAmount: number
   actualPrincipalAmount: number | null
   actualInterestAmount: number | null
@@ -140,6 +141,7 @@ function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
     loanSchedulerId,
     memberId: toNum(getField(raw, ["memberId"])),
     installmentNo: toNum(getField(raw, ["installmentNo"])),
+    scheduleDate: String(getField(raw, ["scheduleDate"]) ?? ""),
     actualEmiAmount,
     actualPrincipalAmount,
     actualInterestAmount,
@@ -189,10 +191,10 @@ export async function fetchRecoveryPostingSchedulers(
 
 export type RecoveryPostingPostLine = {
   loanSchedulerId: number
-  paymentAmount: number
-  principalAmount: number
-  interestAmount: number
-  paymentMode: string
+  paymentAmount?: number | null
+  principalAmount?: number | null
+  interestAmount?: number | null
+  paymentMode?: string | null
   status: string
   comments?: string | null
 }

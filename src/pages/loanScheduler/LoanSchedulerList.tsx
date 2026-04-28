@@ -4,7 +4,8 @@ import {
   type MRT_ColumnDef,
   MaterialReactTable,
 } from "material-react-table"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
+import { Button } from "@/components/ui/button"
 
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
 import { fetchLoanSchedulerList } from "@/services/loanScheduler.service"
@@ -20,6 +21,7 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 }
 
 export default function LoanSchedulerList() {
+  const navigate = useNavigate()
   const params = useParams()
   const loanIdRaw = params.loanId ?? params.loadid
   const loanId = loanIdRaw ? Number(loanIdRaw) : NaN
@@ -55,6 +57,16 @@ export default function LoanSchedulerList() {
   const formatCurrency = (value: number) =>
     value.toLocaleString(undefined, { style: "currency", currency: "INR" })
 
+  const formatDateDDMMYYYY = (raw: string | Date | null | undefined): string => {
+    if (raw == null || raw === "") return "-"
+    const d = raw instanceof Date ? raw : new Date(String(raw))
+    if (Number.isNaN(d.getTime())) return "-"
+    const dd = String(d.getDate()).padStart(2, "0")
+    const mm = String(d.getMonth() + 1).padStart(2, "0")
+    const yyyy = d.getFullYear()
+    return `${dd}/${mm}/${yyyy}`
+  }
+
   const columns = useMemo<MRT_ColumnDef<LoanSchedulerResponse>[]>(
     () => [
       {
@@ -77,10 +89,7 @@ export default function LoanSchedulerList() {
         header: "Schedule Date",
         Cell: ({ cell }) => {
           const raw = cell.getValue<string | Date | null | undefined>()
-          if (raw == null || raw === "") return "-"
-          const d = raw instanceof Date ? raw : new Date(String(raw))
-          if (Number.isNaN(d.getTime())) return "-"
-          return d.toLocaleDateString()
+          return formatDateDDMMYYYY(raw)
         },
       },
       {
@@ -142,9 +151,14 @@ export default function LoanSchedulerList() {
     <div>
       <div className="mb-6 flex items-center gap-3 justify-between">
         <h1 className="text-2xl font-semibold">Loan Scheduler</h1>
-        {Number.isFinite(loanId) ? (
-          <div className="text-sm text-muted-foreground">Loan Id: {loanId}</div>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {Number.isFinite(loanId) ? (
+            <div className="text-sm text-muted-foreground">Loan Id: {loanId}</div>
+          ) : null}
+          <Button variant="outline" onClick={() => navigate("/loans/manage")}>
+            Cancel
+          </Button>
+        </div>
       </div>
 
       {!Number.isFinite(loanId) ? (

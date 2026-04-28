@@ -160,6 +160,14 @@ export const api = {
         return `${getApiBase()}/loans/${loanId}/close`
       },
 
+      updateStatus(loanId: number) {
+        return `${getApiBase()}/loans/${loanId}/status`
+      },
+
+      claim(loanId: number) {
+        return `${getApiBase()}/loans/${loanId}/claim`
+      },
+
       get activeList() {
         return `${getApiBase()}/loans/ActiveLoans`
       },
