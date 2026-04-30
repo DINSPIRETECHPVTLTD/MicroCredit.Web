@@ -215,6 +215,7 @@ export default function LoanPrepayment() {
 
   const [rowSelection, setRowSelection] = useState<MRT_RowSelectionState>({})
   const [rowDrafts, setRowDrafts] = useState<Record<string, RowDraft>>({})
+  const [paymentAmountDrafts, setPaymentAmountDrafts] = useState<Record<string, string>>({})
   const [bulkPopupOpen, setBulkPopupOpen] = useState(false)
   const [bulkPaymentMode, setBulkPaymentMode] = useState("")
   const [bulkReason, setBulkReason] = useState("")
@@ -354,29 +355,6 @@ export default function LoanPrepayment() {
     [updateDraft]
   )
 
-  const handlePaymentAmountBlur = useCallback(
-    (row: PrepaymentRow) => {
-      const amount = Number(row.paymentAmount || 0)
-      const emi = Number(row.actualEmiAmount || 0)
-      if (emi <= 0) return
-      if (amount < emi) {
-        toast.error("Amount should not be less than EMI amount.")
-      } else if (amount > emi) {
-        toast.error("Amount should not be more than EMI amount.")
-      } else {
-        return
-      }
-      const split = calculatePrepaymentSplit(row, emi)
-      updateDraft(row, {
-        paymentAmount: emi,
-        principalAmount: split.principalAmount,
-        interestAmount: split.interestAmount,
-        status: PREPAYMENT_STATUS.PAID,
-      })
-    },
-    [updateDraft]
-  )
-
   const handleRowSelectionChange = useCallback(
     (updater: MRT_RowSelectionState | ((prev: MRT_RowSelectionState) => MRT_RowSelectionState)) => {
       setRowSelection((prev) => {
@@ -413,6 +391,13 @@ export default function LoanPrepayment() {
               delete draftNext[rowKey]
             }
             return draftNext
+          })
+          setPaymentAmountDrafts((prev) => {
+            const next = { ...prev }
+            for (const rowKey of newlyDeselected) {
+              delete next[rowKey]
+            }
+            return next
           })
         }
         return next
@@ -454,6 +439,7 @@ export default function LoanPrepayment() {
   const handleCancel = useCallback(() => {
     setRowDrafts({})
     setRowSelection({})
+    setPaymentAmountDrafts({})
     navigate("/loans/manage")
   }, [navigate])
 
@@ -483,16 +469,6 @@ export default function LoanPrepayment() {
       toast.error("Select at least one EMI row or change loan status.")
       return
     }
-    if (selectedRows.length > 0 && loanStatusChanged) {
-      toast.error("Please update loan status or pay EMI separately.")
-      return
-    }
-    const closableRows = rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey])
-    const isFullClosureSelection =
-      closableRows.length > 0 &&
-      selectedRows.length === closableRows.length &&
-      closableRows.every((r) => rowSelection[r.rowKey])
-
     for (const row of selectedRows) {
       const status = normalizePrepaymentStatus(row.status)
       const amount = round2(row.paymentAmount || 0)
@@ -509,16 +485,52 @@ export default function LoanPrepayment() {
         toast.error(`Week ${row.installmentNo}: payment amount cannot exceed weekly due.`)
         return
       }
-      if (emi > 0 && amount < emi) {
-        toast.error(`Week ${row.installmentNo}: payment amount cannot be less than weekly due.`)
-        return
-      }
       if (!String(row.paymentMode || "").trim()) {
         toast.error(`Week ${row.installmentNo}: select payment mode.`)
         return
       }
-      if (status !== PREPAYMENT_STATUS.PAID || Math.abs(amount - emi) > 0.001) {
-        toast.error(`Week ${row.installmentNo}: full EMI payment is required.`)
+    }
+
+    // Business rule: if an earlier EMI in the current selection is partial,
+    // a later EMI in the same selection must not be fully paid.
+    const sortedByInstallment = [...selectedRows].sort(
+      (a, b) => (a.installmentNo || 0) - (b.installmentNo || 0)
+    )
+    let hasPreviousPartial = false
+    for (const row of sortedByInstallment) {
+      const st = normalizePrepaymentStatus(row.status)
+      const amount = round2(row.paymentAmount || 0)
+      const emi = round2(row.actualEmiAmount || 0)
+      const isFullPaid = emi > 0 && Math.abs(amount - emi) <= 0.001 && st === PREPAYMENT_STATUS.PAID
+      const isPartial =
+        emi > 0 && amount > 0 && amount < emi && st === PREPAYMENT_STATUS.PARTIAL_PAID
+
+      if (hasPreviousPartial && isFullPaid) {
+        toast.error(
+          "Partial EMI cannot be followed by a fully paid later EMI. Clear earlier partials or pay them fully first."
+        )
+        return
+      }
+
+      if (isPartial) {
+        hasPreviousPartial = true
+      }
+    }
+
+    const closableRows = rows.filter((r) => !apiReadOnlyByRowKey[r.rowKey])
+    const isFullClosureSelection =
+      closableRows.length > 0 &&
+      selectedRows.length === closableRows.length &&
+      closableRows.every((r) => rowSelection[r.rowKey])
+
+    if (isFullClosureSelection) {
+      const anyNotFullyPaid = selectedRows.some((row) => {
+        const amount = round2(row.paymentAmount || 0)
+        const emi = round2(row.actualEmiAmount || 0)
+        return emi > 0 && Math.abs(amount - emi) > 0.001
+      })
+      if (anyNotFullyPaid) {
+        toast.error("Full EMI payment is required on all selected rows to close the loan.")
         return
       }
     }
@@ -591,6 +603,7 @@ export default function LoanPrepayment() {
       }
       setRowSelection({})
       setRowDrafts({})
+      setPaymentAmountDrafts({})
       await refetch()
     } catch (err) {
       const details = getApiErrorDetails(err)
@@ -601,6 +614,7 @@ export default function LoanPrepayment() {
       }
       setRowSelection({})
       setRowDrafts({})
+      setPaymentAmountDrafts({})
       await refetch()
     } finally {
       setIsSaving(false)
@@ -669,19 +683,63 @@ export default function LoanPrepayment() {
         Cell: ({ row }) => {
           const isReadOnly = !!apiReadOnlyByRowKey[row.original.rowKey]
           const isSelected = !!rowSelection[row.original.rowKey]
+          const key = row.original.rowKey
+          const draft = paymentAmountDrafts[key]
+          const displayValue = isSelected
+            ? draft ?? (Number.isFinite(row.original.paymentAmount) ? String(row.original.paymentAmount) : "")
+            : String(Number.isFinite(row.original.paymentAmount) ? row.original.paymentAmount : 0)
           return (
             <input
-              type="number"
-              min={0}
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               className={cn(
                 "h-8 w-[110px] rounded-md border border-input bg-background px-2 text-sm",
                 (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
-              value={Number.isFinite(row.original.paymentAmount) ? row.original.paymentAmount : 0}
+              value={displayValue}
               readOnly={isReadOnly || !isSelected}
-              onChange={(e) => handlePaymentAmountChange(row.original, parseFloat(e.target.value))}
-              onBlur={() => handlePaymentAmountBlur(row.original)}
+              onFocus={(e) => {
+                if (isReadOnly || !isSelected) return
+                // Make replacing existing amount easy in one keystroke.
+                e.currentTarget.select()
+                setPaymentAmountDrafts((prev) => {
+                  if (prev[key] != null) return prev
+                  return {
+                    ...prev,
+                    [key]: Number.isFinite(row.original.paymentAmount)
+                      ? String(row.original.paymentAmount)
+                      : "",
+                  }
+                })
+              }}
+              onChange={(e) => {
+                if (isReadOnly || !isSelected) return
+                const raw = e.target.value
+                if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return
+                setPaymentAmountDrafts((prev) => ({ ...prev, [key]: raw }))
+              }}
+              onBlur={(e) => {
+                if (isReadOnly || !isSelected) return
+                const raw = e.currentTarget.value
+                if (raw == null || raw.trim() === "") {
+                  // Keep model value as zero while allowing the input to stay visually empty.
+                  setPaymentAmountDrafts((prev) => ({ ...prev, [key]: "" }))
+                  updateDraft(row.original, {
+                    paymentAmount: 0,
+                    principalAmount: 0,
+                    interestAmount: 0,
+                    status: PREPAYMENT_STATUS.NOT_PAID,
+                  })
+                  return
+                }
+                const n = Number(raw)
+                if (!Number.isFinite(n)) return
+                setPaymentAmountDrafts((prev) => ({ ...prev, [key]: String(n) }))
+                handlePaymentAmountChange(row.original, n)
+                if ((row.original.actualEmiAmount || 0) > 0 && n > (row.original.actualEmiAmount || 0)) {
+                  toast.error("Amount should not be more than EMI amount.")
+                }
+              }}
             />
           )
         },
@@ -749,7 +807,7 @@ export default function LoanPrepayment() {
         },
       },
     ],
-    [apiReadOnlyByRowKey, handlePaymentAmountBlur, handlePaymentAmountChange, paymentModes, rowSelection, updateDraft]
+    [apiReadOnlyByRowKey, handlePaymentAmountChange, paymentAmountDrafts, paymentModes, rowSelection, updateDraft]
   )
 
   if (!Number.isFinite(loanId) || loanId <= 0) {
