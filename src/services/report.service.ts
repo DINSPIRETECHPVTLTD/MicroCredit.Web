@@ -186,7 +186,7 @@ export const reportService = {
     const url = window.URL.createObjectURL(new Blob([data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `MemberWiseCollection_${new Date().toLocaleDateString().slice(0, 10)}.xlsx`);
+    link.setAttribute('download', `Report_${new Date().toLocaleDateString().slice(0, 10)}.xlsx`);
     document.body.appendChild(link);
     link.click();
 
