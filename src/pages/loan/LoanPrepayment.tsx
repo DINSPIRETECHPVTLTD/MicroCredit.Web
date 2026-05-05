@@ -103,6 +103,7 @@ const LOAN_STATUS_OPTIONS = ["Pending", "Active"] as const
 function normalizeLoanStatus(value: unknown): string {
   const status = String(value ?? "").trim()
   if (status.toLowerCase() === "claimed") return "Claimed"
+  if (status.toLowerCase() === "closed") return "Closed"
   return LOAN_STATUS_OPTIONS.find((option) => option.toLowerCase() === status.toLowerCase()) ?? ""
 }
 
@@ -123,7 +124,24 @@ function parseDate(raw: unknown): string {
   if (!raw) return "-"
   const d = raw instanceof Date ? raw : new Date(String(raw))
   if (Number.isNaN(d.getTime())) return "-"
-  return d.toLocaleDateString()
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const year = String(d.getFullYear())
+  return `${day}/${month}/${year}`
+}
+
+function isPastScheduleDate(raw: unknown): boolean {
+  if (!raw) return false
+  const parsed = raw instanceof Date ? raw : new Date(String(raw))
+  if (Number.isNaN(parsed.getTime())) return false
+  const scheduleOnly = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
+  const today = new Date()
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  return scheduleOnly < todayOnly
+}
+
+function isOverdueInModifyLoan(row: Pick<PrepaymentRow, "scheduleDate" | "status">): boolean {
+  return isPastScheduleDate(row.scheduleDate) || normalizePrepaymentStatus(row.status) === PREPAYMENT_STATUS.OVERDUE
 }
 
 function mapSchedulerRow(raw: LoanSchedulerApiRow): PrepaymentRow {
@@ -243,6 +261,17 @@ export default function LoanPrepayment() {
     refetchOnWindowFocus: false,
   })
 
+  const { data: loanFromList, refetch: refetchLoanSummary } = useQuery({
+    queryKey: ["loan-summary-by-id", loanId],
+    queryFn: async () => {
+      const all = await loanService.getLoans()
+      return all.find((l) => l.loanId === loanId) ?? null
+    },
+    enabled: Number.isFinite(loanId) && loanId > 0,
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
+  })
+
   const paymentModes = useMemo<MasterLookupResponse[]>(() => {
     return lookups.filter((x) => x.lookupKey?.toLowerCase() === "paymentmode")
   }, [lookups])
@@ -295,17 +324,19 @@ export default function LoanPrepayment() {
     const fallbackLoan = activeLoans.find((l) => l.loanId === loanId)
     return {
       memberName:
-        !memberNameFromState || memberNameFromState === "-"
+        loanFromList?.fullName ||
+        (!memberNameFromState || memberNameFromState === "-"
           ? fallbackLoan?.fullName || "-"
-          : memberNameFromState,
+          : memberNameFromState),
       loanStatus:
-        !loanStatusFromState || loanStatusFromState === "-"
+        loanFromList?.status ||
+        (!loanStatusFromState || loanStatusFromState === "-"
           ? fallbackLoan?.status || "-"
-          : loanStatusFromState,
+          : loanStatusFromState),
       totalAmount,
       remainingBalance,
     }
-  }, [activeLoans, loanId, loanStatusFromState, memberNameFromState, rows])
+  }, [activeLoans, loanFromList, loanId, loanStatusFromState, memberNameFromState, rows])
 
   useEffect(() => {
     const nextStatus = normalizeLoanStatus(loanSummary.loanStatus)
@@ -323,8 +354,10 @@ export default function LoanPrepayment() {
   }, [loanSummary.loanStatus])
 
   const loanStatusChanged = !!loanStatusDraft && !!savedLoanStatus && loanStatusDraft !== savedLoanStatus
-  const isClaimedLoan =
-    String(savedLoanStatus || loanStatusDraft || loanSummary.loanStatus).trim().toLowerCase() === "claimed"
+  const currentLoanStatus = String(savedLoanStatus || loanStatusDraft || loanSummary.loanStatus).trim().toLowerCase()
+  const isClaimedLoan = currentLoanStatus === "claimed"
+  const isClosedLoan = currentLoanStatus === "closed"
+  const isLockedLoan = isClaimedLoan || isClosedLoan
 
   const updateDraft = useCallback((row: PrepaymentRow, patch: Partial<RowDraft>) => {
     setRowDrafts((prev) => {
@@ -361,6 +394,7 @@ export default function LoanPrepayment() {
         const next = typeof updater === "function" ? updater(prev) : updater
         const newlySelected = Object.keys(next).filter((k) => next[k] && !prev[k])
         const newlyDeselected = Object.keys(prev).filter((k) => prev[k] && !next[k])
+        let shouldOpenBulkPopup = false
         if (newlySelected.length > 0) {
           setRowDrafts((draftPrev) => {
             const draftNext = { ...draftPrev }
@@ -369,20 +403,35 @@ export default function LoanPrepayment() {
               if (!row) continue
               const isReadOnly = apiReadOnlyByRowKey[row.rowKey]
               if (isReadOnly) continue
-              const amount = row.actualEmiAmount
-              const split = calculatePrepaymentSplit(row, amount)
-              draftNext[rowKey] = {
-                paymentAmount: amount,
-                principalAmount: split.principalAmount,
-                interestAmount: split.interestAmount,
-                paymentMode: row.paymentMode,
-                status: PREPAYMENT_STATUS.PAID,
-                comments: row.comments,
+              if (isPastScheduleDate(row.scheduleDate)) {
+                // Past schedule dates are treated as overdue on this screen.
+                draftNext[rowKey] = {
+                  paymentAmount: 0,
+                  principalAmount: 0,
+                  interestAmount: 0,
+                  paymentMode: row.paymentMode,
+                  status: PREPAYMENT_STATUS.OVERDUE,
+                  comments: row.comments,
+                }
+              } else {
+                const amount = row.actualEmiAmount
+                const split = calculatePrepaymentSplit(row, amount)
+                draftNext[rowKey] = {
+                  paymentAmount: amount,
+                  principalAmount: split.principalAmount,
+                  interestAmount: split.interestAmount,
+                  paymentMode: row.paymentMode,
+                  status: PREPAYMENT_STATUS.PAID,
+                  comments: row.comments,
+                }
+                shouldOpenBulkPopup = true
               }
             }
             return draftNext
           })
-          setBulkPopupOpen(true)
+          if (shouldOpenBulkPopup) {
+            setBulkPopupOpen(true)
+          }
         }
         if (newlyDeselected.length > 0) {
           setRowDrafts((draftPrev) => {
@@ -444,6 +493,10 @@ export default function LoanPrepayment() {
   }, [navigate])
 
   const handleConfirmClaim = useCallback(async () => {
+    if (isClosedLoan) {
+      toast.error("Closed loans cannot be claimed.")
+      return
+    }
     try {
       setIsSaving(true)
       await loanService.claimLoan(loanId)
@@ -458,7 +511,7 @@ export default function LoanPrepayment() {
     } finally {
       setIsSaving(false)
     }
-  }, [loanId, refetch])
+  }, [isClosedLoan, loanId, refetch])
 
   const executeSave = useCallback(async () => {
     if (!sessionUserId) {
@@ -469,16 +522,67 @@ export default function LoanPrepayment() {
       toast.error("Select at least one EMI row or change loan status.")
       return
     }
+
+    const rowsByInstallment = [...rows].sort((a, b) => (a.installmentNo || 0) - (b.installmentNo || 0))
     for (const row of selectedRows) {
       const status = normalizePrepaymentStatus(row.status)
       const amount = round2(row.paymentAmount || 0)
       const emi = round2(row.actualEmiAmount || 0)
+
+      const previousBlockingRow = [...rowsByInstallment]
+        .reverse()
+        .find((candidate) => {
+          const candidateNo = candidate.installmentNo || 0
+          const currentNo = row.installmentNo || 0
+          if (candidateNo <= 0 || candidateNo >= currentNo) return false
+          const candidateStatus = normalizePrepaymentStatus(candidate.status)
+          return (
+            candidateStatus === PREPAYMENT_STATUS.NOT_PAID ||
+            candidateStatus === PREPAYMENT_STATUS.OVERDUE
+          )
+        })
+      if (previousBlockingRow) {
+        const previousStatus = normalizePrepaymentStatus(previousBlockingRow.status)
+        if (previousStatus === PREPAYMENT_STATUS.OVERDUE) {
+          toast.error(
+            `Posting is not allowed. EMI ${previousBlockingRow.installmentNo} is overdue. Please clear the overdue EMI first through the Recovery Posting page.`
+          )
+          return
+        }
+        toast.error(
+          `EMI ${previousBlockingRow.installmentNo} is pending. Please clear EMI ${previousBlockingRow.installmentNo} before proceeding with EMI ${row.installmentNo}.`
+        )
+        return
+      }
+
+      const isOverdueRow = isOverdueInModifyLoan(row)
+      if (isOverdueRow) {
+        const nextInstallment = rowsByInstallment.find(
+          (candidate) => (candidate.installmentNo || 0) > (row.installmentNo || 0)
+        )
+        const nextStatus = normalizePrepaymentStatus(nextInstallment?.status)
+        if (
+          nextInstallment &&
+          (nextStatus === PREPAYMENT_STATUS.PAID || nextStatus === PREPAYMENT_STATUS.PARTIAL_PAID)
+        ) {
+          toast.error(
+            "Posting is not allowed for this overdue EMI because the next EMI is already Paid/Partially Paid. Please verify and handle it through the Recovery Posting page."
+          )
+          return
+        }
+        toast.error(
+          "This EMI is overdue. Overdue EMIs must be handled manually in the Recovery Posting page. Posting is not allowed here."
+        )
+        return
+      }
       if (amount <= 0) {
         toast.error(`Week ${row.installmentNo}: payment amount must be greater than zero.`)
         return
       }
       if (status === PREPAYMENT_STATUS.OVERDUE) {
-        toast.error(`Week ${row.installmentNo}: overdue EMI is read-only and cannot be posted here.`)
+        toast.error(
+          "This EMI is overdue. Overdue EMIs must be handled manually in the Recovery Posting page. Posting is not allowed here."
+        )
         return
       }
       if (emi > 0 && amount > emi) {
@@ -563,6 +667,7 @@ export default function LoanPrepayment() {
         await postPrepaymentRecoveries({
           collectedBy: sessionUserId,
           items,
+          skipLedgerTransaction: true,
         })
         emiPosted = true
         const closeRes = await axios.put<{
@@ -570,8 +675,12 @@ export default function LoanPrepayment() {
           isClosed: boolean
           status: string
           closureDate?: string | null
-        }>(api.loans.close(loanId))
+        }>(api.loans.close(loanId), { receivedAmount })
         if (closeRes.data?.isClosed) {
+          // Reflect closed status immediately so Claim button is disabled without requiring manual refresh.
+          setSavedLoanStatus("Closed")
+          setLoanStatusDraft("Closed")
+          await refetchLoanSummary()
           toast.success("All EMIs paid. Loan closed successfully.")
           setCloseSuccessInfo({
             memberName: loanSummary.memberName || "-",
@@ -619,9 +728,13 @@ export default function LoanPrepayment() {
     } finally {
       setIsSaving(false)
     }
-  }, [apiReadOnlyByRowKey, loanId, loanStatusChanged, loanStatusDraft, loanSummary.memberName, refetch, rowSelection, rows, selectedRows, sessionUserId])
+  }, [apiReadOnlyByRowKey, loanId, loanStatusChanged, loanStatusDraft, loanSummary.memberName, refetch, refetchLoanSummary, rowSelection, rows, selectedRows, sessionUserId])
 
   const handleSave = useCallback(() => {
+    if (isClosedLoan) {
+      toast.error("Loan is closed. Claim and status updates are not allowed.")
+      return
+    }
     if (pendingRows.length === 0 && !loanStatusChanged) {
       toast("All EMIs are already paid. Loan is closed.")
       return
@@ -642,7 +755,7 @@ export default function LoanPrepayment() {
     }
 
     void executeSave()
-  }, [apiReadOnlyByRowKey, executeSave, loanStatusChanged, pendingRows.length, rowSelection, rows, selectedRows])
+  }, [apiReadOnlyByRowKey, executeSave, isClosedLoan, loanStatusChanged, pendingRows.length, rowSelection, rows, selectedRows])
 
   const columns = useMemo<MRT_ColumnDef<PrepaymentRow>[]>(
     () => [
@@ -834,14 +947,14 @@ export default function LoanPrepayment() {
             type="button"
             onClick={() => setClaimConfirmOpen(true)}
             className="bg-amber-500 text-white hover:bg-amber-600"
-            disabled={isSaving || isClaimedLoan}
+            disabled={isSaving || isLockedLoan}
           >
             Claim
           </Button>
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || isClaimedLoan || (pendingRows.length === 0 && !loanStatusChanged)}>
+          <Button onClick={handleSave} disabled={isSaving || isLockedLoan || (pendingRows.length === 0 && !loanStatusChanged)}>
             <Save className="h-4 w-4" />
             {isSaving ? "Saving..." : pendingRows.length === 0 && !loanStatusChanged ? "All Paid" : "Save"}
           </Button>
@@ -865,7 +978,7 @@ export default function LoanPrepayment() {
               className="mt-1 h-8 w-28 rounded-md border border-input bg-background px-2 text-sm font-medium"
               value={loanStatusDraft || normalizeLoanStatus(loanSummary.loanStatus) || "Active"}
               onChange={(event) => setLoanStatusDraft(event.target.value)}
-              disabled={isClaimedLoan}
+              disabled={isLockedLoan}
             >
               {LOAN_STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
@@ -874,6 +987,9 @@ export default function LoanPrepayment() {
               ))}
               {(loanStatusDraft === "Claimed" || normalizeLoanStatus(loanSummary.loanStatus) === "Claimed") ? (
                 <option value="Claimed">Claimed</option>
+              ) : null}
+              {(loanStatusDraft === "Closed" || normalizeLoanStatus(loanSummary.loanStatus) === "Closed") ? (
+                <option value="Closed">Closed</option>
               ) : null}
             </select>
           </div>

@@ -61,10 +61,6 @@ function LedgerBalancesList() {
               header: "Amount",
             },
             {
-              accessorKey: "insuranceAmount",
-              header: "Insurance Amount",
-            },
-            {
               id: "actions",
               header: "Actions",
               enableSorting: false,

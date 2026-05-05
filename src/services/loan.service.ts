@@ -165,7 +165,7 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
     const loanId = getValueCaseInsensitive(x, ['loanId', 'id'])
     const memberId = getValueCaseInsensitive(x, ['memberId'])
     const fullName = getValueCaseInsensitive(x, ['fullName', 'memberName'])
-    const status = getValueCaseInsensitive(x, ['status'])
+    const status = getValueCaseInsensitive(x, ['status', 'Status'])
     const loanTotalAmount = getValueCaseInsensitive(x, ['loanTotalAmount', 'totalAmount'])
     const totalAmountPaid = getValueCaseInsensitive(x, ['totalAmountPaid'])
     const schedulerTotalAmount = getValueCaseInsensitive(x, ['schedulerTotalAmount', 'loanTotalAmount', 'totalAmount'])

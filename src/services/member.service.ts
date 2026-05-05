@@ -2,6 +2,25 @@ import axios from "axios"
 import { api } from "@/lib/api"
 import type { MemberResponse } from "@/types/member"
 
+function toNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string") {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
+/** API may return `Id` / `MemberId` (PascalCase) instead of `id`. */
+function normalizeMemberResponse(raw: unknown): MemberResponse {
+  if (!raw || typeof raw !== "object") {
+    return { id: 0 }
+  }
+  const r = raw as Record<string, unknown>
+  const id = toNumber(r.id ?? r.Id ?? r.memberId ?? r.MemberId)
+  return { ...(raw as MemberResponse), id }
+}
+
 export interface MemberSaveRequest {
   centerId: number
   pocId?: number
@@ -39,13 +58,13 @@ export const memberService = {
   },
 
   async createMember(request: MemberSaveRequest): Promise<MemberResponse> {
-    const { data } = await axios.post<MemberResponse>(api.members.create(), request)
-    return data
+    const { data } = await axios.post(api.members.create(), request)
+    return normalizeMemberResponse(data)
   },
 
   async updateMember(id: number, request: MemberSaveRequest): Promise<MemberResponse> {
-    const { data } = await axios.put<MemberResponse>(api.members.update(id), request)
-    return data
+    const { data } = await axios.put(api.members.update(id), request)
+    return normalizeMemberResponse(data)
   },
 
   async setInactive(id: number): Promise<void> {

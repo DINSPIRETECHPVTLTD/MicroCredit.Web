@@ -9,8 +9,6 @@ type ApiLedgerBalanceLike = {
     UserId?: number | string
     amount?: number | string
     Amount?: number | string
-    insuranceAmount?: number | string
-    InsuranceAmount?: number | string
 }
 
 function toNumber(value: unknown): number {
@@ -27,7 +25,6 @@ function normalizeLedgerBalance(row: ApiLedgerBalanceLike): LedgerBalanceRespons
         id: toNumber(row.id ?? row.Id),
         userId: toNumber(row.userId ?? row.UserId),
         amount: toNumber(row.amount ?? row.Amount),
-        insuranceAmount: toNumber(row.insuranceAmount ?? row.InsuranceAmount),
     }
 }
 
