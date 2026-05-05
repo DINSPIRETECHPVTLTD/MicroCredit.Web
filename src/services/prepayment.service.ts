@@ -14,6 +14,7 @@ export type PrepaymentPostLine = {
 export type PrepaymentPostPayload = {
     collectedBy: number
     items: PrepaymentPostLine[]
+    skipLedgerTransaction?: boolean
 }
 
 export async function postPrepaymentRecoveries(

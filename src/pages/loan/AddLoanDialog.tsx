@@ -79,24 +79,6 @@ const schema = z.object({
   collectionTerm: z.string().min(2, "Collection term is required"),
   noOfTerms: z.coerce.number().min(1, "Number of terms is required")
 }).superRefine((data, ctx) => {
-  const today = getTodayDateInputValue()
-
-  if (data.disbursementDate && isBeforeDateInput(data.disbursementDate, today)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["disbursementDate"],
-      message: "Disbursement date cannot be in the past",
-    })
-  }
-
-  if (data.collectionStartDate && isBeforeDateInput(data.collectionStartDate, today)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["collectionStartDate"],
-      message: "Collection start date cannot be in the past",
-    })
-  }
-
   if (
     data.disbursementDate &&
     data.collectionStartDate &&
@@ -118,7 +100,19 @@ function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
+function formatMoney(value: number): string {
+  return value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
+function statusBadgeClass(status: string): string {
+  const s = (status ?? "").trim().toLowerCase()
+  if (s === "active") return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+  if (s === "pending") return "bg-amber-500/15 text-amber-900 dark:text-amber-200"
+  if (s === "claimed") return "bg-violet-500/15 text-violet-900 dark:text-violet-200"
+  if (s === "closed") return "bg-muted text-muted-foreground"
+  if (s === "defaulted") return "bg-destructive/15 text-destructive"
+  return "bg-muted text-foreground"
+}
 
 export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }: AddLoanDialogProps) {
 
@@ -220,7 +214,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
 
     const selectedPaymentTermId = form.watch("paymentTermId")
     const loanAmountValue = form.watch("loanAmount")
-    const disbursementDateValue = form.watch("disbursementDate")
     const totalAmountValue = form.watch("totalAmount")
     const noOfTermsValue = form.watch("noOfTerms")
     const paymentTermField = form.register("paymentTermId", { valueAsNumber: true })
@@ -393,45 +386,49 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
             <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
               <p>No loans found for this member.</p>
             </div>
-          ) : (() => {
-              const latest = loans[loans.length - 1]
-              return (
-                <div className="rounded-lg border bg-card p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Most Recent Loan</h3>
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-                      Loan # {latest.loanId}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Member Name</p>
-                      <p className="text-sm font-semibold">{latest.fullName}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Loan Amount</p>
-                      <p className="text-sm font-semibold">{latest.loanTotalAmount}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Total Amount Paid</p>
-                      <p className="text-sm font-semibold">{latest.totalAmountPaid}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">(Paid+Partial)/Total EMIs</p>
-                      <p className="text-sm font-semibold">{latest.noOfTerms}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Remaining Balance</p>
-                      <p className="text-sm font-semibold">{latest.remainingBal}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">Scheduler Total Balance</p>
-                      <p className="text-sm font-semibold">{latest.schedulerTotalAmount}</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Member loans
+              </h3>
+              <div className="rounded-md border overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">Loan #</th>
+                      <th className="text-left font-medium px-3 py-2">Status</th>
+                      <th className="text-left font-medium px-3 py-2">Member</th>
+                      <th className="text-right font-medium px-3 py-2">Loan total</th>
+                      <th className="text-center font-medium px-3 py-2">EMIs</th>
+                      <th className="text-right font-medium px-3 py-2">Paid</th>
+                      <th className="text-right font-medium px-3 py-2">Remaining</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loans.map((row) => (
+                      <tr key={row.loanId} className="border-t hover:bg-muted/30">
+                        <td className="px-3 py-2 font-mono tabular-nums">{row.loanId}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusBadgeClass(row.status)}`}
+                          >
+                            {row.status?.trim() || "—"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 max-w-[180px] truncate" title={row.fullName}>
+                          {row.fullName}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatMoney(row.loanTotalAmount)}</td>
+                        <td className="px-3 py-2 text-center tabular-nums whitespace-nowrap">{row.noOfTerms || "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatMoney(row.totalAmountPaid)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatMoney(row.remainingBal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -566,7 +563,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                   <input
                     type="date"
                     {...form.register("disbursementDate")}
-                    min={getTodayDateInputValue()}
                     className={cn(inputClass, form.formState.errors.disbursementDate && "border-destructive")}
                   />
                   {form.formState.errors.disbursementDate && (
@@ -578,7 +574,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
                   <input
                     type="date"
                     {...form.register("collectionStartDate")}
-                    min={disbursementDateValue || getTodayDateInputValue()}
                     className={cn(inputClass, (form.formState.errors.collectionStartDate || collectionDayError) && "border-destructive")}
                   />
                   {form.formState.errors.collectionStartDate && (

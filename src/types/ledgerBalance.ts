@@ -2,7 +2,6 @@ export interface LedgerBalanceResponse {
   id: number
   userId: number
   amount: number
-  insuranceAmount: number
 }
 
 export interface CreateFundTransferRequest  {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { UserResponse } from "@/types/user"
+import axios from "axios"
 import { getSession } from "@/services/auth.service"
 import { ledgerTransactionService } from "@/services/ledgerTransaction.service"
 import type { CreateExpenseRequest } from "@/types/ledgerTransaction"
@@ -93,8 +94,13 @@ export default function AddExpenseDialog({ open, onClose, onSuccess, users }: Pr
       toast.success("Expense created")
       onSuccess()
       close()
-    } catch {
-      toast.error("Failed to create expense")
+    } catch (err) {
+      let msg = "Failed to create expense"
+      if (axios.isAxiosError(err) && err.response?.data && typeof err.response.data === "object") {
+        const d = err.response.data as { message?: string; error?: string }
+        msg = d.message ?? d.error ?? msg
+      }
+      toast.error(msg)
     } finally {
       setSaving(false)
     }

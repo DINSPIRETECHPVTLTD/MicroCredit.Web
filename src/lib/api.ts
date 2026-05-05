@@ -73,15 +73,16 @@ export const api = {
       return `${getApiBase()}/ledger-balances`
     },
 
-    fundTransfer: `${getApiBase()}/ledger-balances/fund-transfer`
+    fundTransfer: `${getApiBase()}/ledger-balances/Fund-Transfer`
   },
   ledgerTransactions: {
     get expenses() {
-      return `${getApiBase()}/ledger-transactions/expenses`
+      return `${getApiBase()}/ledger-transactions/Expenses`
     },
-    transactions: (userId: number) => `${getApiBase()}/ledger-transactions/user-transactions/${userId}`,
+    transactions: (userId: number) =>
+      `${getApiBase()}/ledger-transactions/User-Transactions/${userId}`,
     get create() {
-      return `${getApiBase()}/ledger-transactions/add-expense`
+      return `${getApiBase()}/ledger-transactions/Add-Expense`
     },
   },
     

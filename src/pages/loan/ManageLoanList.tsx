@@ -39,11 +39,9 @@ function ManageLoanList() {
   const navigate = useNavigate()
 
   const { data: loans = [], isLoading, isError, error } = useQuery({
-    queryKey: ["activeLoans"],
+    queryKey: ["manageLoansAllStatuses"],
     queryFn: () => loanService.getActiveLoans(),
   })
-  const totalRecords = loans.length
-
   const schedulerQueries = useQueries({
     queries: loans.map((loan) => ({
       queryKey: ["loanSchedulers", loan.loanId],
@@ -157,17 +155,17 @@ function ManageLoanList() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Active/Pending/Claimed Loans({isLoading ? "-" : totalRecords})</h1>
+        <h1 className="text-2xl font-semibold">Manage Loans</h1>
       </div>
 
       {isError ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-          <p className="font-medium text-destructive">Failed to load active loans.</p>
+          <p className="font-medium text-destructive">Failed to load loans.</p>
           <p className="mt-1 text-sm">{getApiErrorMessage(error, "Unknown error")}</p>
         </div>
       ) : !isLoading && loans.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-          <p>No active loans found</p>
+          <p>No loans found</p>
         </div>
       ) : (
         <MaterialReactTable

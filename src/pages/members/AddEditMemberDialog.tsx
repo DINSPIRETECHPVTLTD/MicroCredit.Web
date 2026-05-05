@@ -3,6 +3,7 @@ import { useForm, type FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import toast from "react-hot-toast"
+import axios from "axios"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -212,10 +213,28 @@ const inputClass =
   "focus-visible:ring-ring focus-visible:ring-offset-2"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
-  const data = (err as { response?: { data?: unknown } })?.response?.data
-  if (typeof data === "string") return data
-  if (data && typeof data === "object") {
-    const obj = data as { message?: string; error?: string; title?: string }
+  if (axios.isAxiosError(err) && err.response?.data != null) {
+    const data = err.response.data
+    if (typeof data === "string") return data
+    if (typeof data === "object") {
+      const obj = data as {
+        message?: string
+        error?: string
+        title?: string
+        errors?: Record<string, string[]>
+      }
+      if (obj.errors && typeof obj.errors === "object") {
+        const first = Object.values(obj.errors).flat().find(Boolean)
+        if (first) return String(first)
+      }
+      const msg = obj.message ?? obj.error ?? obj.title
+      if (msg) return String(msg)
+    }
+  }
+  const loose = (err as { response?: { data?: unknown } })?.response?.data
+  if (typeof loose === "string") return loose
+  if (loose && typeof loose === "object") {
+    const obj = loose as { message?: string; error?: string; title?: string }
     return obj.message ?? obj.error ?? obj.title ?? fallback
   }
   return fallback
@@ -547,6 +566,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         toast.success("Member updated successfully")
       } else {
         const created = await memberService.createMember(request)
+        const newMemberId = created.id > 0 ? created.id : (created.memberId ?? 0)
 
         const amountValue =
           data.joiningFeeAmount !== "" && data.joiningFeeAmount != null
@@ -554,20 +574,27 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
             : NaN
 
         if (
-          created?.id != null &&
+          newMemberId > 0 &&
           !Number.isNaN(amountValue) &&
           amountValue > 0 &&
           data.paidDate &&
           data.collectedBy && data.collectedBy > 0
         ) {
-          await memberFeeService.createFee({
-            memberId: created.id,
-            amount: amountValue,
-            paidDate: data.paidDate,
-            collectedBy: data.collectedBy,
-            paymentMode: data.paymentMode || null,
-            comments: data.comments || null,
-          })
+          try {
+            await memberFeeService.createFee({
+              memberId: newMemberId,
+              amount: amountValue,
+              paidDate: data.paidDate,
+              collectedBy: data.collectedBy,
+              paymentMode: data.paymentMode || null,
+              comments: data.comments || null,
+            })
+          } catch (feeErr: unknown) {
+            const msg = getApiErrorMessage(feeErr, "Failed to save membership fee")
+            setErrorMessage(msg)
+            toast.error(msg)
+            return
+          }
         }
 
         toast.success("Member created successfully")

@@ -3,8 +3,8 @@ import {
     MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table"
-import { useEffect, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { searchMemberService } from "@/services/searchMemeberAddLoan.service"
@@ -12,15 +12,17 @@ import type { SearchMemberResponse } from "@/types/searchMemeber"
 import AddLoanDialog from "./AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
 import { loanService } from "@/services/loan.service"
+import type { LoanResponse } from "@/types/loan"
 
+const memberLoansQueryKey = (memberId: number) => ["memberLoansForAction", memberId] as const
 
 function AddLoan() {
     const [selectedMember, setSelectedMember] = useState<SearchMemberResponse | null>(null)
     const [dialogOpen, setDialogOpen] = useState(false)
     const [openedFromMemberPage, setOpenedFromMemberPage] = useState(false)
 
-    const [dialogMode, setDialogMode] = useState<"add" | "view">("add")
     const [checkingLoan, setCheckingLoan] = useState(false)
+    const queryClient = useQueryClient()
 
     const [firstName, setFirstName] = useState("")
     const [middleName, setMiddleName] = useState("")
@@ -54,24 +56,41 @@ function AddLoan() {
             middleName: middleName || "",
             lastName: lastName || ""
         }) as Promise<SearchMemberResponse[]>
-    });
+    })
 
+    const memberLoanQueries = useQueries({
+      queries: members.map((m) => ({
+        queryKey: memberLoansQueryKey(m.id),
+        queryFn: () => loanService.getLoanByMemId(m.id) as Promise<LoanResponse[]>,
+        enabled: !!branchId && members.length > 0,
+        staleTime: 30_000,
+      })),
+    })
 
-    const openLoanDialogForMember = async (member: SearchMemberResponse) => {
-      setCheckingLoan(true)
-      try {
-        const loans = await loanService.getLoanByMemId(member.id)
-        setSelectedMember(member)
-        setDialogMode(loans.length > 0 ? "view" : "add")
-        setDialogOpen(true)
-      } catch {
-        setSelectedMember(member)
-        setDialogMode("add")
-        setDialogOpen(true)
-      } finally {
-        setCheckingLoan(false)
-      }
-    }
+    /** Members with loans: Manage Loan → View Schedule (`/loans/:loanId/scheduler`). Otherwise open Add Loan dialog. */
+    const handleMemberLoanAction = useCallback(
+      async (member: SearchMemberResponse) => {
+        setCheckingLoan(true)
+        try {
+          // Always read latest state from API so recently closed loans do not remain blocked by cached data.
+          const loans = await loanService.getLoanByMemId(member.id)
+          queryClient.setQueryData(memberLoansQueryKey(member.id), loans)
+          if (loans.length > 0) {
+            const loanId = Math.max(...loans.map((l) => l.loanId))
+            navigate(`/loans/${loanId}/scheduler`)
+            return
+          }
+          setSelectedMember(member)
+          setDialogOpen(true)
+        } catch {
+          setSelectedMember(member)
+          setDialogOpen(true)
+        } finally {
+          setCheckingLoan(false)
+        }
+      },
+      [navigate, queryClient]
+    )
 
     useEffect(() => {
       if (!navState?.memberId && !navState?.prefillMember?.id) return
@@ -87,7 +106,7 @@ function AddLoan() {
         setOpenedFromMemberPage(launchedFromMember)
         // Consume preselected member state once so Cancel won't reopen dialog.
         navigate(location.pathname, { replace: true, state: null })
-        void openLoanDialogForMember(found)
+        void handleMemberLoanAction(found)
         return
       }
       if (!memberFromState?.id) return
@@ -127,8 +146,8 @@ function AddLoan() {
       setOpenedFromMemberPage(launchedFromMember)
       // Consume preselected member state once so Cancel won't reopen dialog.
       navigate(location.pathname, { replace: true, state: null })
-      void openLoanDialogForMember(fallbackMember)
-    }, [navState, members, dialogOpen, checkingLoan, navigate, location.pathname])
+      void handleMemberLoanAction(fallbackMember)
+    }, [navState, members, dialogOpen, checkingLoan, navigate, location.pathname, handleMemberLoanAction])
 
     const columns = useMemo<MRT_ColumnDef<SearchMemberResponse>[]>(
         () => [
@@ -162,20 +181,26 @@ function AddLoan() {
               enableSorting: false,
               enableColumnFilter: false,
               Cell: ({ row }) => {
+                const idx = members.findIndex((m) => m.id === row.original.id)
+                const q = idx >= 0 ? memberLoanQueries[idx] : undefined
+                const hasLoans = (q?.data?.length ?? 0) > 0
+                const rowBusy = q?.isLoading || q?.isFetching
                 return (
-                  <Button 
-                  variant="outline"
-                    disabled={checkingLoan}
-                    onClick={() => void openLoanDialogForMember(row.original)}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-w-[6.25rem] px-2.5 text-xs font-medium justify-center"
+                    disabled={checkingLoan || !!rowBusy}
+                    onClick={() => void handleMemberLoanAction(row.original)}
                   >
-                    Add/View Loan
+                    {rowBusy ? "…" : hasLoans ? "View" : "Add Loan"}
                   </Button>
                 )
               },
             },
 
         ],
-        [checkingLoan]
+        [checkingLoan, members, memberLoanQueries, handleMemberLoanAction]
     )
 
     const table = useMaterialReactTable({
@@ -193,8 +218,9 @@ function AddLoan() {
     })
 
     const handleCreated = async () => {
-    await refetch()
-  }
+      await refetch()
+      await queryClient.invalidateQueries({ queryKey: ["memberLoansForAction"] })
+    }
 
   const handleDialogClose = (reason: "cancel" | "success") => {
     setDialogOpen(false)
@@ -238,7 +264,7 @@ function AddLoan() {
         onClose={handleDialogClose}
         onSuccess={handleCreated}
         member={selectedMember}
-        mode={dialogMode}
+        mode="add"
         />
 
         
