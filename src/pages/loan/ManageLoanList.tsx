@@ -68,7 +68,9 @@ function ManageLoanList() {
 
   const handleViewLoan = useCallback(
     (loan: LoanResponse) => {
-      navigate(`/loans/${loan.loanId}/scheduler`)
+      navigate(`/loans/${loan.loanId}/scheduler`, {
+        state: { memberName: loan.fullName },
+      })
     },
     [navigate]
   )
@@ -87,6 +89,11 @@ function ManageLoanList() {
       {
         accessorKey: "fullName",
         header: "Full Name",
+      },
+      {
+        accessorKey: "pocName",
+        header: "POC Name",
+        Cell: ({ cell }) => cell.getValue<string>() || "-",
       },
       {
         id: "status",

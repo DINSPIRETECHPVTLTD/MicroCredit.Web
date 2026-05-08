@@ -4,7 +4,7 @@ import {
   type MRT_ColumnDef,
   MaterialReactTable,
 } from "material-react-table"
-import { useNavigate, useParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
@@ -22,9 +22,12 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 
 export default function LoanSchedulerList() {
   const navigate = useNavigate()
+  const location = useLocation()
   const params = useParams()
   const loanIdRaw = params.loanId ?? params.loadid
   const loanId = loanIdRaw ? Number(loanIdRaw) : NaN
+  const navigationState = location.state as { memberName?: string } | null | undefined
+  const memberName = navigationState?.memberName?.trim() || "-"
 
   const { data: rows = [], isLoading, isError, error } = useQuery<LoanSchedulerResponse[]>({
     queryKey: ["loanSchedulers", loanId],
@@ -67,6 +70,35 @@ export default function LoanSchedulerList() {
     return `${dd}/${mm}/${yyyy}`
   }
 
+  const getStatusToneClass = (statusRaw: unknown): string => {
+    const status = String(statusRaw ?? "").trim().toLowerCase()
+    if (status === "paid") {
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/60 dark:bg-green-950/40 dark:text-green-300"
+    }
+    if (status === "partial" || status === "partial paid") {
+      return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
+    }
+    if (status === "claimed") {
+      return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
+    }
+    if (status === "overdue") {
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+    }
+    // Not Paid (and unknown statuses) should stay default/neutral tone.
+    return "border-border bg-background text-foreground"
+  }
+
+  const formatStatusLabel = (statusRaw: unknown): string => {
+    const normalized = String(statusRaw ?? "").trim().toLowerCase()
+    if (!normalized) return "-"
+    if (normalized === "not paid") return "Not Paid"
+    if (normalized === "paid") return "Paid"
+    if (normalized === "partial paid" || normalized === "partial") return "Partial Paid"
+    if (normalized === "overdue") return "Overdue"
+    if (normalized === "claimed") return "Claimed"
+    return String(statusRaw)
+  }
+
   const columns = useMemo<MRT_ColumnDef<LoanSchedulerResponse>[]>(
     () => [
       {
@@ -106,6 +138,16 @@ export default function LoanSchedulerList() {
       {
         accessorKey: "Status",
         header: "Payment Status",
+        Cell: ({ cell }) => {
+          const statusRaw = cell.getValue<unknown>()
+          return (
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${getStatusToneClass(statusRaw)}`}
+            >
+              {formatStatusLabel(statusRaw)}
+            </span>
+          )
+        },
       },
       {
         accessorKey: "ActualEmiAmount",
@@ -171,7 +213,11 @@ export default function LoanSchedulerList() {
           <p className="mt-1 text-sm">{getApiErrorMessage(error, "Unknown error")}</p>
         </div>
       ) : (
-        <div className="mb-4 grid grid-cols-3 gap-4">
+        <div className="mb-4 grid grid-cols-4 gap-4">
+          <div className="rounded-lg border bg-card p-4">
+            <div className="text-sm text-muted-foreground">Member Name</div>
+            <div className="mt-1 text-lg font-semibold">{memberName}</div>
+          </div>
           <div className="rounded-lg border bg-card p-4">
             <div className="text-sm text-muted-foreground">TotalAmount</div>
             <div className="mt-1 text-lg font-semibold">{formatCurrency(totals.totalAmount)}</div>

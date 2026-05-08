@@ -2,6 +2,7 @@ export interface LoanResponse {
     loanId: number
     memberId: number
     fullName: string
+    pocName?: string
     status: string
     loanTotalAmount: number
     noOfTerms: string
