@@ -5,7 +5,7 @@ import type { MasterLookupResponse } from "../../types/masterLookup"
 import { masterlookupService } from "../../services/masterLookup.service"
 import { Button } from "../../components/ui/button"
 import { Plus, Pencil, Trash } from "lucide-react"
-import toast from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 import AddMasterLookupDialog, { type AddEditMasterLookupDialogMode } from "./AddMasterLookupDialog"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
@@ -17,6 +17,8 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
     }
     return fallback
 }
+
+const INACTIVE_DIALOG_TOASTER_ID = "master-lookup-inactive-dialog"
 
 // Use MasterLookupResponse from types
 function MasterLookupList() {
@@ -163,12 +165,15 @@ function SetInactiveDialog({
 }) {
     const dialogRef = useRef<HTMLDialogElement>(null)
     const [submitting, setSubmitting] = useState(false)
+    const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     useEffect(() => {
         dialogRef.current?.showModal()
+        setIsDialogOpen(true)
     }, [lookup.id])
 
     const close = () => {
+        setIsDialogOpen(false)
         dialogRef.current?.close()
         onClose()
     }
@@ -177,11 +182,13 @@ function SetInactiveDialog({
         setSubmitting(true)
         try {
             await masterlookupService.setInactive(lookup.id)
-            toast.success("Lookup set inactive successfully")
+            toast.success("Lookup set inactive successfully", { toasterId: INACTIVE_DIALOG_TOASTER_ID })
             await onSuccess()
             close()
         } catch (err) {
-            toast.error(getApiErrorMessage(err, "Failed to set lookup inactive"))
+            toast.error(getApiErrorMessage(err, "Failed to set lookup inactive"), {
+                toasterId: INACTIVE_DIALOG_TOASTER_ID,
+            })
         } finally {
             setSubmitting(false)
         }
@@ -195,6 +202,14 @@ function SetInactiveDialog({
             aria-labelledby="set-inactive-title"
             aria-describedby="set-inactive-desc"
         >
+            {isDialogOpen ? (
+                <Toaster
+                    toasterId={INACTIVE_DIALOG_TOASTER_ID}
+                    position="top-right"
+                    containerStyle={{ position: "fixed", top: 16, right: 16, zIndex: 2147483647 }}
+                    toastOptions={{ style: { zIndex: 2147483647 } }}
+                />
+            ) : null}
             <div className="p-6">
                 <h2 id="set-inactive-title" className="text-lg font-semibold">
                     Set lookup inactive

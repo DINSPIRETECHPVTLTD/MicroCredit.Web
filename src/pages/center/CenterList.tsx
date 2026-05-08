@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type MRT_ColumnDef, MaterialReactTable } from "material-react-table"
 import { Plus, Pencil, UserX } from "lucide-react"
-import toast from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 import { AddEditCenterDialog, type AddEditCenterDialogMode } from "@/pages/center/AddEditCenterDialog"
 import { Button } from "../../components/ui/button"
 import { centerService } from "../../services/center.service"
@@ -17,6 +17,8 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback
 }
+
+const INACTIVE_DIALOG_TOASTER_ID = "center-inactive-dialog"
 
 function CenterList() {
   const [inactiveCenter, setInactiveCenter] = useState<CenterResponse | null>(null)
@@ -127,12 +129,15 @@ function SetInactiveDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
     dialogRef.current?.showModal()
+    setIsDialogOpen(true)
   }, [center.id])
 
   const close = () => {
+    setIsDialogOpen(false)
     dialogRef.current?.close()
     onClose()
   }
@@ -141,11 +146,13 @@ function SetInactiveDialog({
     setSubmitting(true)
     try {
       await centerService.setInactive(center.id)
-      toast.success("Center set inactive")
+      toast.success("Center set inactive", { toasterId: INACTIVE_DIALOG_TOASTER_ID })
       await onSuccess()
       close()
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to set center inactive"))
+      toast.error(getApiErrorMessage(err, "Failed to set center inactive"), {
+        toasterId: INACTIVE_DIALOG_TOASTER_ID,
+      })
     } finally {
       setSubmitting(false)
     }
@@ -159,6 +166,14 @@ function SetInactiveDialog({
       aria-labelledby="set-inactive-title"
       aria-describedby="set-inactive-desc"
     >
+      {isDialogOpen ? (
+        <Toaster
+          toasterId={INACTIVE_DIALOG_TOASTER_ID}
+          position="top-right"
+          containerStyle={{ position: "fixed", top: 16, right: 16, zIndex: 2147483647 }}
+          toastOptions={{ style: { zIndex: 2147483647 } }}
+        />
+      ) : null}
       <div className="p-6">
         <h2 id="set-inactive-title" className="text-lg font-semibold">
           Set center inactive
