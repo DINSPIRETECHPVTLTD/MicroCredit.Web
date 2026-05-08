@@ -7,6 +7,7 @@ import { deriveStatusFromAmounts } from "./recoveryPostingCalculations"
 
 export type RecoveryPostingRow = {
   rowKey: string
+  memberName: string
   loanId: number
   loanSchedulerId: number
   memberId: number
@@ -25,6 +26,7 @@ export type RecoveryPostingRow = {
   comments: string
   centerId: number
   centerName: string
+  pocName: string
   branchId: number
   branchName: string
   /** Member POC when known; API may omit — kept for future posting payloads */
@@ -36,6 +38,10 @@ export type RecoveryPostingRow = {
 
 /** Response shape from MicroCredit API (camelCase JSON). */
 type RecoveryPostingApiRow = {
+  memberName?: string
+  MemberName?: string
+  pocName?: string
+  PocName?: string
   loanId?: number
   LoanId?: number
   memberId?: number
@@ -137,6 +143,7 @@ function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
 
   const base: RecoveryPostingRow = {
     rowKey,
+    memberName: String(getField(raw, ["memberName"]) ?? ""),
     loanId,
     loanSchedulerId,
     memberId: toNum(getField(raw, ["memberId"])),
@@ -153,6 +160,7 @@ function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
     comments: String(getField(raw, ["comments"]) ?? ""),
     centerId: toNum(getField(raw, ["centerId"])),
     centerName: String(getField(raw, ["centerName"]) ?? ""),
+    pocName: String(getField(raw, ["pocName"]) ?? ""),
     branchId: toNum(getField(raw, ["branchId"])),
     branchName: String(getField(raw, ["branchName"]) ?? ""),
     pocId: 0,

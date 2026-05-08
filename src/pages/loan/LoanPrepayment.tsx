@@ -529,9 +529,8 @@ export default function LoanPrepayment() {
       const amount = round2(row.paymentAmount || 0)
       const emi = round2(row.actualEmiAmount || 0)
 
-      const previousBlockingRow = [...rowsByInstallment]
-        .reverse()
-        .find((candidate) => {
+      const previousBlockingRows = rowsByInstallment
+        .filter((candidate) => {
           const candidateNo = candidate.installmentNo || 0
           const currentNo = row.installmentNo || 0
           if (candidateNo <= 0 || candidateNo >= currentNo) return false
@@ -541,17 +540,26 @@ export default function LoanPrepayment() {
             candidateStatus === PREPAYMENT_STATUS.OVERDUE
           )
         })
-      if (previousBlockingRow) {
-        const previousStatus = normalizePrepaymentStatus(previousBlockingRow.status)
+        .sort((a, b) => (a.installmentNo || 0) - (b.installmentNo || 0))
+      if (previousBlockingRows.length > 0) {
+        const firstBlockingRow = previousBlockingRows[0]
+        const previousStatus = normalizePrepaymentStatus(firstBlockingRow.status)
         if (previousStatus === PREPAYMENT_STATUS.OVERDUE) {
           toast.error(
-            `Posting is not allowed. EMI ${previousBlockingRow.installmentNo} is overdue. Please clear the overdue EMI first through the Recovery Posting page.`
+            `Posting is not allowed. EMI ${firstBlockingRow.installmentNo} is overdue. Please clear the overdue EMI first through the Recovery Posting page.`
           )
           return
         }
-        toast.error(
-          `EMI ${previousBlockingRow.installmentNo} is pending. Please clear EMI ${previousBlockingRow.installmentNo} before proceeding with EMI ${row.installmentNo}.`
-        )
+        const totalBlocking = previousBlockingRows.length
+        if (totalBlocking === 1) {
+          toast.error(
+            `EMI ${firstBlockingRow.installmentNo} is pending. Please clear EMI ${firstBlockingRow.installmentNo} before proceeding with EMI ${row.installmentNo}.`
+          )
+        } else {
+          toast.error(
+            `EMI ${firstBlockingRow.installmentNo} is the first pending installment (${totalBlocking} pending before EMI ${row.installmentNo}). Clear from EMI ${firstBlockingRow.installmentNo} onward.`
+          )
+        }
         return
       }
 

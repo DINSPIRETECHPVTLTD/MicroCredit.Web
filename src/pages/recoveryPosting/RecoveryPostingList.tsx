@@ -2,6 +2,7 @@
  * Recovery Posting UI — filters and grid live here; data loading is in ./recoveryPostingData.ts.
  */
 import { useCallback, useMemo, useState } from "react"
+import axios from "axios"
 import { useQuery } from "@tanstack/react-query"
 import {
   MaterialReactTable,
@@ -13,6 +14,7 @@ import TextField from "@mui/material/TextField"
 import { Check } from "lucide-react"
 import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
+import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import {
   getApiErrorDetails,
@@ -473,59 +475,125 @@ function RecoveryPostingList() {
         paymentMode: (paymentModeDraft[r.rowKey] ?? r.paymentMode ?? "").trim(),
         comments: commentsDraft[r.rowKey] ?? r.comments,
       }))
-
-    const overdueNotAllowedRows = selectedRowsWithDrafts.filter(
-      (r) => normalizeStatusValue(r.status) === RECOVERY_STATUS.OVERDUE && !isOverdueAllowed(r.scheduleDate)
-    )
-    if (overdueNotAllowedRows.length > 0) {
-      const nextRows: RecoveryPostingFieldErrorState["rows"] = {}
-      for (const row of overdueNotAllowedRows) {
-        nextRows[row.rowKey] = { status: "Overdue is allowed only after schedule date has passed." }
-      }
-      setFieldErrors({ rows: nextRows })
-      toast.error("Overdue can be posted only for past schedule dates.")
-      return
-    }
-
-    const validationIssues = validateRecoveryPostRows(
-      selectedRowsWithDrafts.map((r) => ({
-        rowKey: r.rowKey,
-        status: r.status,
-        paymentAmount: r.paymentAmount ?? 0,
-        principalAmount: r.principalAmount ?? 0,
-        interestAmount: r.interestAmount ?? 0,
-        actualEmiAmount: r.actualEmiAmount ?? 0,
-        paymentMode: r.paymentMode ?? "",
-      }))
-    )
-    if (validationIssues.length > 0) {
-      const nextRows: RecoveryPostingFieldErrorState["rows"] = {}
-      for (const issue of validationIssues) {
-        const rowErrors = nextRows[issue.rowKey] ?? {}
-        if (issue.type === "paymentMode") {
-          rowErrors.paymentMode = "Select payment mode."
-        } else if (issue.type === "status") {
-          rowErrors.paymentAmount = "Payment amount must be greater than zero."
-        } else if (issue.type === "sum") {
-          rowErrors.general = "Payment must equal Principal + Interest."
-        } else if (issue.type === "exceedsEmi") {
-          rowErrors.paymentAmount = `Payment cannot exceed actual EMI (${formatCurrency(issue.actualEmi)}).`
-        }
-        nextRows[issue.rowKey] = rowErrors
-      }
-      setFieldErrors({ rows: nextRows })
-      toast.error("Fix validation errors in selected rows.")
-      return
-    }
     const rowsToPost = selectedRowsWithDrafts
-    const invalidSchedulerRows = rowsToPost.filter((row) => !Number.isFinite(row.loanSchedulerId) || row.loanSchedulerId <= 0)
-    if (invalidSchedulerRows.length > 0) {
-      toast.error("Selected row has invalid LoanSchedulerId. Please reload and try again.")
-      return
-    }
 
-    setIsPosting(true)
     try {
+      setIsPosting(true)
+
+      // Enforce sequential EMI posting per loan against full scheduler history (not only current grid date).
+      const selectedFinalStatusBySchedulerId = new Map(
+        selectedRowsWithDrafts.map((row) => [row.loanSchedulerId, normalizeStatusValue(row.status)])
+      )
+      const uniqueLoanIds = Array.from(new Set(selectedRowsWithDrafts.map((row) => row.loanId))).filter((id) => id > 0)
+      const schedulerResponses = await Promise.all(
+        uniqueLoanIds.map(async (loanId) => {
+          const { data } = await axios.get<Array<Record<string, unknown>>>(api.loanScheduler.list(loanId), {
+            timeout: 15000,
+          })
+          return { loanId, data }
+        })
+      )
+      const loanSchedulesByLoanId = new Map<number, Array<{ loanSchedulerId: number; installmentNo: number; status: string }>>()
+      for (const { loanId, data } of schedulerResponses) {
+        const rawRows = Array.isArray(data) ? data : []
+        const mapped = rawRows
+          .map((raw) => ({
+            loanSchedulerId: Number(
+              raw.LoanSchedulerId ?? raw.loanSchedulerId ?? raw.loanSchedulerID ?? raw.loanschedulerId ?? 0
+            ),
+            installmentNo: Number(raw.InstallmentNo ?? raw.installmentNo ?? 0),
+            status: normalizeStatusValue(String(raw.Status ?? raw.status ?? "")),
+          }))
+          .filter((r) => r.loanSchedulerId > 0 && r.installmentNo > 0)
+        loanSchedulesByLoanId.set(loanId, mapped)
+      }
+
+      const sequentialBlockingErrors: RecoveryPostingFieldErrorState["rows"] = {}
+      for (const row of selectedRowsWithDrafts) {
+        const currentInstallmentNo = row.installmentNo || 0
+        if (currentInstallmentNo <= 1) continue
+        const scheduleRows = loanSchedulesByLoanId.get(row.loanId) ?? []
+        const blockingRows = scheduleRows
+          .filter((candidate) => candidate.installmentNo < currentInstallmentNo)
+          .filter((candidate) => {
+            const effectiveStatus =
+              selectedFinalStatusBySchedulerId.get(candidate.loanSchedulerId) ?? candidate.status
+            return effectiveStatus === RECOVERY_STATUS.NOT_PAID || effectiveStatus === RECOVERY_STATUS.OVERDUE
+          })
+          .sort((a, b) => a.installmentNo - b.installmentNo)
+        if (blockingRows.length > 0) {
+          const firstBlockingInstallment = blockingRows[0].installmentNo
+          const totalBlocking = blockingRows.length
+          sequentialBlockingErrors[row.rowKey] = {
+            ...(sequentialBlockingErrors[row.rowKey] ?? {}),
+            general:
+              totalBlocking === 1
+                ? `EMI ${firstBlockingInstallment} is pending. Clear EMI ${firstBlockingInstallment} before EMI ${row.installmentNo}.`
+                : `EMI ${firstBlockingInstallment} is the first pending installment (${totalBlocking} pending before EMI ${row.installmentNo}). Clear from EMI ${firstBlockingInstallment} onward.`,
+          }
+        }
+      }
+      if (Object.keys(sequentialBlockingErrors).length > 0) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          rows: {
+            ...prev.rows,
+            ...sequentialBlockingErrors,
+          },
+        }))
+        toast.error("Posting is not allowed. One or more selected EMIs have earlier pending installments.")
+        return
+      }
+
+      const overdueNotAllowedRows = selectedRowsWithDrafts.filter(
+        (r) => normalizeStatusValue(r.status) === RECOVERY_STATUS.OVERDUE && !isOverdueAllowed(r.scheduleDate)
+      )
+      if (overdueNotAllowedRows.length > 0) {
+        const nextRows: RecoveryPostingFieldErrorState["rows"] = {}
+        for (const row of overdueNotAllowedRows) {
+          nextRows[row.rowKey] = { status: "Overdue is allowed only after schedule date has passed." }
+        }
+        setFieldErrors({ rows: nextRows })
+        toast.error("Overdue can be posted only for past schedule dates.")
+        return
+      }
+
+      const validationIssues = validateRecoveryPostRows(
+        selectedRowsWithDrafts.map((r) => ({
+          rowKey: r.rowKey,
+          status: r.status,
+          paymentAmount: r.paymentAmount ?? 0,
+          principalAmount: r.principalAmount ?? 0,
+          interestAmount: r.interestAmount ?? 0,
+          actualEmiAmount: r.actualEmiAmount ?? 0,
+          paymentMode: r.paymentMode ?? "",
+        }))
+      )
+      if (validationIssues.length > 0) {
+        const nextRows: RecoveryPostingFieldErrorState["rows"] = {}
+        for (const issue of validationIssues) {
+          const rowErrors = nextRows[issue.rowKey] ?? {}
+          if (issue.type === "paymentMode") {
+            rowErrors.paymentMode = "Select payment mode."
+          } else if (issue.type === "status") {
+            rowErrors.paymentAmount = "Payment amount must be greater than zero."
+          } else if (issue.type === "sum") {
+            rowErrors.general = "Payment must equal Principal + Interest."
+          } else if (issue.type === "exceedsEmi") {
+            rowErrors.paymentAmount = `Payment cannot exceed actual EMI (${formatCurrency(issue.actualEmi)}).`
+          }
+          nextRows[issue.rowKey] = rowErrors
+        }
+        setFieldErrors({ rows: nextRows })
+        toast.error("Fix validation errors in selected rows.")
+        return
+      }
+      const invalidSchedulerRows = rowsToPost.filter((row) => !Number.isFinite(row.loanSchedulerId) || row.loanSchedulerId <= 0)
+      if (invalidSchedulerRows.length > 0) {
+        toast.error("Selected row has invalid LoanSchedulerId. Please reload and try again.")
+        return
+      }
+
       const result = await postRecoveryPosting({
         collectedBy: effectiveCollectedById,
         items: rowsToPost.map((r) => ({
@@ -569,10 +637,15 @@ function RecoveryPostingList() {
     } finally {
       setIsPosting(false)
     }
-  }, [rowSelection, effectiveCollectedById, editableRows, statusDraft, paymentModeDraft, commentsDraft, refetch, isPosting])
+  }, [rowSelection, effectiveCollectedById, statusDraft, paymentModeDraft, commentsDraft, refetch, isPosting])
 
   const columns = useMemo<MRT_ColumnDef<RecoveryPostingRow>[]>(
     () => [
+      {
+        accessorKey: "memberName",
+        header: "Member Name",
+        size: 180,
+      },
       {
         accessorKey: "loanId",
         header: "Loan Id",
@@ -861,6 +934,11 @@ function RecoveryPostingList() {
             </div>
           )
         },
+      },
+      {
+        accessorKey: "pocName",
+        header: "POC Name",
+        size: 170,
       },
     ],
     [paymentAmountDraft, paymentModeDraft, statusDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows, rowSelection]

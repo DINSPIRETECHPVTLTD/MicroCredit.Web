@@ -8,6 +8,8 @@ type ApiLoanLike = {
     memberId?: number | string
     fullName?: string
     memberName?: string
+    pocName?: string
+    PocName?: string
     status?: string
     Status?: string
     loanTotalAmount?: number | string
@@ -165,6 +167,7 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
     const loanId = getValueCaseInsensitive(x, ['loanId', 'id'])
     const memberId = getValueCaseInsensitive(x, ['memberId'])
     const fullName = getValueCaseInsensitive(x, ['fullName', 'memberName'])
+    const pocName = getValueCaseInsensitive(x, ['pocName', 'PocName'])
     const status = getValueCaseInsensitive(x, ['status', 'Status'])
     const loanTotalAmount = getValueCaseInsensitive(x, ['loanTotalAmount', 'totalAmount'])
     const totalAmountPaid = getValueCaseInsensitive(x, ['totalAmountPaid'])
@@ -175,6 +178,7 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
         loanId: toNumber(loanId),
         memberId: toNumber(memberId),
         fullName: typeof fullName === 'string' ? fullName : '',
+        pocName: typeof pocName === 'string' ? pocName : '',
         status: typeof status === 'string' ? status : '',
         loanTotalAmount: toNumber(loanTotalAmount),
         noOfTerms: buildActiveLoanTermsLabel(x),

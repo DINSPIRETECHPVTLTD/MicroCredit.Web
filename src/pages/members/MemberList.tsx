@@ -1,8 +1,8 @@
-import { useRef, useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import toast from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import type { MemberResponse } from "@/types/member"
 import { memberService } from "@/services/member.service"
@@ -19,6 +19,8 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback
 }
+
+const INACTIVE_DIALOG_TOASTER_ID = "member-inactive-dialog"
 
 function MemberList() {
   const navigate = useNavigate()
@@ -119,13 +121,16 @@ function SetInactiveDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const displayName = (member.name ?? [member.firstName, member.lastName].filter(Boolean).join(" ").trim()) || "Member"
 
   useEffect(() => {
     dialogRef.current?.showModal()
+    setIsDialogOpen(true)
   }, [member.id])
 
   const close = () => {
+    setIsDialogOpen(false)
     dialogRef.current?.close()
     onClose()
   }
@@ -134,11 +139,13 @@ function SetInactiveDialog({
     setSubmitting(true)
     try {
       await memberService.setInactive(member.id)
-      toast.success("Member set inactive")
+      toast.success("Member set inactive", { toasterId: INACTIVE_DIALOG_TOASTER_ID })
       await onSuccess()
       close()
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to set member inactive"))
+      toast.error(getApiErrorMessage(err, "Failed to set member inactive"), {
+        toasterId: INACTIVE_DIALOG_TOASTER_ID,
+      })
     } finally {
       setSubmitting(false)
     }
@@ -152,6 +159,14 @@ function SetInactiveDialog({
       aria-labelledby="set-inactive-title"
       aria-describedby="set-inactive-desc"
     >
+      {isDialogOpen ? (
+        <Toaster
+          toasterId={INACTIVE_DIALOG_TOASTER_ID}
+          position="top-right"
+          containerStyle={{ position: "fixed", top: 16, right: 16, zIndex: 2147483647 }}
+          toastOptions={{ style: { zIndex: 2147483647 } }}
+        />
+      ) : null}
       <div className="p-6">
         <h2 id="set-inactive-title" className="text-lg font-semibold">
           Set member inactive
