@@ -12,17 +12,24 @@ function pickNum(value: unknown): number {
 }
 
 function normalizeSummary(raw: Record<string, unknown>): DashboardSummaryResponse {
+  const totalExpenseAmount = pickNum(raw.totalExpenseAmount ?? raw.TotalExpenseAmount)
+  const totalLedgerExpenseAmount = pickNum(
+    raw.totalLedgerExpenseAmount ?? raw.TotalLedgerExpenseAmount ?? totalExpenseAmount
+  )
+
   return {
     totalOwnerAmount: pickNum(raw.totalOwnerAmount ?? raw.TotalOwnerAmount),
     totalInvestorAmount: pickNum(raw.totalInvestorAmount ?? raw.TotalInvestorAmount),
     totalInsuranceAmount: pickNum(raw.totalInsuranceAmount ?? raw.TotalInsuranceAmount),
+    totalClaimedAmount: pickNum(raw.totalClaimedAmount ?? raw.TotalClaimedAmount),
     totalProcessingFee: pickNum(raw.totalProcessingFee ?? raw.TotalProcessingFee),
     receivedPrinciple: pickNum(raw.receivedPrinciple ?? raw.ReceivedPrinciple),
     receivedInterest: pickNum(raw.receivedInterest ?? raw.ReceivedInterest),
     outstandingPrinciple: pickNum(raw.outstandingPrinciple ?? raw.OutstandingPrinciple),
     interestAccured: pickNum(raw.interestAccured ?? raw.InterestAccured),
     totalJoiningFee: pickNum(raw.totalJoiningFee ?? raw.TotalJoiningFee),
-    totalLedgerExpenseAmount: pickNum(raw.totalLedgerExpenseAmount ?? raw.TotalLedgerExpenseAmount),
+    totalExpenseAmount,
+    totalLedgerExpenseAmount,
   }
 }
 

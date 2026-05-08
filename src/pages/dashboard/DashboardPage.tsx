@@ -257,7 +257,7 @@ function OrgDashboardHome() {
     if (!data) return 0
     // Net Income = Received Interest + Joining Fee + Processing Fee - Expenses
     const income = data.receivedInterest + data.totalJoiningFee + data.totalProcessingFee
-    const expenses = data.totalLedgerExpenseAmount
+    const expenses = data.totalExpenseAmount
     return income - expenses
   }, [data])
 
@@ -270,7 +270,7 @@ function OrgDashboardHome() {
       data.receivedInterest +
       data.totalJoiningFee +
       data.totalProcessingFee -
-      data.totalLedgerExpenseAmount
+      data.totalExpenseAmount
     )
   }, [data])
 
@@ -282,13 +282,14 @@ function OrgDashboardHome() {
         { label: "Received Interest", value: data.receivedInterest },
         { label: "Joining Fee", value: data.totalJoiningFee },
         { label: "Processing Fee", value: data.totalProcessingFee },
-        { label: "Expenses", value: data.totalLedgerExpenseAmount },
+        { label: "Expenses", value: data.totalExpenseAmount },
       ]
     }
     return [
       { label: "Owner Amount", value: data.totalOwnerAmount },
       { label: "Investor Amount", value: data.totalInvestorAmount },
       { label: "Insurance", value: data.totalInsuranceAmount },
+      { label: "Claimed Amount", value: data.totalClaimedAmount },
       { label: "Outstanding Principle", value: data.outstandingPrinciple },
       { label: "Interest Accrued", value: data.interestAccured },
     ]
@@ -344,6 +345,12 @@ function OrgDashboardHome() {
             <SummaryMetricCard
               title="Insurance"
               value={formatInr(data?.totalInsuranceAmount ?? 0)}
+              icon={IndianRupee}
+              loading={isLoading}
+            />
+            <SummaryMetricCard
+              title="Claimed Amount"
+              value={formatInr(data?.totalClaimedAmount ?? 0)}
               icon={IndianRupee}
               loading={isLoading}
             />
