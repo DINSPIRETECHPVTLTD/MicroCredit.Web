@@ -13,7 +13,7 @@ import type { UserResponse } from "@/types/user"
 import { Button } from "@/components/ui/button"
 import { AddEditUserDialog, type AddEditUserDialogMode } from "@/pages/users/AddEditUserDialog"
 import { Plus, Pencil, Key, UserX } from "lucide-react"
-import toast from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 import { cn } from "@/lib/utils"
 
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
@@ -37,6 +37,7 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
 
 const inputClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+const INACTIVE_DIALOG_TOASTER_ID = "user-inactive-dialog"
 
 function UserList() {
   const [resetPasswordUser, setResetPasswordUser] = useState<UserResponse | null>(null)
@@ -50,6 +51,15 @@ function UserList() {
     queryKey: ["users"],
     queryFn: () => userService.getUsers(),
   })
+
+  const filteredUsers = useMemo(
+    () =>
+      users.filter((user) => {
+        const role = String(user.role ?? "").trim().toLowerCase()
+        return role === "owner" || role === "investor"
+      }),
+    [users]
+  )
 
   const columns = useMemo<MRT_ColumnDef<UserResponse>[]>(
     () => [
@@ -96,7 +106,7 @@ function UserList() {
 
   const table = useMaterialReactTable({
     columns,
-    data: users,
+    data: filteredUsers,
     state: { isLoading },
     enableSorting: true,
     enableColumnFilters: true,
@@ -115,7 +125,7 @@ function UserList() {
         </Button>
       </div>
 
-      {!isLoading && users.length === 0 ? (
+      {!isLoading && filteredUsers.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
           <p>No users found</p>
           <p className="text-sm mt-1">Click &quot;Add User&quot; to create a new user</p>
@@ -282,12 +292,15 @@ function SetInactiveDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
     dialogRef.current?.showModal()
+    setIsDialogOpen(true)
   }, [user.id])
 
   const close = () => {
+    setIsDialogOpen(false)
     dialogRef.current?.close()
     onClose()
   }
@@ -296,18 +309,19 @@ function SetInactiveDialog({
     setSubmitting(true)
     try {
       await userService.setInactive(user.id)
-      toast.success("User set inactive")
+      toast.success("User set inactive", { toasterId: INACTIVE_DIALOG_TOASTER_ID })
       onSuccess()
-        close()
-      } catch (err) {
-        toast.error(
+      close()
+    } catch (err) {
+      toast.error(
           err && typeof err === "object" && "response" in err
             ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Failed to set user inactive"
-            : "Failed to set user inactive"
-        )
-      } finally {
-        setSubmitting(false)
-      }
+            : "Failed to set user inactive",
+        { toasterId: INACTIVE_DIALOG_TOASTER_ID }
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const fullName = [user.firstName, user.surname].filter(Boolean).join(" ") || user.email
@@ -320,6 +334,14 @@ function SetInactiveDialog({
       aria-labelledby="set-inactive-title"
       aria-describedby="set-inactive-desc"
     >
+      {isDialogOpen ? (
+        <Toaster
+          toasterId={INACTIVE_DIALOG_TOASTER_ID}
+          position="top-right"
+          containerStyle={{ position: "fixed", top: 16, right: 16, zIndex: 2147483647 }}
+          toastOptions={{ style: { zIndex: 2147483647 } }}
+        />
+      ) : null}
       <div className="p-6">
         <h2 id="set-inactive-title" className="text-lg font-semibold">
           Set user inactive

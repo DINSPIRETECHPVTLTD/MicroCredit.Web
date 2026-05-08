@@ -3,19 +3,21 @@
  * POC (Point of Contact) list page: shows a table of POCs for the current branch.
  * User can Add POC, Edit a row, or Set a POC Inactive. Dialogs are rendered here and controlled by state.
  */
-import { useMemo, useRef, useState, useEffect } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   MaterialReactTable,
   useMaterialReactTable,
   type MRT_ColumnDef,
 } from "material-react-table"
-import toast from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import type { PocResponse } from "@/types/poc"
 import { pocService } from "@/services/poc.service"
 import { AddEditPocDialog, type AddEditPocDialogMode } from "@/pages/pocs/AddEditPocDialog"
 import { getBranch } from "@/services/auth.service"
+
+const INACTIVE_DIALOG_TOASTER_ID = "poc-inactive-dialog"
 
 function PocList() {
   const branch = getBranch()
@@ -154,12 +156,15 @@ function SetInactiveDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
     dialogRef.current?.showModal()
+    setIsDialogOpen(true)
   }, [poc.id])
 
   const close = () => {
+    setIsDialogOpen(false)
     dialogRef.current?.close()
     onClose()
   }
@@ -168,14 +173,14 @@ function SetInactiveDialog({
     setSubmitting(true)
     try {
       await pocService.setInactive(poc.id)
-      toast.success("POC set inactive")
+      toast.success("POC set inactive", { toasterId: INACTIVE_DIALOG_TOASTER_ID })
       onSuccess()
       close()
     } catch (err) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data
           ?.message ?? "Failed to set POC inactive"
-      toast.error(msg)
+      toast.error(msg, { toasterId: INACTIVE_DIALOG_TOASTER_ID })
     } finally {
       setSubmitting(false)
     }
@@ -189,6 +194,14 @@ function SetInactiveDialog({
       aria-labelledby="set-inactive-title"
       aria-describedby="set-inactive-desc"
     >
+      {isDialogOpen ? (
+        <Toaster
+          toasterId={INACTIVE_DIALOG_TOASTER_ID}
+          position="top-right"
+          containerStyle={{ position: "fixed", top: 16, right: 16, zIndex: 2147483647 }}
+          toastOptions={{ style: { zIndex: 2147483647 } }}
+        />
+      ) : null}
       <div className="p-6">
         <h2 id="set-inactive-title" className="text-lg font-semibold">
           Set POC inactive

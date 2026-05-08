@@ -65,7 +65,20 @@ if (!apiUrl) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <App />
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              zIndex: 2147483647,
+            },
+          }}
+          containerStyle={{
+            position: "fixed",
+            top: 16,
+            right: 16,
+            zIndex: 2147483647,
+          }}
+        />
       </QueryClientProvider>
     </StrictMode>,
   )

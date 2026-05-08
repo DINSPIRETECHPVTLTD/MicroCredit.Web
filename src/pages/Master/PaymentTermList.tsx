@@ -1,11 +1,11 @@
-import { useMemo, useState, useRef, useEffect } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type MRT_ColumnDef, MaterialReactTable } from "material-react-table"
 import type { PaymentTermResponse } from "../../types/paymentTerm"
 import { paymentTermService } from "../../services/paymentTerm.service"
 import { Button } from "../../components/ui/button"
 import { Plus, Pencil, Trash } from "lucide-react"
-import toast from "react-hot-toast"
+import toast, { Toaster } from "react-hot-toast"
 import AddEditPaymentTerm, { type AddEditPaymentTermMode } from "./AddEditPaymentTerm"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
@@ -17,6 +17,8 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback
 }
+
+const INACTIVE_DIALOG_TOASTER_ID = "payment-term-inactive-dialog"
 
 function PaymentTermList() {
   const { data: paymentTerms = [], isLoading, refetch } = useQuery({
@@ -165,12 +167,15 @@ function SetInactivePaymentTermDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   useEffect(() => {
     dialogRef.current?.showModal()
+    setIsDialogOpen(true)
   }, [paymentTerm.id])
 
   const close = () => {
+    setIsDialogOpen(false)
     dialogRef.current?.close()
     onClose()
   }
@@ -179,13 +184,13 @@ function SetInactivePaymentTermDialog({
     setSubmitting(true)
     try {
       await paymentTermService.deletePaymentTerm(paymentTerm.id)
-      toast.success("Payment term set inactive successfully")
+      toast.success("Payment term set inactive successfully", { toasterId: INACTIVE_DIALOG_TOASTER_ID })
       await onSuccess()
       close()
     } catch (err) {
-      toast.error(
-        getApiErrorMessage(err, "Failed to set payment term inactive")
-      )
+      toast.error(getApiErrorMessage(err, "Failed to set payment term inactive"), {
+        toasterId: INACTIVE_DIALOG_TOASTER_ID,
+      })
     } finally {
       setSubmitting(false)
     }
@@ -199,6 +204,14 @@ function SetInactivePaymentTermDialog({
       aria-labelledby="set-inactive-payment-term-title"
       aria-describedby="set-inactive-payment-term-desc"
     >
+      {isDialogOpen ? (
+        <Toaster
+          toasterId={INACTIVE_DIALOG_TOASTER_ID}
+          position="top-right"
+          containerStyle={{ position: "fixed", top: 16, right: 16, zIndex: 2147483647 }}
+          toastOptions={{ style: { zIndex: 2147483647 } }}
+        />
+      ) : null}
       <div className="p-6">
         <h2 id="set-inactive-payment-term-title" className="text-lg font-semibold">
           Set payment term inactive

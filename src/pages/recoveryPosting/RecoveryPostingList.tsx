@@ -574,6 +574,11 @@ function RecoveryPostingList() {
   const columns = useMemo<MRT_ColumnDef<RecoveryPostingRow>[]>(
     () => [
       {
+        accessorKey: "memberName",
+        header: "Member Name",
+        size: 180,
+      },
+      {
         accessorKey: "loanId",
         header: "Loan Id",
         size: 88,
@@ -861,6 +866,11 @@ function RecoveryPostingList() {
             </div>
           )
         },
+      },
+      {
+        accessorKey: "pocName",
+        header: "POC Name",
+        size: 170,
       },
     ],
     [paymentAmountDraft, paymentModeDraft, statusDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows, rowSelection]

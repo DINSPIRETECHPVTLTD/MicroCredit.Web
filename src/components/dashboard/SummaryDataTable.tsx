@@ -16,7 +16,8 @@ export function SummaryDataTable({ data }: { data: DashboardSummaryResponse }) {
     { label: "Joining Fee", value: data.totalJoiningFee },
     { label: "Processing Fee", value: data.totalProcessingFee },
     { label: "Insurance", value: data.totalInsuranceAmount },
-    { label: "Expenses", value: data.totalLedgerExpenseAmount },
+    { label: "Claimed Amount", value: data.totalClaimedAmount },
+    { label: "Expenses", value: data.totalExpenseAmount },
     { label: "Outstanding Principle", value: data.outstandingPrinciple },
     { label: "Interest Accrued", value: data.interestAccured },
   ]
