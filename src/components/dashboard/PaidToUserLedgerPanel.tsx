@@ -6,7 +6,7 @@ import {
   useState,
   type MouseEvent,
 } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -15,12 +15,12 @@ import {
   type MRT_TableInstance,
 } from "material-react-table"
 import toast from "react-hot-toast"
-import { IndianRupee, RefreshCw } from "lucide-react"
+import { IndianRupee } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { reportService } from "@/services/report.service"
 import type { PaidToUserLedgerReportRow } from "@/types/report"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
+import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -81,19 +81,7 @@ type PaidToUserSummaryRow = {
   rows: PaidToUserLedgerReportRow[]
 }
 
-const selectClass =
-  "w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-
 const DETAIL_PANEL_SX = { sx: { backgroundColor: "transparent" } } as const
-const EXPAND_COLUMN_HIDE = {
-  size: 0,
-  minSize: 0,
-  maxSize: 0,
-  grow: false,
-  muiTableHeadCellProps: { sx: { display: "none" } },
-  muiTableBodyCellProps: { sx: { display: "none" } },
-} as const
 
 const transactionColumns: MRT_ColumnDef<PaidToUserLedgerReportRow>[] = [
   {
@@ -167,13 +155,10 @@ const PaidToUserTransactionDetailPanel = memo(function PaidToUserTransactionDeta
 
 /** `GET /Report/recent-paid-to-user-transactions?branchId=…` — embed on branch dashboard (Owner tab). */
 export function PaidToUserLedgerPanel({ branchId }: { branchId: number }) {
-  const queryClient = useQueryClient()
   const [selectedDay, setSelectedDay] = useState<"today" | "yesterday">("today")
-  const [selectedUserKey, setSelectedUserKey] = useState<string | "all">("all")
   const {
     data: ledgerRows,
     isLoading,
-    isFetching,
     isError,
     error,
     refetch,
@@ -231,35 +216,13 @@ export function PaidToUserLedgerPanel({ branchId }: { branchId: number }) {
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }))
   }, [dateFilteredRows])
 
-  const displayGroups = useMemo(() => {
-    if (selectedUserKey === "all") return groupedByPaidToUser
-    return groupedByPaidToUser.filter((g) => g.key === selectedUserKey)
-  }, [groupedByPaidToUser, selectedUserKey])
-
-  const displayRows = useMemo(() => displayGroups.flatMap((g) => g.rows), [displayGroups])
+  const displayRows = useMemo(() => groupedByPaidToUser.flatMap((g) => g.rows), [groupedByPaidToUser])
 
   const totalAmount = useMemo(() => {
     return displayRows.reduce((sum, row) => {
       return sum + (Number.isFinite(row.amount) ? row.amount : 0)
     }, 0)
   }, [displayRows])
-
-  useEffect(() => {
-    if (
-      selectedUserKey !== "all" &&
-      !groupedByPaidToUser.some((g) => g.key === selectedUserKey)
-    ) {
-      setSelectedUserKey("all")
-    }
-  }, [groupedByPaidToUser, selectedUserKey])
-
-  const showPaidToUserDropdown = useMemo(() => {
-    if (dateFilteredRows.length === 0) return false
-    return (
-      groupedByPaidToUser.length > 1 ||
-      groupedByPaidToUser.some((g) => g.rows.length > 1)
-    )
-  }, [dateFilteredRows.length, groupedByPaidToUser])
 
   const summaryColumns = useMemo<MRT_ColumnDef<PaidToUserSummaryRow>[]>(
     () => [
@@ -328,7 +291,7 @@ export function PaidToUserLedgerPanel({ branchId }: { branchId: number }) {
 
   const summaryTable = useMaterialReactTable({
     columns: summaryColumns,
-    data: displayGroups,
+    data: groupedByPaidToUser,
     getRowId: (r) => r.key,
     state: { isLoading },
     enableGlobalFilter: true,
@@ -349,19 +312,12 @@ export function PaidToUserLedgerPanel({ branchId }: { branchId: number }) {
       pagination: { pageSize: 15, pageIndex: 0 },
     },
     renderDetailPanel,
-    displayColumnDefOptions: {
-      "mrt-row-expand": { ...EXPAND_COLUMN_HIDE },
-    },
     muiTableBodyRowProps: getSummaryTableBodyRowProps,
     muiDetailPanelProps: DETAIL_PANEL_SX,
     muiSearchTextFieldProps: {
       placeholder: "Search paid users…",
     },
   })
-
-  const handleRefresh = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["reportRecentPaidToUser", branchId] })
-  }, [queryClient, branchId])
 
   useEffect(() => {
     if (isError && error) {
@@ -372,23 +328,14 @@ export function PaidToUserLedgerPanel({ branchId }: { branchId: number }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 [caret-color:transparent]">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">Paid to user transactions</h2>
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Staff Collection</h2>
+        </div>
         <div className="flex items-center gap-2">
           <p className="text-xs text-muted-foreground">
             {displayRows.length} of {dateFilteredRows.length} row
             {dateFilteredRows.length === 1 ? "" : "s"}
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={handleRefresh}
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} aria-hidden />
-            Refresh
-          </Button>
         </div>
       </div>
       {isError ? (
@@ -401,56 +348,18 @@ export function PaidToUserLedgerPanel({ branchId }: { branchId: number }) {
       ) : (
         <>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="inline-flex self-start rounded-lg border border-border bg-muted p-1">
-              <button
-                type="button"
-                onClick={() => setSelectedDay("today")}
-                className={cn(
-                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
-                  selectedDay === "today"
-                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
-                    : "text-muted-foreground hover:bg-background hover:text-foreground"
-                )}
-                aria-pressed={selectedDay === "today"}
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedDay("yesterday")}
-                className={cn(
-                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
-                  selectedDay === "yesterday"
-                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
-                    : "text-muted-foreground hover:bg-background hover:text-foreground"
-                )}
-                aria-pressed={selectedDay === "yesterday"}
-              >
-                Yesterday
-              </button>
-            </div>
-            {showPaidToUserDropdown ? (
-              <div className="w-full sm:flex sm:justify-end">
-                <select
-                  id="paid-to-user-collection-picker"
-                  className={selectClass}
-                  value={selectedUserKey === "all" ? "" : selectedUserKey}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    setSelectedUserKey(v === "" ? "all" : v)
-                  }}
-                >
-                  <option value="">All ({dateFilteredRows.length} transactions)</option>
-                  {groupedByPaidToUser.map((g) => (
-                    <option key={g.key} value={g.key}>
-                      {g.label} ({g.rows.length})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
+            <SegmentedToggle
+              value={selectedDay}
+              onChange={setSelectedDay}
+              ariaLabel="Staff collection transaction date"
+              className="self-start"
+              options={[
+                { value: "today", label: "Today" },
+                { value: "yesterday", label: "Yesterday" },
+              ]}
+            />
           </div>
-          <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mb-4 max-w-sm">
             <SummaryMetricCard
               title="Total Amount"
               value={formatInr(totalAmount)}
