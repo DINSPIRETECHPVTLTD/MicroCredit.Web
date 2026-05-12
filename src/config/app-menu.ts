@@ -27,25 +27,58 @@ export const APP_MENU: AppMenuItem[] = [
     ],
   },
   { label: "Dashboard", key: "Dashboard", route: "dashboard", modes: ["BRANCH"] },
-  { label: "Centers", key: "Centers", route: "centers", modes: ["BRANCH"] },
-  { label: "POCs", key: "POCs", route: "pocs", modes: ["BRANCH"] },
-  { label: "Staff", key: "Staff", route: "staff", modes: ["BRANCH"], roles: ["Owner", "BranchAdmin"] },
-  { label: "Members", key: "Members", route: "members", modes: ["BRANCH"] },
+  {
+    label: "Centers",
+    key: "Centers",
+    route: "centers",
+    modes: ["BRANCH"],
+    excludeRoles: ["BranchAdmin"],
+  },
+  {
+    label: "POCs",
+    key: "POCs",
+    route: "pocs",
+    modes: ["BRANCH"],
+    excludeRoles: ["BranchAdmin"],
+  },
+  {
+    label: "Staff",
+    key: "Staff",
+    route: "staff",
+    modes: ["BRANCH"],
+    roles: ["Owner", "BranchAdmin"],
+    excludeRoles: ["BranchAdmin"],
+  },
+  {
+    label: "Members",
+    key: "Members",
+    route: "members",
+    modes: ["BRANCH"],
+    excludeRoles: ["BranchAdmin"],
+  },
   {
     label: "Loans",
     key: "Loan",
     modes: ["BRANCH"],
+    excludeRoles: ["BranchAdmin"],
     children: [
       { label: "Add Loan", key: "Add Loan", route: "loans/add" },
       { label: "Manage Loan", key: "Manage Loan", route: "loans/manage" },
     ],
   },
-  { label: "Recovery Posting", key: "Recovery Posting", route: "recovery-posting", modes: ["BRANCH"] },
+  {
+    label: "Recovery Posting",
+    key: "Recovery Posting",
+    route: "recovery-posting",
+    modes: ["BRANCH"],
+    excludeRoles: ["BranchAdmin"],
+  },
   {
     label: "Reports",
     key: "Reports",
     modes: ["BRANCH"],
     route: "reports",
+    excludeRoles: ["BranchAdmin"],
   },
 ]
 
@@ -54,11 +87,24 @@ export function getFilteredMenu(
   mode: AppMode,
   role: AppRole
 ): AppMenuItem[] {
-  return menu.filter(
-    (item) =>
-      (!item.modes || item.modes.includes(mode)) &&
-      (!item.roles || item.roles.includes(role))
-  )
+  return menu
+    .filter(
+      (item) =>
+        (!item.modes || item.modes.includes(mode)) &&
+        (!item.roles || item.roles.includes(role)) &&
+        (!item.excludeRoles?.length || !item.excludeRoles.includes(role))
+    )
+    .map((item) => {
+      if (!item.children?.length) return item
+      const children = item.children.filter(
+        (c) =>
+          (!c.modes || c.modes.includes(mode)) &&
+          (!c.roles || c.roles.includes(role)) &&
+          (!c.excludeRoles?.length || !c.excludeRoles.includes(role))
+      )
+      return { ...item, children }
+    })
+    .filter((item) => !item.children?.length || item.children.length > 0)
 }
 
 export function getExpandedKeyForUrl(

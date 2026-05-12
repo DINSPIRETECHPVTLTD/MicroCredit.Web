@@ -8,7 +8,7 @@ import {
   type MouseEvent,
 } from "react"
 import { Link } from "react-router-dom"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getBranch, getSession } from "@/services/auth.service"
+import { getNormalizedSessionMeta } from "@/lib/authz"
 import { reportService } from "@/services/report.service"
 import { dashboardService } from "@/services/dashboard.service"
 import type { MemberByPocReportRow, PocBranchReportRow } from "@/types/report"
@@ -37,6 +38,7 @@ import type { DashboardChartItem } from "@/types/dashboard"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
 import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
+import { PaidToUserLedgerPanel } from "@/components/dashboard/PaidToUserLedgerPanel"
 
 /** POC row with counts/amounts derived from members-by-poc (POC API often omits memberCount/totalAmount). */
 type PocTableRow = PocBranchReportRow & {
@@ -537,10 +539,16 @@ function BranchReportDashboard() {
   const queryClient = useQueryClient()
   const branch = getBranch()
   const branchId = branch?.id
+  const { role } = getNormalizedSessionMeta(getSession())
+  const isOwner = role === "Owner"
+  const [dashboardSection, setDashboardSection] = useState<"myView" | "paidToUser">("myView")
+  const showMyView = !isOwner || dashboardSection === "myView"
 
   const { todayKey, tomorrowKey } = useMemo(() => getTodayAndTomorrowDateKeys(), [])
   const [scheduleWindow, setScheduleWindow] = useState<"today" | "tomorrow">("today")
   const activeScheduleDateKey = scheduleWindow === "today" ? todayKey : tomorrowKey
+
+  const ledgerBgFetching = useIsFetching({ queryKey: ["reportRecentPaidToUser", branchId] }) > 0
 
   const {
     data: pocsRaw,
@@ -551,7 +559,7 @@ function BranchReportDashboard() {
     refetch,
   } = useQuery({
     queryKey: ["reportPocs", branchId],
-    enabled: Boolean(branchId),
+    enabled: Boolean(branchId && showMyView),
     queryFn: () => reportService.getPocsByBranch(branchId!),
   })
 
@@ -576,7 +584,7 @@ function BranchReportDashboard() {
     error: membersError,
   } = useQuery({
     queryKey: ["reportMembersByPocs", branchId, pocIds.join(",")],
-    enabled: Boolean(branchId && pocIds.length > 0),
+    enabled: Boolean(branchId && pocIds.length > 0 && showMyView),
     queryFn: () => reportService.getMembersByPocs(branchId!, pocIds),
     /** Fetch fresh rows when expanding/refreshing the dashboard. */
     staleTime: 0,
@@ -663,6 +671,7 @@ function BranchReportDashboard() {
   const handleRefreshAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
     void queryClient.invalidateQueries({ queryKey: ["reportMembersByPocs", branchId] })
+    void queryClient.invalidateQueries({ queryKey: ["reportRecentPaidToUser", branchId] })
   }, [queryClient, branchId])
 
   const renderPocDetailPanel = useCallback(
@@ -809,8 +818,40 @@ function BranchReportDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">My View Dashboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {isOwner ? "Dashboard" : "My View Dashboard"}
+          </h1>
           <DashboardClock />
+          {isOwner && (
+            <div className="mt-3 inline-flex max-w-full flex-wrap rounded-lg border border-border bg-muted p-1">
+              <button
+                type="button"
+                onClick={() => setDashboardSection("myView")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors sm:min-w-28",
+                  dashboardSection === "myView"
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
+                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                )}
+                aria-pressed={dashboardSection === "myView"}
+              >
+                My View
+              </button>
+              <button
+                type="button"
+                onClick={() => setDashboardSection("paidToUser")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors sm:min-w-28",
+                  dashboardSection === "paidToUser"
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
+                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                )}
+                aria-pressed={dashboardSection === "paidToUser"}
+              >
+                Paid to user transactions
+              </button>
+            </div>
+          )}
         </div>
         <Button
           type="button"
@@ -818,17 +859,26 @@ function BranchReportDashboard() {
           size="sm"
           className="gap-2"
           onClick={handleRefreshAll}
-          disabled={isFetching || membersIsFetching}
+          disabled={
+            (showMyView && (isFetching || membersIsFetching)) || (!showMyView && ledgerBgFetching)
+          }
         >
           <RefreshCw
-            className={cn("h-4 w-4", (isFetching || membersIsFetching) && "animate-spin")}
+            className={cn(
+              "h-4 w-4",
+              ((showMyView && (isFetching || membersIsFetching)) ||
+                (!showMyView && ledgerBgFetching)) &&
+                "animate-spin"
+            )}
             aria-hidden
           />
           Refresh
         </Button>
       </div>
 
-      {isLoading && pocs.length === 0 ? (
+      {isOwner && dashboardSection === "paidToUser" ? (
+        <PaidToUserLedgerPanel branchId={branchId} />
+      ) : isLoading && pocs.length === 0 ? (
         <DashboardSkeleton />
       ) : isError ? (
         noPocInBranchError ? (

@@ -10,6 +10,16 @@ export interface PocBranchReportRow {
   statusRaw: string | boolean | null | undefined
 }
 
+/** Report/Recent paid-to-user ledger rows (camelCase or PascalCase from API). */
+export interface PaidToUserLedgerReportRow {
+  id: number
+  paidToUserFullName: string
+  paidToUserId: number | null
+  amount: number
+  paymentDate: string | null
+  transactionType: string
+}
+
 export interface MemberByPocReportRow {
   pocId: number
   memberId: string

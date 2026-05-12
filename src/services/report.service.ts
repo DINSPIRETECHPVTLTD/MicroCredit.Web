@@ -1,6 +1,10 @@
 import axios from "axios"
 import { api } from "@/lib/api"
-import type { MemberByPocReportRow, PocBranchReportRow } from "@/types/report"
+import type {
+  MemberByPocReportRow,
+  PaidToUserLedgerReportRow,
+  PocBranchReportRow,
+} from "@/types/report"
 
 function pickNum(v: unknown): number {
   if (typeof v === "number" && Number.isFinite(v)) return v
@@ -138,6 +142,28 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
   }
 }
 
+function normalizePaidToUserLedgerRow(raw: Record<string, unknown>): PaidToUserLedgerReportRow | null {
+  const id = pickId(raw.id ?? raw.Id)
+  if (!id) return null
+  const paidToUserFullName = pickStr(
+    raw.paidToUserFullName ?? raw.PaidToUserFullName ?? raw.fullName ?? raw.FullName
+  )
+  const paidToUserIdRaw = raw.paidToUserId ?? raw.PaidToUserId
+  const paidToUserId =
+    paidToUserIdRaw == null || paidToUserIdRaw === "" ? null : pickNum(paidToUserIdRaw)
+  const amount = pickNum(raw.amount ?? raw.Amount)
+  const paymentDate = pickScheduleDateIso(raw.paymentDate ?? raw.PaymentDate)
+  const transactionType = pickStr(raw.transactionType ?? raw.TransactionType)
+  return {
+    id,
+    paidToUserFullName: paidToUserFullName || "—",
+    paidToUserId,
+    amount,
+    paymentDate,
+    transactionType: transactionType || "—",
+  }
+}
+
 function asObjectArray(data: unknown): Record<string, unknown>[] {
   if (Array.isArray(data)) {
     return data.filter((x): x is Record<string, unknown> => x !== null && typeof x === "object")
@@ -165,6 +191,13 @@ export const reportService = {
     return asObjectArray(data)
       .map(normalizeMemberRow)
       .filter((r): r is MemberByPocReportRow => r !== null)
+  },
+
+  async getRecentPaidToUserTransactions(branchId: number): Promise<PaidToUserLedgerReportRow[]> {
+    const { data } = await axios.get<unknown>(api.report.recentPaidToUserTransactions(branchId))
+    return asObjectArray(data)
+      .map(normalizePaidToUserLedgerRow)
+      .filter((r): r is PaidToUserLedgerReportRow => r !== null)
   },
 
   async getMembersByPocs(branchId: number, pocIds: number[]): Promise<MemberByPocReportRow[]> {
