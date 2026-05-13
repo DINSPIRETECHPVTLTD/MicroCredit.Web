@@ -5,7 +5,6 @@ import type { StaffResponse, CreateStaffRequest, UpdateStaffRequest } from "@/ty
 export const staffService = {
     async getStaffs(): Promise<StaffResponse[]> {
         const { data } = await axios.get<StaffResponse[]>(api.staff.list)
-        console.log("Fetched staff:", data) 
         return data
     },
 

@@ -217,7 +217,8 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
                     setSaving(false)
                     return
                 }
-                const { confirmPassword: _, ...rest } = data
+                const rest = { ...data }
+                delete rest.confirmPassword
                 await staffService.createStaff({
                     ...rest,
                     password: data.password!,

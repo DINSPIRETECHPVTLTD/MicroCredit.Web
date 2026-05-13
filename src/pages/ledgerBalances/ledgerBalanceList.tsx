@@ -3,7 +3,7 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table"
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { ledgerBalanceService } from "../../services/ledgerBalance.service"
 import type { LedgerBalanceResponse } from "../../types/ledgerBalance"
 import { useQuery } from "@tanstack/react-query"
@@ -44,9 +44,9 @@ function LedgerBalancesList() {
 
     const isLoading = ledgerBalancesLoading || usersLoading;
 
-    const openTransactions = (userId: number) => {
+    const openTransactions = useCallback((userId: number) => {
         navigate(`/ledger-transactions/${userId}`)
-      }
+      }, [navigate])
 
     
     const columns = useMemo<MRT_ColumnDef<LedgerBalanceResponse>[]>(
@@ -76,7 +76,7 @@ function LedgerBalancesList() {
             },
 
         ],
-        [userMap]
+        [openTransactions, userMap]
     )
 
     const table = useMaterialReactTable({

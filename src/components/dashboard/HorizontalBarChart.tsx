@@ -13,19 +13,20 @@ export function HorizontalBarChart({
   const max = items.reduce((peak, item) => Math.max(peak, item.value), 0)
   const palette = ["#2563eb", "#14b8a6", "#f59e0b", "#8b5cf6", "#ef4444", "#0ea5e9"]
 
-  let offset = 0
   const chartSlices = items
     .filter((item) => item.value > 0 && total > 0)
-    .map((item, index) => {
+    .reduce<{ start: number; end: number; color: string }[]>((slices, item, index) => {
+      const start = slices.at(-1)?.end ?? 0
       const percent = (item.value / total) * 100
-      const slice = {
-        start: offset,
-        end: offset + percent,
-        color: palette[index % palette.length],
-      }
-      offset += percent
-      return slice
-    })
+      return [
+        ...slices,
+        {
+          start,
+          end: start + percent,
+          color: palette[index % palette.length],
+        },
+      ]
+    }, [])
 
   const conicGradient = chartSlices.length
     ? `conic-gradient(${chartSlices

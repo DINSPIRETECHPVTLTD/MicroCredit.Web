@@ -1,4 +1,3 @@
-// src/services/poc.service.ts
 import axios from "axios"
 import { api } from "@/lib/api"
 import type { PocResponse } from "@/types/poc"
@@ -50,8 +49,6 @@ export const pocService = {
   },
 
   async getByid(id: number): Promise<PocResponse> {
-    console.log(id, "POC Id")
-    console.log("base API", api)
     const { data } = await axios.get<PocResponse>(api.pocs.getById(id))
     return data
   }

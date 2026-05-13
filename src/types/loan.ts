@@ -23,6 +23,6 @@ export interface AddLoanRequest {
     totalAmount: number
     disbursementDate: string
     collectionStartDate: string
-    collectionTerm: String
+    collectionTerm: string
     noOfTerms: number
 }

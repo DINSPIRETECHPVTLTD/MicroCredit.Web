@@ -5,7 +5,6 @@ import type { CreateInvestmentRequest, InvestmentResponse } from "../types/inves
 export const investmentService = {
   async getInvestments(): Promise<InvestmentResponse[]> {
     const { data } = await axios.get<InvestmentResponse[]>(api.investments.list)
-    console.log("Fetched investments:", data)
     return data
   },
 

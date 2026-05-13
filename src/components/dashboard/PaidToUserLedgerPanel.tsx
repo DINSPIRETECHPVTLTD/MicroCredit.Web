@@ -167,7 +167,7 @@ export function PaidToUserLedgerPanel({ branchId }: { branchId: number }) {
     queryFn: () => reportService.getRecentPaidToUserTransactions(branchId),
   })
 
-  const rows = ledgerRows ?? []
+  const rows = useMemo(() => ledgerRows ?? [], [ledgerRows])
 
   const { todayKey, yesterdayKey } = useMemo(() => {
     const today = new Date()

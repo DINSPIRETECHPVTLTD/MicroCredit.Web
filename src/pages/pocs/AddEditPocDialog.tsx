@@ -193,7 +193,7 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
             collectionBy: 0,
           })
         }
-      } catch (e) {
+      } catch {
         toast.error("Failed to load form options")
       }
     }
