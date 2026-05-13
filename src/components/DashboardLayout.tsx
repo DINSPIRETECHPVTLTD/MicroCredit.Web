@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useMemo, useState } from "react"
 import toast from "react-hot-toast"
 import { Outlet, useNavigate, useLocation, NavLink } from "react-router-dom"
 import {
@@ -75,8 +75,8 @@ function getMenuIcon(key: string): LucideIcon | null {
 export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [session, setSession] = useState(getSession())
-  const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const session = getSession()
+  const [expandedOverride, setExpandedOverride] = useState<string | null | undefined>(undefined)
 
   const { mode, role } = getNormalizedSessionMeta(session)
   const safeMode: AppMode = mode
@@ -89,17 +89,11 @@ export default function DashboardLayout() {
     () => getFilteredMenu(APP_MENU, safeMode, safeRole),
     [safeMode, safeRole]
   )
-
-
-  useEffect(() => {
-    const key = getExpandedKeyForUrl(filteredMenu, location.pathname, DASHBOARD_BASE)
-    setExpandedKey(key ?? null)
-  }, [location.pathname, filteredMenu])
-
-
-  useEffect(() => {
-    setSession(getSession())
-  }, [location.pathname])
+  const routeExpandedKey = useMemo(
+    () => getExpandedKeyForUrl(filteredMenu, location.pathname, DASHBOARD_BASE) ?? null,
+    [filteredMenu, location.pathname]
+  )
+  const expandedKey = expandedOverride === undefined ? routeExpandedKey : expandedOverride
   
   const getLink = (route: string | undefined) => {
     if (route == null || route === "") return "/"
@@ -108,12 +102,11 @@ export default function DashboardLayout() {
 
   const isExpanded = (key: string) => expandedKey === key
   const toggleExpanded = (key: string) =>
-    setExpandedKey((k) => (k === key ? null : key))
+    setExpandedOverride((k) => ((k ?? routeExpandedKey) === key ? null : key))
 
   const handleReturnToOrg = async () => {
     try {
       await authService.navigateToOrg()
-      setSession(getSession())
       toast.success("Successfully switched to Org mode")
       navigate("/", { replace: true })
     } catch (err) {

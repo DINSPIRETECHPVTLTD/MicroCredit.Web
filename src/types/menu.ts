@@ -7,5 +7,7 @@ export interface AppMenuItem {
   route?: string
   modes?: AppMode[]
   roles?: AppRole[]
+  /** If set, users with these roles will not see this item (applied after `roles`). */
+  excludeRoles?: AppRole[]
   children?: AppMenuItem[]
 }

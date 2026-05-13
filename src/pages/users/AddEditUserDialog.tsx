@@ -234,7 +234,8 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
           setSaving(false)
           return
         }
-        const { confirmPassword: _, ...rest } = data
+        const rest = { ...data }
+        delete rest.confirmPassword
         await userService.createUser({
           ...rest,
           ...commonPayload,

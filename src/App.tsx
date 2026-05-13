@@ -117,7 +117,7 @@ function App() {
           <Route
             path="centers"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <CenterList />
               </ProtectedRoute>
             }
@@ -125,7 +125,7 @@ function App() {
           <Route
             path="pocs"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <PocList />
               </ProtectedRoute>
             }
@@ -133,7 +133,7 @@ function App() {
           <Route
             path="staff"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner"]}>
                 <StaffList />
               </ProtectedRoute>
             }
@@ -141,7 +141,7 @@ function App() {
           <Route
             path="loans/add"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <AddLoan />
               </ProtectedRoute>
             }
@@ -149,7 +149,7 @@ function App() {
           <Route
             path="members"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <MemberList />
               </ProtectedRoute>
             }
@@ -157,7 +157,7 @@ function App() {
           <Route
             path="loans/manage"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <ManageLoanList />
               </ProtectedRoute>
             }
@@ -165,7 +165,7 @@ function App() {
           <Route
             path="loans/:loanId/prepayment"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <LoanPrepayment />
               </ProtectedRoute>
             }
@@ -177,7 +177,7 @@ function App() {
           <Route
             path="loans/:loanId/scheduler"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <LoanSchedulerList />
               </ProtectedRoute>
             }
@@ -185,7 +185,7 @@ function App() {
           <Route
             path="recovery-posting"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <RecoveryPostingList />
               </ProtectedRoute>
             }
@@ -201,7 +201,7 @@ function App() {
           <Route
             path="reports"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "BranchAdmin", "Staff"]}>
+              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
                 <Reports />
               </ProtectedRoute>
             }
