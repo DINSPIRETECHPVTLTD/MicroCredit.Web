@@ -36,4 +36,6 @@ export interface MemberByPocReportRow {
   /** Schedule due datetime / key from API (ISO string or `YYYY-MM-DD`). */
   scheduleDate: string | null
   statusRaw: string | boolean | null | undefined
+  /** Loan scheduler status (e.g. NotPaid, Partial, Overdue, Claimed). */
+  loanSchedulerStatus: string
 }

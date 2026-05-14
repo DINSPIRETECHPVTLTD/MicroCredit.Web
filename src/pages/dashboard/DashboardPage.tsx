@@ -419,6 +419,26 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
     header: "Actual EMI",
     Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
   },
+  {
+    accessorKey: "loanSchedulerStatus",
+    header: "Status",
+    Cell: ({ cell }) => {
+      const status = String(cell.getValue() ?? "")
+      const colorMap: Record<string, string> = {
+        NotPaid: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
+        Partial: "bg-blue-500/15 text-blue-800 dark:text-blue-200",
+        Overdue: "bg-red-500/15 text-red-800 dark:text-red-200",
+        Claimed: "bg-purple-500/15 text-purple-800 dark:text-purple-200",
+      }
+      const cls = colorMap[status] ?? "bg-muted text-muted-foreground"
+      return (
+        <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${cls}`}>
+          {status || "—"}
+        </span>
+      )
+    },
+    filterFn: "equals",
+  },
 ]
 
 const PocMemberDetailPanel = memo(function PocMemberDetailPanel({

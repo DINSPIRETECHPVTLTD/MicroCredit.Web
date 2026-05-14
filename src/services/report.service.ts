@@ -130,6 +130,10 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
 
   const scheduleDate = pickScheduleDateIso(raw.scheduleDate ?? raw.ScheduleDate)
 
+  const loanSchedulerStatus = pickStr(
+    raw.loanSchedulerStatus ?? raw.LoanSchedulerStatus ?? ""
+  )
+
   return {
     pocId,
     memberId,
@@ -139,6 +143,7 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
     amountPaid: actualEmi,
     scheduleDate,
     statusRaw,
+    loanSchedulerStatus: loanSchedulerStatus || "NotPaid",
   }
 }
 
