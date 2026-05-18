@@ -201,7 +201,7 @@ function App() {
           <Route
             path="reports"
             element={
-              <ProtectedRoute allowModes={["BRANCH"]} allowRoles={["Owner", "Staff"]}>
+              <ProtectedRoute allowModes={["ORG"]} allowRoles={["Owner"]}>
                 <Reports />
               </ProtectedRoute>
             }

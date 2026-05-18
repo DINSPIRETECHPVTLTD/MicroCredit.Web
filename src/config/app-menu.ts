@@ -76,7 +76,7 @@ export const APP_MENU: AppMenuItem[] = [
   {
     label: "Reports",
     key: "Reports",
-    modes: ["BRANCH"],
+    modes: ["ORG"],
     route: "reports",
     excludeRoles: ["BranchAdmin"],
   },
