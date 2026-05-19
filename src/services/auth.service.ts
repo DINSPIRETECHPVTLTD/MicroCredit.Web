@@ -1,10 +1,10 @@
 import axios from "axios"
 import type { AuthRequest, AuthResponse, OrgResponse, BranchResponse } from "@/types/auth"
 import { api } from "@/lib/api"
-
-const AUTH_STORAGE_KEY = "auth_session"
-
-let sessionCache: AuthResponse | null = null
+import { AUTH_STORAGE_KEY } from "@/lib/auth/constants"
+import { broadcastAuthEvent } from "@/lib/auth/broadcast"
+import { isAccessTokenValid } from "@/lib/auth/jwt"
+import { apiClient } from "@/lib/auth/api-client"
 
 function readSessionFromStorage(): AuthResponse | null {
   try {
@@ -23,25 +23,23 @@ function writeSessionToStorage(data: AuthResponse | null): void {
   }
 }
 
-/** Hydrate in-memory cache from storage (call on app init). */
+/** @deprecated No-op; session is always read from localStorage. Kept for bootstrap compatibility. */
 export function hydrateAuth(): void {
-  sessionCache = readSessionFromStorage()
+  // Intentionally empty — getSession() always reads storage.
 }
 
-function setSession(response: AuthResponse): void {
-  sessionCache = response
+export function setSession(response: AuthResponse): void {
   writeSessionToStorage(response)
+  broadcastAuthEvent({ type: "SESSION_UPDATE" })
 }
 
 export function clearSession(): void {
-  sessionCache = null
   writeSessionToStorage(null)
 }
 
+/** Always reads from localStorage so tabs stay consistent without stale in-memory cache. */
 export function getSession(): AuthResponse | null {
-  if (sessionCache !== null) return sessionCache
-  sessionCache = readSessionFromStorage()
-  return sessionCache
+  return readSessionFromStorage()
 }
 
 export function getToken(): string | null {
@@ -50,26 +48,11 @@ export function getToken(): string | null {
 
 export function isAuthenticated(): boolean {
   const token = getToken()
-  if (!token || typeof token !== "string") {
+  if (!isAccessTokenValid(token)) {
+    if (token) clearSession()
     return false
   }
-  try {
-    const parts = token.split(".")
-    if (parts.length !== 3) {
-      clearSession()
-      return false
-    }
-    const payload = JSON.parse(
-      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
-    )
-    if (!payload?.exp) return true
-    const isValid = payload.exp > Math.floor(Date.now() / 1000)
-    if (!isValid) clearSession()
-    return isValid
-  } catch {
-    clearSession()
-    return false
-  }
+  return true
 }
 
 export function getDisplayName(): string {
@@ -87,6 +70,27 @@ export function getBranch(): BranchResponse | null {
   return getSession()?.branch ?? null
 }
 
+function mergeAuthResponse(
+  data: AuthResponse,
+  session: AuthResponse | null
+): AuthResponse {
+  if (!session) return data
+  return {
+    token: data.token ?? session.token,
+    refreshToken: data.refreshToken ?? session.refreshToken,
+    userType: data.userType ?? session.userType,
+    userId: data.userId ?? session.userId,
+    email: data.email ?? session.email,
+    firstName: data.firstName ?? session.firstName,
+    lastName: data.lastName ?? session.lastName,
+    role: data.role ?? session.role,
+    mode: data.mode ?? session.mode,
+    branchId: data.branchId ?? session.branchId,
+    organization: data.organization ?? session.organization,
+    branch: data.branch !== undefined ? data.branch : session.branch,
+  }
+}
+
 export const authService = {
   async login(request: AuthRequest): Promise<AuthResponse> {
     const { data } = await axios.post<AuthResponse>(api.auth.login, request)
@@ -96,29 +100,20 @@ export const authService = {
 
   async refresh(): Promise<AuthResponse> {
     const session = getSession()
-    const refreshToken = session?.refreshToken ?? session?.token
-    const body = refreshToken ? { refreshToken } : {}
-    const { data } = await axios.post<AuthResponse>(api.auth.refresh, body)
-    const merged: AuthResponse = {
-      token: data.token ?? session!.token,
-      refreshToken: data.refreshToken ?? session?.refreshToken,
-      userType: data.userType ?? session!.userType,
-      userId: data.userId ?? session!.userId,
-      email: data.email ?? session!.email,
-      firstName: data.firstName ?? session!.firstName,
-      lastName: data.lastName ?? session!.lastName,
-      role: data.role ?? session!.role,
-      mode: data.mode ?? session?.mode,
-      branchId: data.branchId ?? session?.branchId,
-      organization: data.organization ?? session?.organization,
-      branch: data.branch !== undefined ? data.branch : session?.branch,
+    const refreshToken = session?.refreshToken
+    if (!refreshToken) {
+      clearSession()
+      throw new Error("No refresh token available")
     }
+
+    const { data } = await axios.post<AuthResponse>(api.auth.refresh, { refreshToken })
+    const merged = mergeAuthResponse(data, session)
     setSession(merged)
     return merged
   },
 
   async navigateToBranch(branchId: number): Promise<AuthResponse> {
-    const { data } = await axios.post<AuthResponse>(
+    const { data } = await apiClient.post<AuthResponse>(
       api.auth.navigateToBranch,
       null,
       { params: { branchId } }
@@ -128,12 +123,22 @@ export const authService = {
   },
 
   async navigateToOrg(): Promise<AuthResponse> {
-    const { data } = await axios.post<AuthResponse>(api.auth.navigateToOrg, {})
+    const { data } = await apiClient.post<AuthResponse>(api.auth.navigateToOrg, {})
     setSession(data)
     return data
   },
 
-  logout(): void {
-    clearSession()
+  async logout(): Promise<void> {
+    const refreshToken = getSession()?.refreshToken
+    try {
+      if (refreshToken) {
+        await axios.post(api.auth.logout, { refreshToken }).catch(() => {
+          // Server revocation is best-effort; client state must still clear.
+        })
+      }
+    } finally {
+      clearSession()
+      broadcastAuthEvent({ type: "LOGOUT" })
+    }
   },
 }

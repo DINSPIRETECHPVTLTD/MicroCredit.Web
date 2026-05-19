@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from '../lib/api';
 import type { SearchMemberResponse } from '@/types/searchMemeber';
 
@@ -11,7 +11,7 @@ export interface SearchMemberRequest {
 
 export const searchMemberService = {
     async getmembers(request: SearchMemberRequest): Promise<SearchMemberResponse[]> {
-        const { data } = await axios.post<SearchMemberResponse[]>(api.searchMembers.list, request)
+        const { data } = await apiClient.post<SearchMemberResponse[]>(api.searchMembers.list, request)
         const rows = data ?? []
         return rows.map((row) => {
             const r = row as SearchMemberResponse & Record<string, unknown>

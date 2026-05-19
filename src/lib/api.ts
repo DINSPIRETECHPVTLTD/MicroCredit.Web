@@ -32,6 +32,9 @@ export const api = {
     get navigateToOrg() {
       return `${getApiBase()}/auth/navigate-to-org`
     },
+    get logout() {
+      return `${getApiBase()}/auth/logout`
+    },
   },
   users: {
     get list() {

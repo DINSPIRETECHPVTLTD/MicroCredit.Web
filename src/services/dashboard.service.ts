@@ -1,4 +1,4 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import type { DashboardSummaryResponse } from "@/types/dashboard"
 
@@ -35,7 +35,7 @@ function normalizeSummary(raw: Record<string, unknown>): DashboardSummaryRespons
 
 export const dashboardService = {
   async getSummary(): Promise<DashboardSummaryResponse> {
-    const { data } = await axios.get<unknown>(api.report.summary())
+    const { data } = await apiClient.get<unknown>(api.report.summary())
     const safe = data && typeof data === "object" ? (data as Record<string, unknown>) : {}
     return normalizeSummary(safe)
   },

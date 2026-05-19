@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from '../lib/api'
 
 export type PrepaymentPostLine = {
@@ -20,7 +20,7 @@ export type PrepaymentPostPayload = {
 export async function postPrepaymentRecoveries(
     payload: PrepaymentPostPayload
 ): Promise<{ postedCount: number; message?: string }> {
-    const { data } = await axios.post<{ postedCount: number; message?: string }>(
+    const { data } = await apiClient.post<{ postedCount: number; message?: string }>(
         api.recoveryPosting.post,
         payload
     )

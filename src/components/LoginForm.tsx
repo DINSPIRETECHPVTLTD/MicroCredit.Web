@@ -2,9 +2,11 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { useNavigate } from "react-router-dom"
+import { useQueryClient } from "@tanstack/react-query"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { authService } from "@/services/auth.service"
+import { getLoginErrorMessage, isBranchModeRequiredError } from "@/lib/auth/login-errors"
 
 const schema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email"),
@@ -13,22 +15,19 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-function getLoginErrorMessage(err: unknown): string {
-  const responseData = (err as { response?: { data?: unknown } })?.response?.data
-  if (typeof responseData === "string" && responseData.trim()) return responseData
-  if (responseData && typeof responseData === "object") {
-    const obj = responseData as { message?: string; error?: string; title?: string }
-    const apiMessage = obj.message ?? obj.error ?? obj.title
-    if (apiMessage?.trim()) return apiMessage
-  }
-  const generic = (err as { message?: string })?.message
-  return generic?.trim() || "Login failed. Please try again."
+type LoginLocationState = {
+  from?: { pathname?: string }
 }
 
 export default function LoginForm() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const queryClient = useQueryClient()
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const from =
+    (location.state as LoginLocationState | null)?.from?.pathname ?? "/dashboard"
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -38,21 +37,16 @@ export default function LoginForm() {
     setErrorMessage(null)
     setIsLoading(true)
     try {
-      // First try Org mode (for Owner / org users)
       await authService.login({ ...data, mode: "ORG" })
-      navigate("/dashboard", { replace: true })
+      queryClient.clear()
+      navigate(from, { replace: true })
       return
     } catch (firstErr: unknown) {
-      const firstMessage = getLoginErrorMessage(firstErr)
-
-      // If API indicates the user must use Branch mode, retry automatically in Branch mode
-      if (
-        firstMessage &&
-        firstMessage.toLowerCase().includes("branch users can login only in branch mode")
-      ) {
+      if (isBranchModeRequiredError(firstErr)) {
         try {
           await authService.login({ ...data, mode: "BRANCH" })
-          navigate("/dashboard", { replace: true })
+          queryClient.clear()
+          navigate(from, { replace: true })
           return
         } catch (secondErr: unknown) {
           setErrorMessage(getLoginErrorMessage(secondErr))
@@ -60,8 +54,7 @@ export default function LoginForm() {
         }
       }
 
-      // Any other error: show the original message
-      setErrorMessage(firstMessage)
+      setErrorMessage(getLoginErrorMessage(firstErr))
     } finally {
       setIsLoading(false)
     }

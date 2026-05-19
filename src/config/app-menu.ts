@@ -82,11 +82,24 @@ export const APP_MENU: AppMenuItem[] = [
   },
 ]
 
+/** Minimal menu when role is unknown — dashboard only for the active mode. */
+export function getMinimalMenu(menu: AppMenuItem[], mode: AppMode): AppMenuItem[] {
+  return menu.filter(
+    (item) =>
+      item.key === "Dashboard" &&
+      (!item.modes || item.modes.includes(mode)) &&
+      item.route !== undefined
+  )
+}
+
 export function getFilteredMenu(
   menu: AppMenuItem[],
   mode: AppMode,
-  role: AppRole
+  role: AppRole | null
 ): AppMenuItem[] {
+  if (!role) {
+    return getMinimalMenu(menu, mode)
+  }
   return menu
     .filter(
       (item) =>

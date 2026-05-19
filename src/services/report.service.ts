@@ -1,4 +1,4 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import type {
   MemberByPocReportRow,
@@ -257,28 +257,28 @@ function asObjectArray(data: unknown): Record<string, unknown>[] {
 
 export const reportService = {
   async getPocsByBranch(branchId: number): Promise<PocBranchReportRow[]> {
-    const { data } = await axios.get<unknown>(api.report.pocsByBranch(branchId))
+    const { data } = await apiClient.get<unknown>(api.report.pocsByBranch(branchId))
     return asObjectArray(data)
       .map(normalizePocRow)
       .filter((r): r is PocBranchReportRow => r !== null)
   },
 
   async getMembersByPoc(branchId: number, pocId: number): Promise<MemberByPocReportRow[]> {
-    const { data } = await axios.get<unknown>(api.report.membersByPoc(branchId, pocId))
+    const { data } = await apiClient.get<unknown>(api.report.membersByPoc(branchId, pocId))
     return asObjectArray(data)
       .map(normalizeMemberRow)
       .filter((r): r is MemberByPocReportRow => r !== null)
   },
 
   async getRecentPaidToUserTransactions(branchId: number): Promise<PaidToUserLedgerReportRow[]> {
-    const { data } = await axios.get<unknown>(api.report.recentPaidToUserTransactions(branchId))
+    const { data } = await apiClient.get<unknown>(api.report.recentPaidToUserTransactions(branchId))
     return asObjectArray(data)
       .map(normalizePaidToUserLedgerRow)
       .filter((r): r is PaidToUserLedgerReportRow => r !== null)
   },
 
   async getMembersByPocs(branchId: number, pocIds: number[]): Promise<MemberByPocReportRow[]> {
-    const { data } = await axios.post<unknown>(
+    const { data } = await apiClient.post<unknown>(
       api.report.membersByPocs(branchId),
       pocIds
     )
@@ -288,21 +288,21 @@ export const reportService = {
   },
 
   async getPocCollectionStaffByBranch(branchId: number): Promise<PocCollectionStaffReportRow[]> {
-    const { data } = await axios.get<unknown>(api.report.pocCollectionStaffByBranch(branchId))
+    const { data } = await apiClient.get<unknown>(api.report.pocCollectionStaffByBranch(branchId))
     return asObjectArray(data)
       .map(normalizePocCollectionStaffRow)
       .filter((r): r is PocCollectionStaffReportRow => r !== null)
   },
 
   async getStaffSchedulesByBranch(branchId: number): Promise<StaffScheduleReportRow[]> {
-    const { data } = await axios.get<unknown>(api.report.staffSchedulesByBranch(branchId))
+    const { data } = await apiClient.get<unknown>(api.report.staffSchedulesByBranch(branchId))
     return asObjectArray(data)
       .map(normalizeStaffScheduleRow)
       .filter((r): r is StaffScheduleReportRow => r !== null)
   },
 
   async getMemeberWiseCollectionReport() {
-      const { data } = await axios.get(api.report.memberWiseCollectionReport(), {
+      const { data } = await apiClient.get(api.report.memberWiseCollectionReport(), {
         responseType: 'blob'  // ← tells axios to treat response as binary
     });
 

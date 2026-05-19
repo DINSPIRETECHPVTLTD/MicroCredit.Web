@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import toast from "react-hot-toast"
+import { useQueryClient } from "@tanstack/react-query"
 import { Outlet, useNavigate, useLocation, NavLink } from "react-router-dom"
 import {
   APP_MENU,
@@ -7,7 +8,8 @@ import {
   getFilteredMenu,
   getExpandedKeyForUrl,
 } from "@/config/app-menu"
-import type { AppMode, AppRole } from "@/types/menu"
+import { resetAppState, resetQueriesOnContextSwitch } from "@/lib/auth"
+import type { AppMode } from "@/types/menu"
 import { getNormalizedSessionMeta } from "@/lib/authz"
 import type { OrgResponse, BranchResponse } from "@/types/auth"
 import {
@@ -75,19 +77,19 @@ function getMenuIcon(key: string): LucideIcon | null {
 export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
   const session = getSession()
   const [expandedOverride, setExpandedOverride] = useState<string | null | undefined>(undefined)
 
   const { mode, role } = getNormalizedSessionMeta(session)
   const safeMode: AppMode = mode
-  const safeRole: AppRole = role ?? "Owner"
 
   const organization: OrgResponse | null = getOrganization()
   const selectedBranch: BranchResponse | null = getBranch()
   const userDisplayName = getDisplayName()
   const filteredMenu = useMemo(
-    () => getFilteredMenu(APP_MENU, safeMode, safeRole),
-    [safeMode, safeRole]
+    () => getFilteredMenu(APP_MENU, safeMode, role),
+    [safeMode, role]
   )
   const routeExpandedKey = useMemo(
     () => getExpandedKeyForUrl(filteredMenu, location.pathname, DASHBOARD_BASE) ?? null,
@@ -107,6 +109,7 @@ export default function DashboardLayout() {
   const handleReturnToOrg = async () => {
     try {
       await authService.navigateToOrg()
+      resetQueriesOnContextSwitch(queryClient)
       toast.success("Successfully switched to Org mode")
       navigate("/", { replace: true })
     } catch (err) {
@@ -120,8 +123,8 @@ export default function DashboardLayout() {
     }
   }
 
-  const handleLogout = () => {
-    authService.logout()
+  const handleLogout = async () => {
+    await resetAppState(queryClient, { redirect: false })
     navigate("/login", { replace: true })
   }
 
@@ -276,7 +279,7 @@ export default function DashboardLayout() {
                 {userDisplayName}
               </span>
             </div>
-            {safeMode === "BRANCH" && safeRole === "Owner" && (
+            {safeMode === "BRANCH" && role === "Owner" && (
               <Button variant="outline" size="sm" onClick={handleReturnToOrg}>
                 Back to Org
               </Button>
@@ -294,6 +297,12 @@ export default function DashboardLayout() {
         </header>
 
         <main className="flex-1 overflow-auto p-4 sm:p-6">
+          {!role && (
+            <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+              Your account role is not recognized. Only limited navigation is available. Contact an
+              administrator if this is unexpected.
+            </div>
+          )}
           <Outlet />
         </main>
       </div>
