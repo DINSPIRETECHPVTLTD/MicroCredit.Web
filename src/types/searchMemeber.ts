@@ -29,4 +29,6 @@ export interface SearchMemberResponse {
     guardianName: string  
     name: string 
     fullAddress: string
+    /** Max loan id for Active/Pending/Claimed loan when present (from search API). */
+    primaryOpenLoanId?: number | null
 }

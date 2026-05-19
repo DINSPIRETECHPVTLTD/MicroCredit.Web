@@ -202,5 +202,9 @@ export const api = {
     memberWiseCollectionReport: () => `${getApiBase()}/Report/MemberWiseCollectionSheet`,
     recentPaidToUserTransactions: (branchId: number) =>
       `${getApiBase()}/Report/recent-paid-to-user-transactions?branchId=${encodeURIComponent(String(branchId))}`,
+    pocCollectionStaffByBranch: (branchId: number) =>
+      `${getApiBase()}/Report/poc-collection-staff-by-branch/${branchId}`,
+    staffSchedulesByBranch: (branchId: number) =>
+      `${getApiBase()}/Report/staff-schedules-by-branch/${branchId}`,
   },
 }
