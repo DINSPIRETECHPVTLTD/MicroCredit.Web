@@ -4,7 +4,7 @@ import {
   useMaterialReactTable,
 } from "material-react-table"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { searchMemberService } from "@/services/searchMemeberAddLoan.service"
@@ -12,9 +12,6 @@ import type { SearchMemberResponse } from "@/types/searchMemeber"
 import AddLoanDialog from "./AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
 import { loanService } from "@/services/loan.service"
-import type { LoanResponse } from "@/types/loan"
-
-const memberLoansQueryKey = (memberId: number) => ["memberLoansForAction", memberId] as const
 
 function AddLoan() {
     const [selectedMember, setSelectedMember] = useState<SearchMemberResponse | null>(null)
@@ -58,15 +55,6 @@ function AddLoan() {
         }) as Promise<SearchMemberResponse[]>
     })
 
-    const memberLoanQueries = useQueries({
-      queries: members.map((m) => ({
-        queryKey: memberLoansQueryKey(m.id),
-        queryFn: () => loanService.getLoanByMemId(m.id) as Promise<LoanResponse[]>,
-        enabled: !!branchId && members.length > 0,
-        staleTime: 30_000,
-      })),
-    })
-
     /** Members with loans: Manage Loan → View Schedule (`/loans/:loanId/scheduler`). Otherwise open Add Loan dialog. */
     const handleMemberLoanAction = useCallback(
       async (member: SearchMemberResponse) => {
@@ -74,7 +62,6 @@ function AddLoan() {
         try {
           // Always read latest state from API so recently closed loans do not remain blocked by cached data.
           const loans = await loanService.getLoanByMemId(member.id)
-          queryClient.setQueryData(memberLoansQueryKey(member.id), loans)
           if (loans.length > 0) {
             const loanId = Math.max(...loans.map((l) => l.loanId))
             navigate(`/loans/${loanId}/scheduler`)
@@ -89,7 +76,7 @@ function AddLoan() {
           setCheckingLoan(false)
         }
       },
-      [navigate, queryClient]
+      [navigate]
     )
 
     useEffect(() => {
@@ -181,26 +168,25 @@ function AddLoan() {
               enableSorting: false,
               enableColumnFilter: false,
               Cell: ({ row }) => {
-                const idx = members.findIndex((m) => m.id === row.original.id)
-                const q = idx >= 0 ? memberLoanQueries[idx] : undefined
-                const hasLoans = (q?.data?.length ?? 0) > 0
-                const rowBusy = q?.isLoading || q?.isFetching
+                const hasLoans =
+                  row.original.primaryOpenLoanId != null &&
+                  row.original.primaryOpenLoanId > 0
                 return (
                   <Button
                     variant="outline"
                     size="sm"
                     className="min-w-[6.25rem] px-2.5 text-xs font-medium justify-center"
-                    disabled={checkingLoan || !!rowBusy}
+                    disabled={checkingLoan}
                     onClick={() => void handleMemberLoanAction(row.original)}
                   >
-                    {rowBusy ? "…" : hasLoans ? "View" : "Add Loan"}
+                    {checkingLoan ? "…" : hasLoans ? "View" : "Add Loan"}
                   </Button>
                 )
               },
             },
 
         ],
-        [checkingLoan, members, memberLoanQueries, handleMemberLoanAction]
+        [checkingLoan, members, handleMemberLoanAction]
     )
 
     const table = useMaterialReactTable({
@@ -219,7 +205,7 @@ function AddLoan() {
 
     const handleCreated = async () => {
       await refetch()
-      await queryClient.invalidateQueries({ queryKey: ["memberLoansForAction"] })
+      await queryClient.invalidateQueries({ queryKey: ["searchMembers"] })
     }
 
   const handleDialogClose = (reason: "cancel" | "success") => {

@@ -1,11 +1,11 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 
 import { api } from "@/lib/api"
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
 
 /** Same queryFn as Loan Scheduler page — keeps React Query cache aligned. */
 export async function fetchLoanSchedulerList(loanId: number): Promise<LoanSchedulerResponse[]> {
-  const { data } = await axios.get<unknown[]>(api.loanScheduler.list(loanId))
+  const { data } = await apiClient.get<unknown[]>(api.loanScheduler.list(loanId))
 
   return (data ?? []).map((x) => {
     const row = x as Record<string, unknown>

@@ -1,4 +1,4 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from "../lib/api"
 import type { PaymentTermResponse, SavePaymentTermRequest } from "../types/paymentTerm"
 
@@ -67,22 +67,22 @@ function toApi(request: SavePaymentTermRequest): ApiSavePaymentTermRequest {
 
 export const paymentTermService = {
     async getPaymentTerms(): Promise<PaymentTermResponse[]> {
-        const { data } = await axios.get<ApiPaymentTermResponse[]>(api.paymentTerms.list)
+        const { data } = await apiClient.get<ApiPaymentTermResponse[]>(api.paymentTerms.list)
         return data.map(toUi)
     },
 
     async createPaymentTerm(request: SavePaymentTermRequest): Promise<unknown> {
-        const { data } = await axios.post(api.paymentTerms.create, toApi(request))
+        const { data } = await apiClient.post(api.paymentTerms.create, toApi(request))
         return data
     },
 
     async updatePaymentTerm(id: number, request: SavePaymentTermRequest): Promise<unknown> {
-        const { data } = await axios.put(api.paymentTerms.update(id), toApi(request))
+        const { data } = await apiClient.put(api.paymentTerms.update(id), toApi(request))
         return data
     },
 
     async deletePaymentTerm(id: number): Promise<unknown> {
-        const { data } = await axios.delete(api.paymentTerms.delete(id))
+        const { data } = await apiClient.delete(api.paymentTerms.delete(id))
         return data
     },
 }

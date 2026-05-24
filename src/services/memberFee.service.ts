@@ -1,4 +1,4 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 
 export interface CreateMemberFeeRequest {
@@ -12,7 +12,7 @@ export interface CreateMemberFeeRequest {
 
 export const memberFeeService = {
   async createFee(request: CreateMemberFeeRequest): Promise<void> {
-    await axios.post(api.memberFees.create(), request)
+    await apiClient.post(api.memberFees.create(), request)
   },
 }
 

@@ -38,6 +38,7 @@ import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
 import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
 import { PaidToUserLedgerPanel } from "@/components/dashboard/PaidToUserLedgerPanel"
+import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
 
 /** POC row with counts/amounts derived from members-by-poc (POC API often omits memberCount/totalAmount). */
@@ -419,6 +420,26 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
     header: "Actual EMI",
     Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
   },
+  {
+    accessorKey: "loanSchedulerStatus",
+    header: "Status",
+    Cell: ({ cell }) => {
+      const status = String(cell.getValue() ?? "")
+      const colorMap: Record<string, string> = {
+        NotPaid: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
+        Partial: "bg-blue-500/15 text-blue-800 dark:text-blue-200",
+        Overdue: "bg-red-500/15 text-red-800 dark:text-red-200",
+        Claimed: "bg-purple-500/15 text-purple-800 dark:text-purple-200",
+      }
+      const cls = colorMap[status] ?? "bg-muted text-muted-foreground"
+      return (
+        <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${cls}`}>
+          {status || "—"}
+        </span>
+      )
+    },
+    filterFn: "equals",
+  },
 ]
 
 const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
@@ -478,32 +499,20 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
   )
 })
 
-function BranchReportDashboard() {
-  const queryClient = useQueryClient()
-  const branch = getBranch()
-  const branchId = branch?.id
-  const { role } = getNormalizedSessionMeta(getSession())
-  const isOwner = role === "Owner"
-  const [dashboardSection, setDashboardSection] = useState<"myView" | "paidToUser">("myView")
-  const showMyView = !isOwner || dashboardSection === "myView"
-
+function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   const { todayKey, tomorrowKey } = useMemo(() => getTodayAndTomorrowDateKeys(), [])
   const [scheduleWindow, setScheduleWindow] = useState<"today" | "tomorrow">("today")
   const activeScheduleDateKey = scheduleWindow === "today" ? todayKey : tomorrowKey
 
-  const ledgerBgFetching = useIsFetching({ queryKey: ["reportRecentPaidToUser", branchId] }) > 0
-
   const {
     data: pocsRaw,
     isLoading,
-    isFetching,
     isError,
     error,
     refetch,
   } = useQuery({
     queryKey: ["reportPocs", branchId],
-    enabled: Boolean(branchId && showMyView),
-    queryFn: () => reportService.getPocsByBranch(branchId!),
+    queryFn: () => reportService.getPocsByBranch(branchId),
   })
 
   const pocErrorMessage = useMemo(
@@ -527,8 +536,8 @@ function BranchReportDashboard() {
     error: membersError,
   } = useQuery({
     queryKey: ["reportMembersByPocs", branchId, pocIds.join(",")],
-    enabled: Boolean(branchId && pocIds.length > 0 && showMyView),
-    queryFn: () => reportService.getMembersByPocs(branchId!, pocIds),
+    enabled: pocIds.length > 0,
+    queryFn: () => reportService.getMembersByPocs(branchId, pocIds),
     /** Fetch fresh rows when expanding/refreshing the dashboard. */
     staleTime: 0,
     refetchOnMount: "always",
@@ -610,12 +619,6 @@ function BranchReportDashboard() {
       toast.error(getApiErrorMessage(error, "Failed to load POC report"))
     }
   }, [isError, error, noPocInBranchError])
-
-  const handleRefreshAll = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
-    void queryClient.invalidateQueries({ queryKey: ["reportMembersByPocs", branchId] })
-    void queryClient.invalidateQueries({ queryKey: ["reportRecentPaidToUser", branchId] })
-  }, [queryClient, branchId])
 
   const renderPocDetailPanel = useCallback(
     ({ row }: { row: MRT_Row<PocTableRow> }) => (
@@ -740,19 +743,146 @@ function BranchReportDashboard() {
     },
   })
 
-  if (!branchId) {
-    return (
-      <div className="rounded-xl border border-dashed border-border bg-muted/30 p-10 text-center">
-        <p className="text-lg font-medium text-foreground">No branch is selected.</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Open <strong>Branches</strong>, choose a branch, then return to Dashboard for My View.
-        </p>
-        <Button className="mt-4" asChild variant="outline">
-          <Link to="/branches">Go to Branches</Link>
+  if (isLoading && pocs.length === 0) {
+    return <DashboardSkeleton />
+  }
+
+  if (isError) {
+    return noPocInBranchError ? (
+      <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+        No POCs
+      </div>
+    ) : (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
+        <p className="font-medium text-destructive">Could not load dashboard data.</p>
+        <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
+          Try again
         </Button>
       </div>
     )
   }
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <SummaryMetricCard
+          title="Total POCs"
+          value={String(totalPocs)}
+          icon={UserCheck}
+          loading={isLoading || membersIsLoading || membersIsFetching}
+        />
+        <SummaryMetricCard
+          title="Total Members"
+          value={String(totalMembersInBranch)}
+          icon={Users}
+          loading={isLoading || membersIsLoading || membersIsFetching}
+        />
+        <SummaryMetricCard
+          title="Total Amount Collected"
+          value={formatInr(totalAmountInBranch)}
+          icon={IndianRupee}
+          loading={isLoading || membersIsLoading || membersIsFetching}
+        />
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 [caret-color:transparent]">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">POC schedules</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use the date filter, then expand a row to view member schedules.
+            </p>
+          </div>
+          <SegmentedToggle
+            value={scheduleWindow}
+            onChange={setScheduleWindow}
+            ariaLabel="Schedule date"
+            className="self-start"
+            options={[
+              { value: "today", label: "Today" },
+              { value: "tomorrow", label: "Tomorrow" },
+            ]}
+          />
+        </div>
+        {visiblePocTableRows.length === 0 && !isLoading && !membersIsLoading && !membersIsFetching ? (
+          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+            No schedules are available for the selected date.
+          </div>
+        ) : (
+          <div className="[caret-color:transparent]">
+            <MaterialReactTable table={pocTable} />
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+/** Static empty state — no hooks so parent can branch before mounting hookful content. */
+function BranchDashboardNoBranch() {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-10 text-center">
+      <p className="text-lg font-medium text-foreground">No branch is selected.</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Open <strong>Branches</strong>, choose a branch, then return to Dashboard for My View.
+      </p>
+      <Button className="mt-4" asChild variant="outline">
+        <Link to="/branches">Go to Branches</Link>
+      </Button>
+    </div>
+  )
+}
+
+type DashboardSection = "myView" | "paidToUser" | "staffSchedules"
+
+/**
+ * Branch dashboard shell: reads branch id synchronously and mounts hookful content only
+ * when branchId is defined (avoids optional branchId in hook dependency arrays).
+ */
+function BranchReportDashboard() {
+  const branchId = getBranch()?.id
+  if (branchId == null) {
+    return <BranchDashboardNoBranch />
+  }
+  return <BranchReportDashboardContent branchId={branchId} />
+}
+
+/**
+ * All dashboard hooks live here with a guaranteed numeric branchId.
+ * Child report panels mount/unmount by tab without affecting this hook list.
+ */
+function BranchReportDashboardContent({ branchId }: { branchId: number }) {
+  const queryClient = useQueryClient()
+  const { role } = getNormalizedSessionMeta(getSession())
+  const isOwner = role === "Owner"
+  const [dashboardSection, setDashboardSection] = useState<DashboardSection>("myView")
+
+  // Each useIsFetching must run every render — never combine hooks with `||` (short-circuits).
+  const ledgerBgFetching =
+    useIsFetching({ queryKey: ["reportRecentPaidToUser", branchId] }) > 0
+  const staffSchedulesListFetching =
+    useIsFetching({ queryKey: ["reportStaffSchedules", branchId] }) > 0
+  const staffSchedulesStaffFetching =
+    useIsFetching({ queryKey: ["reportPocCollectionStaff", branchId] }) > 0
+  const myViewPocsFetching = useIsFetching({ queryKey: ["reportPocs", branchId] }) > 0
+  const myViewMembersFetching =
+    useIsFetching({ queryKey: ["reportMembersByPocs", branchId] }) > 0
+  const staffSchedulesBgFetching =
+    staffSchedulesListFetching || staffSchedulesStaffFetching
+  const myViewBgFetching = myViewPocsFetching || myViewMembersFetching
+
+  const handleRefreshAll = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
+    void queryClient.invalidateQueries({ queryKey: ["reportMembersByPocs", branchId] })
+    void queryClient.invalidateQueries({ queryKey: ["reportRecentPaidToUser", branchId] })
+    void queryClient.invalidateQueries({ queryKey: ["reportStaffSchedules", branchId] })
+    void queryClient.invalidateQueries({ queryKey: ["reportPocCollectionStaff", branchId] })
+  }, [queryClient, branchId])
+
+  const refreshSpinning =
+    (dashboardSection === "myView" && myViewBgFetching) ||
+    (dashboardSection === "staffSchedules" && staffSchedulesBgFetching) ||
+    (dashboardSection === "paidToUser" && ledgerBgFetching)
 
   return (
     <div className="space-y-6">
@@ -771,6 +901,7 @@ function BranchReportDashboard() {
               buttonClassName="sm:min-w-28"
               options={[
                 { value: "myView", label: "My View" },
+                { value: "staffSchedules", label: "Staff Schedules" },
                 { value: "paidToUser", label: "Staff Collection" },
               ]}
             />
@@ -782,98 +913,23 @@ function BranchReportDashboard() {
           size="sm"
           className="gap-2"
           onClick={handleRefreshAll}
-          disabled={
-            (showMyView && (isFetching || membersIsFetching)) || (!showMyView && ledgerBgFetching)
-          }
+          disabled={refreshSpinning}
         >
-          <RefreshCw
-            className={cn(
-              "h-4 w-4",
-              ((showMyView && (isFetching || membersIsFetching)) ||
-                (!showMyView && ledgerBgFetching)) &&
-                "animate-spin"
-            )}
-            aria-hidden
-          />
+          <RefreshCw className={cn("h-4 w-4", refreshSpinning && "animate-spin")} aria-hidden />
           Refresh
         </Button>
       </div>
 
       {isOwner && dashboardSection === "paidToUser" ? (
         <PaidToUserLedgerPanel branchId={branchId} />
-      ) : isLoading && pocs.length === 0 ? (
-        <DashboardSkeleton />
-      ) : isError ? (
-        noPocInBranchError ? (
-          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-            No POCs
-          </div>
-        ) : (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
-          <p className="font-medium text-destructive">Could not load dashboard data.</p>
-          <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
-            Try again
-          </Button>
-        </div>
-        )
+      ) : isOwner && dashboardSection === "staffSchedules" ? (
+        <StaffSchedulesReportPanel branchId={branchId} />
       ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <SummaryMetricCard
-              title="Total POCs"
-              value={String(totalPocs)}
-              icon={UserCheck}
-              loading={isLoading || membersIsLoading || membersIsFetching}
-            />
-            <SummaryMetricCard
-              title="Total Members"
-              value={String(totalMembersInBranch)}
-              icon={Users}
-              loading={isLoading || membersIsLoading || membersIsFetching}
-            />
-            <SummaryMetricCard
-              title="Total Amount Collected"
-              value={formatInr(totalAmountInBranch)}
-              icon={IndianRupee}
-              loading={isLoading || membersIsLoading || membersIsFetching}
-            />
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 [caret-color:transparent]">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">Staff schedules</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Use the date filter, then expand a row to view member schedules.
-                </p>
-              </div>
-              <SegmentedToggle
-                value={scheduleWindow}
-                onChange={setScheduleWindow}
-                ariaLabel="Schedule date"
-                className="self-start"
-                options={[
-                  { value: "today", label: "Today" },
-                  { value: "tomorrow", label: "Tomorrow" },
-                ]}
-              />
-            </div>
-            {visiblePocTableRows.length === 0 && !isLoading && !membersIsLoading && !membersIsFetching ? (
-              <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-                No schedules are available for the selected date.
-              </div>
-            ) : (
-              <div className="[caret-color:transparent]">
-                <MaterialReactTable table={pocTable} />
-              </div>
-            )}
-          </div>
-        </>
+        <MyViewBranchReportSection branchId={branchId} />
       )}
     </div>
   )
 }
-
 export default function DashboardPage() {
   const session = getSession()
   const mode = session?.mode === "ORG" || session?.mode === "BRANCH" ? session.mode : "ORG"

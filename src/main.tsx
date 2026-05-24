@@ -2,9 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
-import axios from 'axios'
 import { getViteApiUrl, getViteApiUrlDebug, VITE_API_URL_REQUIRED_MESSAGE } from '@/lib/env-check'
-import { hydrateAuth, getToken } from '@/services/auth.service'
+import { setupApiInterceptors, initAuthSync } from '@/lib/auth'
+import { hydrateAuth, authService } from '@/services/auth.service'
 import './index.css'
 import App from './App.tsx'
 
@@ -46,20 +46,19 @@ if (!apiUrl) {
 } else {
   hydrateAuth()
 
-  axios.interceptors.request.use((config) => {
-    const token = getToken()
-    if (token) config.headers.Authorization = `Bearer ${token}`
-    return config
-  })
-
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        // Always refresh query data when a page remounts after navigation.
         refetchOnMount: "always",
       },
     },
   })
+
+  setupApiInterceptors(queryClient, {
+    refresh: () => authService.refresh(),
+  })
+
+  initAuthSync(queryClient)
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

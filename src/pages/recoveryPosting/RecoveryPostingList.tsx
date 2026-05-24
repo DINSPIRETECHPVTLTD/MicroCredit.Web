@@ -2,7 +2,7 @@
  * Recovery Posting UI — filters and grid live here; data loading is in ./recoveryPostingData.ts.
  */
 import { useCallback, useMemo, useState } from "react"
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { useQuery } from "@tanstack/react-query"
 import {
   MaterialReactTable,
@@ -487,7 +487,7 @@ function RecoveryPostingList() {
       const uniqueLoanIds = Array.from(new Set(selectedRowsWithDrafts.map((row) => row.loanId))).filter((id) => id > 0)
       const schedulerResponses = await Promise.all(
         uniqueLoanIds.map(async (loanId) => {
-          const { data } = await axios.get<Array<Record<string, unknown>>>(api.loanScheduler.list(loanId), {
+          const { data } = await apiClient.get<Array<Record<string, unknown>>>(api.loanScheduler.list(loanId), {
             timeout: 15000,
           })
           return { loanId, data }

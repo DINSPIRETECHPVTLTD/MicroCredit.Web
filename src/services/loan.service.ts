@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from '../lib/api';
 import type { AddLoanRequest, LoanResponse } from '../types/loan';
 
@@ -190,31 +190,31 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
 
 export const loanService = {
     async getLoans(): Promise<LoanResponse[]> {
-        const { data } = await axios.get<ApiLoanLike[]>(api.loans.list)
+        const { data } = await apiClient.get<ApiLoanLike[]>(api.loans.list)
         return (data ?? []).map(normalizeLoan)
     },
     async getActiveLoans(): Promise<LoanResponse[]> {
-        const { data } = await axios.get<ApiLoanLike[]>(api.loans.activeList)
+        const { data } = await apiClient.get<ApiLoanLike[]>(api.loans.activeList)
         return (data ?? []).map(normalizeLoan)
     },
 
     async addLoan(request : AddLoanRequest): Promise<number> {
-        const { data } = await axios.post(api.loans.addLoan, request)
+        const { data } = await apiClient.post(api.loans.addLoan, request)
         return data
     },
 
     async updateLoanStatus(loanId: number, status: string): Promise<LoanResponse> {
-        const { data } = await axios.post<ApiLoanLike>(api.loans.updateStatus(loanId), { status })
+        const { data } = await apiClient.post<ApiLoanLike>(api.loans.updateStatus(loanId), { status })
         return normalizeLoan(data)
     },
 
     async getLoanByMemId(memberId: number): Promise<LoanResponse[]> {
-        const { data } = await axios.get<ApiLoanLike[]>(api.loans.loanByMemId(memberId))
+        const { data } = await apiClient.get<ApiLoanLike[]>(api.loans.loanByMemId(memberId))
         return (data ?? []).map(normalizeLoan)
     },
 
     async claimLoan(loanId: number): Promise<ClaimLoanResponse> {
-        const { data } = await axios.post<ClaimLoanResponse>(api.loans.claim(loanId))
+        const { data } = await apiClient.post<ClaimLoanResponse>(api.loans.claim(loanId))
         return data ?? {}
     },
 }

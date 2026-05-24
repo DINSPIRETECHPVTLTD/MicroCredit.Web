@@ -36,4 +36,51 @@ export interface MemberByPocReportRow {
   /** Schedule due datetime / key from API (ISO string or `YYYY-MM-DD`). */
   scheduleDate: string | null
   statusRaw: string | boolean | null | undefined
+  /** Loan scheduler status (e.g. NotPaid, Partial, Overdue, Claimed). */
+  loanSchedulerStatus: string
+}
+
+/** GET /Report/poc-collection-staff-by-branch/{branchId} */
+export interface PocCollectionStaffReportRow {
+  userId: number
+  userFullName: string
+  userRole: string
+}
+
+/** GET /Report/staff-schedules-by-branch/{branchId} */
+export interface StaffScheduleReportRow {
+  pocId: number
+  pocStaffId: number
+  userId: number
+  pocFullName: string
+  userFullName: string
+  memberFullName: string
+  memberId: number
+  centerId: number
+  pocIsDeleted: boolean
+  loanSchedulerId: number
+  actualEmiAmount: number
+  scheduleDate: string | null
+  branchId: number
+  userRole: string
+}
+
+/** Staff row for expandable staff-schedules report UI. */
+export interface StaffScheduleSummaryRow {
+  userId: number
+  userFullName: string
+  userRole: string
+  pocCount: number
+  scheduleCount: number
+  totalAmount: number
+}
+
+/** POC aggregate under a staff collector in staff-schedules report. */
+export interface StaffSchedulePocSummaryRow {
+  pocId: number
+  pocFullName: string
+  centerId: number
+  memberCount: number
+  totalAmount: number
+  scheduleLines: StaffScheduleReportRow[]
 }

@@ -3,13 +3,9 @@ import { type MRT_ColumnDef, MaterialReactTable } from "material-react-table"
 import { useNavigate } from "react-router-dom"
 import { Eye, IndianRupee } from "lucide-react"
 import { Button } from "../../components/ui/button"
-import { useQuery, useQueries } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import type { LoanResponse } from "../../types/loan"
 import { loanService } from "../../services/loan.service"
-import {
-  countPaidPartialOverTotalEmis,
-  fetchLoanSchedulerList,
-} from "../../services/loanScheduler.service"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -42,29 +38,11 @@ function ManageLoanList() {
     queryKey: ["manageLoansAllStatuses"],
     queryFn: () => loanService.getActiveLoans(),
   })
-  const schedulerQueries = useQueries({
-    queries: loans.map((loan) => ({
-      queryKey: ["loanSchedulers", loan.loanId],
-      queryFn: () => fetchLoanSchedulerList(loan.loanId),
-      enabled: !isLoading && loans.length > 0,
-      staleTime: 60_000,
-    })),
-  })
 
-  const getEmiProgressLabel = useCallback(
-    (loan: LoanResponse): string => {
-      const idx = loans.findIndex((l) => l.loanId === loan.loanId)
-      const q = idx >= 0 ? schedulerQueries[idx] : undefined
-      if (!q) return loan.noOfTerms || "-"
-      if (q.isLoading) return "…"
-      if (q.isError) return loan.noOfTerms || "-"
-      const rows = q.data ?? []
-      if (rows.length === 0) return loan.noOfTerms || "-"
-      const { paidPartialCount, totalEmis } = countPaidPartialOverTotalEmis(rows)
-      return `${paidPartialCount}/${totalEmis}`
-    },
-    [loans, schedulerQueries]
-  )
+  const paidNoOfTermsLabel = useCallback((loan: LoanResponse): string => {
+    const v = loan.noOfTerms?.trim()
+    return v && v.length > 0 ? v : "-"
+  }, [])
 
   const handleViewLoan = useCallback(
     (loan: LoanResponse) => {
@@ -112,7 +90,7 @@ function ManageLoanList() {
       {
         accessorKey: "noOfTerms",
         header: "Paid/NoOfTerms",
-        Cell: ({ row }) => getEmiProgressLabel(row.original),
+        Cell: ({ row }) => paidNoOfTermsLabel(row.original),
       },
       {
         accessorKey: "totalAmountPaid",
@@ -156,7 +134,7 @@ function ManageLoanList() {
         ),
       },
     ],
-    [getEmiProgressLabel, handleViewLoan, handlePrepayment]
+    [paidNoOfTermsLabel, handleViewLoan, handlePrepayment]
   )
 
   return (

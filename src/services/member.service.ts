@@ -1,4 +1,4 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import type { MemberResponse } from "@/types/member"
 
@@ -51,23 +51,23 @@ export interface MemberSaveRequest {
 
 export const memberService = {
   async getByBranch(branchId: number): Promise<MemberResponse[]> {
-    const { data } = await axios.get<MemberResponse | MemberResponse[]>(
+    const { data } = await apiClient.get<MemberResponse | MemberResponse[]>(
       api.members.listByBranch(branchId)
     )
     return Array.isArray(data) ? data : [data]
   },
 
   async createMember(request: MemberSaveRequest): Promise<MemberResponse> {
-    const { data } = await axios.post(api.members.create(), request)
+    const { data } = await apiClient.post(api.members.create(), request)
     return normalizeMemberResponse(data)
   },
 
   async updateMember(id: number, request: MemberSaveRequest): Promise<MemberResponse> {
-    const { data } = await axios.put(api.members.update(id), request)
+    const { data } = await apiClient.put(api.members.update(id), request)
     return normalizeMemberResponse(data)
   },
 
   async setInactive(id: number): Promise<void> {
-    await axios.delete(api.members.setInactive(id))
+    await apiClient.delete(api.members.setInactive(id))
   },
 }

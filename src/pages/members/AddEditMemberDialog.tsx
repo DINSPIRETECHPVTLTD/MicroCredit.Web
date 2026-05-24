@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import toast from "react-hot-toast"
 import axios from "axios"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { MemberResponse } from "@/types/member"
@@ -20,6 +20,16 @@ import { userService } from "@/services/user.service"
 import type { UserResponse } from "@/types/user"
 import Autocomplete from "@mui/material/Autocomplete"
 import TextField from "@mui/material/TextField"
+import {
+  MemberCreateConfirmationDialog,
+  type MemberCreatePreviewData,
+} from "@/components/members/MemberCreateConfirmationDialog"
+import {
+  formDataToSnapshot,
+  getChangedFieldKeys,
+  memberToFormSnapshot,
+  type MemberPreviewFieldKey,
+} from "@/components/members/member-preview-utils"
 
 const phoneRegex = /^[6-9]\d{9}$/
 const aadhaarRegex = /^\d{12}$/
@@ -272,9 +282,17 @@ function normalizeRelationshipForForm(
 }
 
 export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
+  const queryClient = useQueryClient()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [saving, setSaving] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = React.useState(false)
+  const [previewMode, setPreviewMode] = React.useState<"create" | "edit">("create")
+  const [pendingData, setPendingData] = React.useState<CreateFormData | null>(null)
+  const [changedFieldKeys, setChangedFieldKeys] = React.useState<Set<MemberPreviewFieldKey>>(
+    () => new Set()
+  )
+  const [previewError, setPreviewError] = React.useState<string | null>(null)
 
   const isEdit = value?.mode === "edit"
   const editMember = isEdit && value ? value.member : null
@@ -508,8 +526,78 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   if (value === null) return null
 
   const close = () => {
+    setPreviewOpen(false)
+    setPendingData(null)
+    setChangedFieldKeys(new Set())
+    setPreviewMode("create")
+    setPreviewError(null)
     dialogRef.current?.close()
     onClose()
+  }
+
+  const closePreview = () => {
+    setPreviewOpen(false)
+    setPendingData(null)
+    setChangedFieldKeys(new Set())
+    setPreviewError(null)
+  }
+
+  const buildPreviewData = (
+    data: CreateFormData,
+    member?: MemberResponse | null
+  ): MemberCreatePreviewData => {
+    const center = centers.find((c) => c.id === data.centerId)
+    const poc = pocsForAutocomplete.find((p) => p.id === data.pocId)
+    const stateLookup = stateLookups.find(
+      (s) => s.lookupCode === data.state || s.lookupValue === data.state
+    )
+    const relLookup = relationshipLookups.find((r) => r.lookupCode === data.relationship)
+    const relationshipLabel =
+      data.relationship === "Other"
+        ? data.relationshipOther?.trim() || "Other"
+        : relLookup?.lookupValue ?? data.relationship
+    const collector = users.find((u) => u.id === data.collectedBy)
+    const feeAmount =
+      data.joiningFeeAmount !== "" && data.joiningFeeAmount != null
+        ? String(data.joiningFeeAmount)
+        : ""
+
+    return {
+      memberId:
+        member != null
+          ? String(member.memberId ?? member.id)
+          : undefined,
+      firstName: data.firstName,
+      middleName: data.middleName,
+      lastName: data.lastName,
+      occupation: data.occupation,
+      dob: data.dob,
+      age: data.age != null ? String(data.age) : "",
+      aadhaar: data.aadhaar,
+      phoneNumber: data.phoneNumber,
+      altPhone: data.altPhone,
+      address1: data.address1,
+      address2: data.address2,
+      city: data.city,
+      stateLabel: stateLookup?.lookupValue ?? data.state,
+      zipCode: data.zipCode,
+      guardianFirstName: data.guardianFirstName,
+      guardianLastName: data.guardianLastName,
+      guardianPhone: data.guardianPhone,
+      relationshipLabel,
+      guardianDOB: data.guardianDOB,
+      guardianAge: data.guardianAge != null ? String(data.guardianAge) : "",
+      branchName: getBranch()?.name ?? "—",
+      centerName: center?.name ?? "—",
+      pocName: poc?.name ?? "—",
+      paymentModeLabel: data.paymentMode ?? "",
+      joiningFeeAmount: feeAmount,
+      paidDate: data.paidDate ?? "",
+      collectedByName: collector
+        ? `${collector.firstName} ${collector.surname}`.trim()
+        : "—",
+      comments: data.comments,
+    }
   }
 
   const onValidationError = (errors: FieldErrors<CreateFormData>) => {
@@ -549,6 +637,93 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         : calculateAgeFromIso(data.guardianDOB) ?? 0,
   })
 
+  const executeCreateMember = async (data: CreateFormData): Promise<void> => {
+    const request = buildRequest(data)
+    const created = await memberService.createMember(request)
+    const newMemberId = created.id > 0 ? created.id : (created.memberId ?? 0)
+
+    const amountValue =
+      data.joiningFeeAmount !== "" && data.joiningFeeAmount != null
+        ? Number(data.joiningFeeAmount)
+        : NaN
+
+    if (
+      newMemberId > 0 &&
+      !Number.isNaN(amountValue) &&
+      amountValue > 0 &&
+      data.paidDate &&
+      data.collectedBy &&
+      data.collectedBy > 0
+    ) {
+      try {
+        await memberFeeService.createFee({
+          memberId: newMemberId,
+          amount: amountValue,
+          paidDate: data.paidDate,
+          collectedBy: data.collectedBy,
+          paymentMode: data.paymentMode || null,
+          comments: data.comments || null,
+        })
+      } catch (feeErr: unknown) {
+        const msg = getApiErrorMessage(feeErr, "Failed to save membership fee")
+        await queryClient.invalidateQueries({ queryKey: ["members"] })
+        throw new Error(msg)
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["members"] })
+    toast.success("Member created successfully")
+    closePreview()
+    onSuccess()
+    close()
+  }
+
+  const executeUpdateMember = async (
+    data: CreateFormData,
+    memberId: number
+  ): Promise<void> => {
+    const request = buildRequest(data)
+    await memberService.updateMember(memberId, request)
+    await queryClient.invalidateQueries({ queryKey: ["members"] })
+    toast.success("Member updated successfully")
+    closePreview()
+    onSuccess()
+    close()
+  }
+
+  const handleConfirmSubmit = async () => {
+    if (!pendingData || saving) return
+    setPreviewError(null)
+    setSaving(true)
+    try {
+      if (previewMode === "edit" && editMember) {
+        await executeUpdateMember(pendingData, editMember.id)
+      } else {
+        await executeCreateMember(pendingData)
+      }
+    } catch (err: unknown) {
+      const fallback =
+        previewMode === "edit" ? "Failed to update member" : "Failed to create member"
+      const message = getApiErrorMessage(err, fallback)
+      if (
+        (message.toLowerCase().includes("aadhaar") &&
+          message.toLowerCase().includes("already exists")) ||
+        message.toLowerCase().includes(duplicateRecordMessage.toLowerCase())
+      ) {
+        form.setError("aadhaar", { type: "manual", message: aadhaarDuplicateMessage })
+        setPreviewError(aadhaarDuplicateMessage)
+        closePreview()
+        setErrorMessage(aadhaarDuplicateMessage)
+        toast.error(aadhaarDuplicateMessage)
+        return
+      }
+      setPreviewError(message)
+      toast.error(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const onSubmit = async (data: CreateFormData) => {
     setErrorMessage(null)
     const age = calculateAgeFromIso(data.dob)
@@ -558,65 +733,32 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
       return
     }
 
-    setSaving(true)
-    const request = buildRequest(data)
-    try {
-      if (isEdit && editMember) {
-        await memberService.updateMember(editMember.id, request)
-        toast.success("Member updated successfully")
-      } else {
-        const created = await memberService.createMember(request)
-        const newMemberId = created.id > 0 ? created.id : (created.memberId ?? 0)
-
-        const amountValue =
-          data.joiningFeeAmount !== "" && data.joiningFeeAmount != null
-            ? Number(data.joiningFeeAmount)
-            : NaN
-
-        if (
-          newMemberId > 0 &&
-          !Number.isNaN(amountValue) &&
-          amountValue > 0 &&
-          data.paidDate &&
-          data.collectedBy && data.collectedBy > 0
-        ) {
-          try {
-            await memberFeeService.createFee({
-              memberId: newMemberId,
-              amount: amountValue,
-              paidDate: data.paidDate,
-              collectedBy: data.collectedBy,
-              paymentMode: data.paymentMode || null,
-              comments: data.comments || null,
-            })
-          } catch (feeErr: unknown) {
-            const msg = getApiErrorMessage(feeErr, "Failed to save membership fee")
-            setErrorMessage(msg)
-            toast.error(msg)
-            return
-          }
-        }
-
-        toast.success("Member created successfully")
-      }
-      onSuccess()
-      close()
-    } catch (err: unknown) {
-      const message = getApiErrorMessage(err, isEdit ? "Failed to update member" : "Failed to create member")
-      if (
-        message.toLowerCase().includes("aadhaar") && message.toLowerCase().includes("already exists") ||
-        message.toLowerCase().includes(duplicateRecordMessage.toLowerCase())
-      ) {
-        form.setError("aadhaar", { type: "manual", message: aadhaarDuplicateMessage })
-        setErrorMessage(aadhaarDuplicateMessage)
+    if (isEdit && editMember) {
+      const baseline = memberToFormSnapshot(editMember, relationshipLookups)
+      const current = formDataToSnapshot(data)
+      const changed = getChangedFieldKeys(baseline, current)
+      if (changed.size === 0) {
+        toast.error("No changes to save")
         return
       }
-      setErrorMessage(message)
-      toast.error(message)
-    } finally {
-      setSaving(false)
+      setPreviewMode("edit")
+      setChangedFieldKeys(changed)
+      setPendingData(data)
+      setPreviewError(null)
+      setPreviewOpen(true)
+      return
     }
+
+    setPreviewMode("create")
+    setChangedFieldKeys(new Set())
+    setPendingData(data)
+    setPreviewError(null)
+    setPreviewOpen(true)
   }
+
+  const previewData = pendingData
+    ? buildPreviewData(pendingData, isEdit ? editMember : null)
+    : null
 
   return (
     <dialog
@@ -1085,11 +1227,22 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
           <Button type="button" variant="outline" onClick={close}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? (isEdit ? "Updating…" : "Creating…") : isEdit ? "Update member" : "Create member"}
+          <Button type="submit" disabled={saving || previewOpen}>
+            {isEdit ? "Update member" : "Create member"}
           </Button>
         </div>
       </form>
+
+      <MemberCreateConfirmationDialog
+        open={previewOpen}
+        mode={previewMode}
+        preview={previewData}
+        changedFields={changedFieldKeys}
+        isSubmitting={saving}
+        errorMessage={previewError}
+        onEdit={closePreview}
+        onConfirm={() => void handleConfirmSubmit()}
+      />
     </dialog>
   )
 }

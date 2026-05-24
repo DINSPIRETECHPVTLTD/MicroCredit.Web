@@ -1,4 +1,4 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -248,7 +248,7 @@ export default function LoanPrepayment() {
   const { data: baseRows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["loan-prepayment-schedulers", loanId],
     queryFn: async () => {
-      const { data } = await axios.get<LoanSchedulerApiRow[]>(api.loanScheduler.list(loanId))
+      const { data } = await apiClient.get<LoanSchedulerApiRow[]>(api.loanScheduler.list(loanId))
       return (Array.isArray(data) ? data : []).map(mapSchedulerRow)
     },
     enabled: Number.isFinite(loanId) && loanId > 0,
@@ -678,7 +678,7 @@ export default function LoanPrepayment() {
           skipLedgerTransaction: true,
         })
         emiPosted = true
-        const closeRes = await axios.put<{
+        const closeRes = await apiClient.put<{
           loanId: number
           isClosed: boolean
           status: string

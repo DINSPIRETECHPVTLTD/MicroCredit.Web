@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { resetQueriesOnContextSwitch } from "@/lib/auth"
 import { type MRT_ColumnDef, MaterialReactTable } from "material-react-table"
 import { useNavigate } from "react-router-dom"
 import { Plus, Pencil, UserX } from "lucide-react"
@@ -24,6 +25,7 @@ const INACTIVE_DIALOG_TOASTER_ID = "branch-inactive-dialog"
 
 function BranchList() {
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const [inactiveBranch, setInactiveBranch] = useState<BranchResponse | null>(null)
     const [addEditDialog, setAddEditDialog] = useState<AddEditBranchDialogMode | null>(null)
 
@@ -35,12 +37,13 @@ function BranchList() {
     const handleNavigateToBranch = useCallback(async (branch: BranchResponse) => {
         try {
             await authService.navigateToBranch(branch.id)
+            resetQueriesOnContextSwitch(queryClient)
             toast.success(`Switched to ${branch.name}`)
             navigate("/", { replace: true })
         } catch (err) {
             toast.error(getApiErrorMessage(err, "Failed to switch branch"))
         }
-    }, [navigate])
+    }, [navigate, queryClient])
 
     const columns = useMemo<MRT_ColumnDef<BranchResponse>[]>(
         () => [

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from '../lib/api';
 import type { CreateFundTransferRequest, LedgerBalanceResponse } from '../types/ledgerBalance';
 
@@ -30,11 +30,11 @@ function normalizeLedgerBalance(row: ApiLedgerBalanceLike): LedgerBalanceRespons
 
 export const ledgerBalanceService = {
     async getLedgerBalances(): Promise<LedgerBalanceResponse[]> {
-        const { data } = await axios.get<ApiLedgerBalanceLike[]>(api.ledgerBalances.list)
+        const { data } = await apiClient.get<ApiLedgerBalanceLike[]>(api.ledgerBalances.list)
         return (data ?? []).map(normalizeLedgerBalance)
     },
 
     async createFundTransfer(payload: CreateFundTransferRequest): Promise<void> {
-        await axios.post(api.ledgerBalances.fundTransfer, payload)
+        await apiClient.post(api.ledgerBalances.fundTransfer, payload)
     }
 };

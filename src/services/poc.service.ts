@@ -1,4 +1,4 @@
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import type { PocResponse } from "@/types/poc"
 
@@ -23,7 +23,7 @@ export interface PocSaveRequest {
 export const pocService = {
   // GET /POC/{branchId}
   async getByBranch(branchId: number): Promise<PocResponse[]> {
-    const { data } = await axios.get<PocResponse | PocResponse[]>(
+    const { data } = await apiClient.get<PocResponse | PocResponse[]>(
       api.pocs.listByBranch(branchId)
     )
   
@@ -33,23 +33,23 @@ export const pocService = {
   
   // POST /POC
   async createPoc(request: PocSaveRequest): Promise<PocResponse> {
-    const { data } = await axios.post<PocResponse>(api.pocs.create(), request)
+    const { data } = await apiClient.post<PocResponse>(api.pocs.create(), request)
     return data
   },
 
   // PUT /POC/{id}
   async updatePoc(id: number, request: PocSaveRequest): Promise<PocResponse> {
-    const { data } = await axios.put<PocResponse>(api.pocs.update(id), request)
+    const { data } = await apiClient.put<PocResponse>(api.pocs.update(id), request)
     return data
   },
 
   // DELETE /POC/{id}/inactive
   async setInactive(id: number): Promise<void> {
-    await axios.delete(api.pocs.setInactive(id))
+    await apiClient.delete(api.pocs.setInactive(id))
   },
 
   async getByid(id: number): Promise<PocResponse> {
-    const { data } = await axios.get<PocResponse>(api.pocs.getById(id))
+    const { data } = await apiClient.get<PocResponse>(api.pocs.getById(id))
     return data
   }
 }

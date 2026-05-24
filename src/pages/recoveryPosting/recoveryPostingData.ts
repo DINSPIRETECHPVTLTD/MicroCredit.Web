@@ -1,7 +1,7 @@
 /**
  * Recovery Posting — loads schedulers via GET /RecoveryPosting/schedulers (query: scheduleDate, centerId, pocId).
  */
-import axios from "axios"
+import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import { deriveStatusFromAmounts } from "./recoveryPostingCalculations"
 
@@ -186,7 +186,7 @@ export async function fetchRecoveryPostingSchedulers(
   params: RecoveryPostingSearchParams
 ): Promise<RecoveryPostingRow[]> {
   const { dateKey, centerId, pocId } = params
-  const { data } = await axios.get<RecoveryPostingApiRow[]>(api.recoveryPosting.schedulers, {
+  const { data } = await apiClient.get<RecoveryPostingApiRow[]>(api.recoveryPosting.schedulers, {
     params: {
       scheduleDate: `${dateKey}T00:00:00`,
       ...(centerId > 0 ? { centerId } : {}),
@@ -215,7 +215,7 @@ export type RecoveryPostingPostPayload = {
 export async function postRecoveryPosting(
   payload: RecoveryPostingPostPayload
 ): Promise<{ postedCount: number; message?: string }> {
-  const { data } = await axios.post<{ postedCount: number; message?: string }>(
+  const { data } = await apiClient.post<{ postedCount: number; message?: string }>(
     api.recoveryPosting.post,
     payload
   )
