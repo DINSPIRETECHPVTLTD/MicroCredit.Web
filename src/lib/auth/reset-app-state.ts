@@ -36,12 +36,16 @@ export async function resetAppState(
     queryClient.clear()
   }
 
-  if (toastMessage) {
-    toast.error(toastMessage, { id: "auth-reset" })
+  if (redirect) {
+    if (toastMessage) {
+      toast.error(toastMessage, { id: "auth-reset" })
+    }
+    redirectToLogin()
+    return
   }
 
-  if (redirect) {
-    redirectToLogin()
+  if (toastMessage) {
+    toast.error(toastMessage, { id: "auth-reset" })
   }
 }
 

@@ -5,8 +5,8 @@ export const AUTH_STORAGE_KEY = "auth_session"
 export const AUTH_BROADCAST_CHANNEL = "mcs-auth"
 
 export type AuthBroadcastMessage =
-  | { type: "LOGOUT" }
-  | { type: "SESSION_UPDATE" }
+  | { type: "LOGOUT"; sourceId: string }
+  | { type: "SESSION_UPDATE"; sourceId: string }
 
 export const AUTH_PATH_MARKERS = ["/auth/login", "/auth/refresh", "/auth/logout"] as const
 

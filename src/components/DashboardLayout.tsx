@@ -124,8 +124,8 @@ export default function DashboardLayout() {
   }
 
   const handleLogout = async () => {
-    await resetAppState(queryClient, { redirect: false })
-    navigate("/login", { replace: true })
+    // Single full-page redirect — avoids race with BroadcastChannel logout + queryClient.clear()
+    await resetAppState(queryClient, { redirect: true })
   }
 
   return (
