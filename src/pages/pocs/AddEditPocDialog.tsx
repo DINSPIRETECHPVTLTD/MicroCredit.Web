@@ -38,7 +38,7 @@ const loadPocFormOptions = async (): Promise<PocFormOptions> => {
   if (!pocFormOptionsRequest) {
     pocFormOptionsRequest = Promise.all([
       userService.getCollectedByUsers(),
-      centerService.getCenters(),
+      centerService.getCenters().then((r) => r.centers),
       masterlookupService.getMasterLookups(),
     ]).then(([usersData, centersData, masterLookupsData]) => ({
       usersData,

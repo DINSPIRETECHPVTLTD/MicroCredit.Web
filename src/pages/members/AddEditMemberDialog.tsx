@@ -303,7 +303,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
   const { data: centers = [] } = useQuery({
     queryKey: ["centers"],
-    queryFn: () => centerService.getCenters(),
+    queryFn: async () => (await centerService.getCenters()).centers,
     enabled: isOpen,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,

@@ -205,7 +205,7 @@ function RecoveryPostingList() {
 
   const { data: centersData } = useQuery({
     queryKey: ["centers"],
-    queryFn: () => centerService.getCenters(),
+    queryFn: async () => (await centerService.getCenters()).centers,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnMount: "always",
