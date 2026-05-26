@@ -1,6 +1,21 @@
 import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
-import type { PocResponse } from "@/types/poc"
+import type { PocResponse, PocsListApiResponse, PocsListResult } from "@/types/poc"
+
+function parsePocsListResponse(
+  data: PocResponse[] | PocsListApiResponse | PocResponse
+): PocsListResult {
+  if (Array.isArray(data)) {
+    return { pocs: data }
+  }
+  if (data && typeof data === "object" && "data" in data && Array.isArray(data.data)) {
+    return {
+      pocs: data.data,
+      emptyMessage: data.message,
+    }
+  }
+  return { pocs: [data as PocResponse] }
+}
 
 // This matches the backend UpdatePocRequest / CreatePocRequest shape.
 export interface PocSaveRequest {
@@ -22,13 +37,11 @@ export interface PocSaveRequest {
 
 export const pocService = {
   // GET /POC/{branchId}
-  async getByBranch(branchId: number): Promise<PocResponse[]> {
-    const { data } = await apiClient.get<PocResponse | PocResponse[]>(
+  async getByBranch(branchId: number): Promise<PocsListResult> {
+    const { data } = await apiClient.get<PocResponse | PocResponse[] | PocsListApiResponse>(
       api.pocs.listByBranch(branchId)
     )
-  
-    // If backend returns a single object, wrap it; if it returns an array, use as-is.
-    return Array.isArray(data) ? data : [data]
+    return parsePocsListResponse(data)
   },
   
   // POST /POC

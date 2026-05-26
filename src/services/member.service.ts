@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
-import type { MemberResponse } from "@/types/member"
+import type { MemberResponse, MembersListApiResponse, MembersListResult } from "@/types/member"
 
 function toNumber(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value
@@ -18,7 +18,10 @@ function normalizeMemberResponse(raw: unknown): MemberResponse {
   }
   const r = raw as Record<string, unknown>
   const id = toNumber(r.id ?? r.Id ?? r.memberId ?? r.MemberId)
-  return { ...(raw as MemberResponse), id }
+  const loanRaw = r.primaryOpenLoanId ?? r.PrimaryOpenLoanId
+  const loanN = typeof loanRaw === "number" ? loanRaw : Number(loanRaw)
+  const primaryOpenLoanId = Number.isFinite(loanN) && loanN > 0 ? loanN : null
+  return { ...(raw as MemberResponse), id, primaryOpenLoanId }
 }
 
 export interface MemberSaveRequest {
@@ -49,12 +52,27 @@ export interface MemberSaveRequest {
   guardianAge: number
 }
 
+function parseMembersListResponse(
+  data: MemberResponse | MemberResponse[] | MembersListApiResponse
+): MembersListResult {
+  if (Array.isArray(data)) {
+    return { members: data.map(normalizeMemberResponse) }
+  }
+  if (data && typeof data === "object" && "data" in data && Array.isArray(data.data)) {
+    return {
+      members: data.data.map(normalizeMemberResponse),
+      emptyMessage: data.message,
+    }
+  }
+  return { members: [normalizeMemberResponse(data)] }
+}
+
 export const memberService = {
-  async getByBranch(branchId: number): Promise<MemberResponse[]> {
-    const { data } = await apiClient.get<MemberResponse | MemberResponse[]>(
-      api.members.listByBranch(branchId)
-    )
-    return Array.isArray(data) ? data : [data]
+  async getByBranch(branchId: number): Promise<MembersListResult> {
+    const { data } = await apiClient.get<
+      MemberResponse | MemberResponse[] | MembersListApiResponse
+    >(api.members.listByBranch(branchId))
+    return parseMembersListResponse(data)
   },
 
   async createMember(request: MemberSaveRequest): Promise<MemberResponse> {

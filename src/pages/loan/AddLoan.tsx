@@ -3,22 +3,18 @@ import {
     MaterialReactTable,
   useMaterialReactTable,
 } from "material-react-table"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { searchMemberService } from "@/services/searchMemeberAddLoan.service"
 import type { SearchMemberResponse } from "@/types/searchMemeber"
 import AddLoanDialog from "./AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
-import { loanService } from "@/services/loan.service"
 
 function AddLoan() {
     const [selectedMember, setSelectedMember] = useState<SearchMemberResponse | null>(null)
     const [dialogOpen, setDialogOpen] = useState(false)
-    const [openedFromMemberPage, setOpenedFromMemberPage] = useState(false)
-
-    const [checkingLoan, setCheckingLoan] = useState(false)
     const queryClient = useQueryClient()
 
     const [firstName, setFirstName] = useState("")
@@ -27,114 +23,46 @@ function AddLoan() {
 
     const branch = getBranch()
     const branchId = branch?.id
-    const location = useLocation()
     const navigate = useNavigate()
-    const navState = location.state as
-      | {
-          from?: string
-          fromMemberPage?: boolean
-          memberId?: number
-          prefillMember?: Partial<SearchMemberResponse>
-        }
-      | null
 
     const searchBoxClass = "border-2 border-primary rounded-md px-3 py-2 text-sm flex-1 font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary"
 
+    /** Initial load + search: includes `primaryOpenLoanId` per member (open loan check). */
     const {
         data: members = [],
         isLoading: membersLoading,
-        refetch
         } = useQuery({
-        queryKey: ["searchMembers", firstName, middleName, lastName],
+        queryKey: ["searchMembers", branchId, firstName, middleName, lastName],
         enabled: !!branchId,
         queryFn: () => searchMemberService.getmembers({
             branchId: branchId!,
             firstName: firstName || "",
             middleName: middleName || "",
             lastName: lastName || ""
-        }) as Promise<SearchMemberResponse[]>
+        }) as Promise<SearchMemberResponse[]>,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
     })
+
+    /** One refresh after loan create so `primaryOpenLoanId` updates (View Loan vs Add Loan). */
+    const refreshAfterLoanChange = useCallback(async () => {
+      if (branchId == null) return
+      await queryClient.invalidateQueries({ queryKey: ["searchMembers", branchId] })
+    }, [queryClient, branchId])
 
     /** Members with loans: Manage Loan → View Schedule (`/loans/:loanId/scheduler`). Otherwise open Add Loan dialog. */
     const handleMemberLoanAction = useCallback(
-      async (member: SearchMemberResponse) => {
-        setCheckingLoan(true)
-        try {
-          // Always read latest state from API so recently closed loans do not remain blocked by cached data.
-          const loans = await loanService.getLoanByMemId(member.id)
-          if (loans.length > 0) {
-            const loanId = Math.max(...loans.map((l) => l.loanId))
-            navigate(`/loans/${loanId}/scheduler`)
-            return
-          }
-          setSelectedMember(member)
-          setDialogOpen(true)
-        } catch {
-          setSelectedMember(member)
-          setDialogOpen(true)
-        } finally {
-          setCheckingLoan(false)
+      (member: SearchMemberResponse) => {
+        const knownLoanId = member.primaryOpenLoanId
+        if (knownLoanId != null && knownLoanId > 0) {
+          navigate(`/loans/${knownLoanId}/scheduler`)
+          return
         }
+        setSelectedMember(member)
+        setDialogOpen(true)
       },
       [navigate]
     )
-
-    useEffect(() => {
-      if (!navState?.memberId && !navState?.prefillMember?.id) return
-      if (dialogOpen || checkingLoan) return
-      const launchedFromMember = navState.from === "member" || navState.fromMemberPage === true
-
-      const selectedId = navState.memberId ?? navState.prefillMember?.id
-      if (!selectedId) return
-
-      const found = members.find((m) => m.id === selectedId)
-      const memberFromState = navState.prefillMember
-      if (found) {
-        setOpenedFromMemberPage(launchedFromMember)
-        // Consume preselected member state once so Cancel won't reopen dialog.
-        navigate(location.pathname, { replace: true, state: null })
-        void handleMemberLoanAction(found)
-        return
-      }
-      if (!memberFromState?.id) return
-
-      const fallbackMember: SearchMemberResponse = {
-        id: memberFromState.id,
-        firstName: memberFromState.firstName ?? "",
-        middleName: memberFromState.middleName,
-        lastName: memberFromState.lastName ?? "",
-        phoneNumber: memberFromState.phoneNumber ?? "",
-        altPhone: memberFromState.altPhone,
-        address1: memberFromState.address1,
-        address2: memberFromState.address2,
-        city: memberFromState.city,
-        state: memberFromState.state,
-        zipCode: memberFromState.zipCode,
-        centerId: memberFromState.centerId,
-        branchId: memberFromState.branchId,
-        aadhaar: memberFromState.aadhaar,
-        occupation: memberFromState.occupation,
-        relationship: memberFromState.relationship,
-        dOB: memberFromState.dOB,
-        age: memberFromState.age,
-        guardianFirstName: memberFromState.guardianFirstName,
-        guardianMiddleName: memberFromState.guardianMiddleName,
-        guardianLastName: memberFromState.guardianLastName,
-        guardianPhone: memberFromState.guardianPhone,
-        guardianDOB: memberFromState.guardianDOB,
-        guardianAge: memberFromState.guardianAge,
-        pocId: memberFromState.pocId,
-        center: memberFromState.center ?? "",
-        poc: memberFromState.poc ?? "",
-        guardianName: memberFromState.guardianName ?? "",
-        name: memberFromState.name ?? "",
-        fullAddress: memberFromState.fullAddress ?? "",
-      }
-      setOpenedFromMemberPage(launchedFromMember)
-      // Consume preselected member state once so Cancel won't reopen dialog.
-      navigate(location.pathname, { replace: true, state: null })
-      void handleMemberLoanAction(fallbackMember)
-    }, [navState, members, dialogOpen, checkingLoan, navigate, location.pathname, handleMemberLoanAction])
 
     const columns = useMemo<MRT_ColumnDef<SearchMemberResponse>[]>(
         () => [
@@ -176,17 +104,16 @@ function AddLoan() {
                     variant="outline"
                     size="sm"
                     className="min-w-[6.25rem] px-2.5 text-xs font-medium justify-center"
-                    disabled={checkingLoan}
                     onClick={() => void handleMemberLoanAction(row.original)}
                   >
-                    {checkingLoan ? "…" : hasLoans ? "View" : "Add Loan"}
+                    {hasLoans ? "View Loan" : "Add Loan"}
                   </Button>
                 )
               },
             },
 
         ],
-        [checkingLoan, members, handleMemberLoanAction]
+        [handleMemberLoanAction]
     )
 
     const table = useMaterialReactTable({
@@ -204,20 +131,12 @@ function AddLoan() {
     })
 
     const handleCreated = async () => {
-      await refetch()
-      await queryClient.invalidateQueries({ queryKey: ["searchMembers"] })
+      await refreshAfterLoanChange()
     }
 
-  const handleDialogClose = (reason: "cancel" | "success") => {
+  const handleDialogClose = () => {
     setDialogOpen(false)
-    if (reason === "cancel" && openedFromMemberPage) {
-      setOpenedFromMemberPage(false)
-      navigate("/members", { replace: true })
-      return
-    }
-    if (reason === "success") {
-      setOpenedFromMemberPage(false)
-    }
+    setSelectedMember(null)
   }
 
     return (
@@ -250,8 +169,7 @@ function AddLoan() {
         onClose={handleDialogClose}
         onSuccess={handleCreated}
         member={selectedMember}
-        mode="add"
-        />
+      />
 
         
     </div>

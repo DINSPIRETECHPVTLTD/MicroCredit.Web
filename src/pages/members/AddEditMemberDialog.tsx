@@ -303,7 +303,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
   const { data: centers = [] } = useQuery({
     queryKey: ["centers"],
-    queryFn: () => centerService.getCenters(),
+    queryFn: async () => (await centerService.getCenters()).centers,
     enabled: isOpen,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
@@ -385,7 +385,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
   const { data: pocsByBranch = [] } = useQuery({
     queryKey: ["pocs", branchId],
-    queryFn: () => pocService.getByBranch(branchId!),
+    queryFn: async () => (await pocService.getByBranch(branchId!)).pocs,
     enabled: isOpen && !!branchId && !!selectedCenterId,
   })
 
@@ -666,12 +666,14 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         })
       } catch (feeErr: unknown) {
         const msg = getApiErrorMessage(feeErr, "Failed to save membership fee")
-        await queryClient.invalidateQueries({ queryKey: ["members"] })
+        const branchId = getBranch()?.id
+        if (branchId != null) {
+          await queryClient.invalidateQueries({ queryKey: ["members", branchId] })
+        }
         throw new Error(msg)
       }
     }
 
-    await queryClient.invalidateQueries({ queryKey: ["members"] })
     toast.success("Member created successfully")
     closePreview()
     onSuccess()
@@ -684,7 +686,6 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   ): Promise<void> => {
     const request = buildRequest(data)
     await memberService.updateMember(memberId, request)
-    await queryClient.invalidateQueries({ queryKey: ["members"] })
     toast.success("Member updated successfully")
     closePreview()
     onSuccess()

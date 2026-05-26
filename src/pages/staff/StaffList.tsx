@@ -45,13 +45,15 @@ function StaffList() {
     const [setInactiveUser, setSetInactiveUser] = useState<StaffResponse | null>(null)
     const [addEditDialog, setAddEditDialog] = useState<AddEditDialogMode | null>(null)
     const {
-        data: staffs = [],
+        data: staffResult,
         isLoading,
         refetch,
     } = useQuery({
         queryKey: ["staff"],
         queryFn: () => staffService.getStaffs(),
     })
+    const staffs = staffResult?.staff ?? []
+    const emptyMessage = staffResult?.emptyMessage
 
     const columns = useMemo<MRT_ColumnDef<StaffResponse>[]>(
         () => [
@@ -76,7 +78,7 @@ function StaffList() {
             {
                 id: "address",
                 header: "Address",
-                accessorFn: (row) => row.address || row.address1 || "ù",
+                accessorFn: (row) => row.address || row.address1 || "?",
             },
             {
                 id: "actions",
@@ -119,7 +121,7 @@ function StaffList() {
 
             {!isLoading && staffs.length === 0 ? (
                 <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-                    <p>No staff found</p>
+                    <p>{emptyMessage ?? "No staff found"}</p>
                     <p className="text-sm mt-1">Click &quot;Add Staff&quot; to create a new staff member</p>
                     <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
                         Add Staff
@@ -265,7 +267,7 @@ function ResetPasswordDialog({
                         Cancel
                     </Button>
                     <Button type="submit" disabled={submitting}>
-                        {submitting ? "Resettingù" : "Reset password"}
+                        {submitting ? "Resetting?" : "Reset password"}
                     </Button>
                 </div>
             </form>
@@ -334,7 +336,7 @@ function SetInactiveDialog({
                         Cancel
                     </Button>
                     <Button type="button" onClick={handleConfirm} disabled={submitting}>
-                        {submitting ? "Settingù" : "Set inactive"}
+                        {submitting ? "Setting?" : "Set inactive"}
                     </Button>
                 </div>
             </div>

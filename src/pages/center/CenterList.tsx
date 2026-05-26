@@ -24,10 +24,12 @@ function CenterList() {
   const [inactiveCenter, setInactiveCenter] = useState<CenterResponse | null>(null)
   const [addEditDialog, setAddEditDialog] = useState<AddEditCenterDialogMode | null>(null)
 
-  const { data: centers = [], isLoading, refetch } = useQuery({
+  const { data: centersResult, isLoading, refetch } = useQuery({
     queryKey: ["centers"],
     queryFn: () => centerService.getCenters(),
   })
+  const centers = centersResult?.centers ?? []
+  const emptyMessage = centersResult?.emptyMessage
 
   const columns = useMemo<MRT_ColumnDef<CenterResponse>[]>(
     () => [
@@ -76,7 +78,7 @@ function CenterList() {
 
       {!isLoading && centers.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-          <p>No centers found</p>
+          <p>{emptyMessage ?? "No centers found"}</p>
           <p className="mt-1 text-sm">Click &quot;Add Center&quot; to create a new center</p>
           <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
             Add Center

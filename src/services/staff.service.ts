@@ -1,11 +1,31 @@
 import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
-import type { StaffResponse, CreateStaffRequest, UpdateStaffRequest } from "@/types/staff"
+import type {
+    StaffResponse,
+    CreateStaffRequest,
+    UpdateStaffRequest,
+    StaffListApiResponse,
+    StaffListResult,
+} from "@/types/staff"
+
+function parseStaffListResponse(
+    data: StaffResponse[] | StaffListApiResponse
+): StaffListResult {
+    if (Array.isArray(data)) {
+        return { staff: data }
+    }
+    return {
+        staff: data.data ?? [],
+        emptyMessage: data.message,
+    }
+}
 
 export const staffService = {
-    async getStaffs(): Promise<StaffResponse[]> {
-        const { data } = await apiClient.get<StaffResponse[]>(api.staff.list)
-        return data
+    async getStaffs(): Promise<StaffListResult> {
+        const { data } = await apiClient.get<StaffResponse[] | StaffListApiResponse>(
+            api.staff.list
+        )
+        return parseStaffListResponse(data)
     },
 
     async createStaff(request: CreateStaffRequest): Promise<unknown> {
