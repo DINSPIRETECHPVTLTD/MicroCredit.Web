@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import toast, { Toaster } from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import type { MemberResponse } from "@/types/member"
+import type { SearchMemberResponse } from "@/types/searchMemeber"
 import { memberService } from "@/services/member.service"
 import { AddEditMemberDialog, type AddEditMemberDialogMode } from "@/pages/members/AddEditMemberDialog"
+import AddLoanDialog from "@/pages/loan/AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
+import { memberToSearchMember } from "@/lib/members/member-to-search-member"
 import MemberGrid from "@/components/members/MemberGrid"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
@@ -24,23 +27,33 @@ const INACTIVE_DIALOG_TOASTER_ID = "member-inactive-dialog"
 
 function MemberList() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const branch = getBranch()
   const branchId = branch?.id
 
   const [addEditDialog, setAddEditDialog] = useState<AddEditMemberDialogMode | null>(null)
   const [inactiveMember, setInactiveMember] = useState<MemberResponse | null>(null)
+  const [addLoanMember, setAddLoanMember] = useState<SearchMemberResponse | null>(null)
 
   const {
-    data: members = [],
+    data: membersResult,
     isLoading,
-    refetch,
   } = useQuery({
     queryKey: ["members", branchId],
     enabled: !!branchId,
     queryFn: () => memberService.getByBranch(branchId!),
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
+  const members = membersResult?.members ?? []
+  const emptyMessage = membersResult?.emptyMessage
+
+  /** Single refresh after create/update/inactive — avoid duplicate GET /Member/by-branch. */
+  const refreshMemberList = useCallback(async () => {
+    if (branchId == null) return
+    await queryClient.invalidateQueries({ queryKey: ["members", branchId] })
+  }, [queryClient, branchId])
 
   return (
     <div>
@@ -54,7 +67,7 @@ function MemberList() {
 
       {!isLoading && members.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-          <p>No members found</p>
+          <p>{emptyMessage ?? "No members found"}</p>
           <p className="mt-1 text-sm">Click &quot;Add Member&quot; to create one.</p>
           <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
             Add Member
@@ -66,25 +79,14 @@ function MemberList() {
           isLoading={isLoading}
           onOpenEdit={(m) => setAddEditDialog({ mode: "edit", member: m })}
           onOpenSetInactive={setInactiveMember}
-          onOpenAddLoan={(row) =>
-            navigate("/loans/add", {
-              state: {
-                from: "member",
-                fromMemberPage: true,
-                memberId: row.id,
-                prefillMember: {
-                  id: row.id,
-                  name: row.name ?? [row.firstName, row.lastName].filter(Boolean).join(" "),
-                  phoneNumber: row.phoneNumber ?? row.memberPhone ?? "",
-                  guardianName: row.guardianName ?? "",
-                  fullAddress: row.fullAddress ?? "",
-                  center: row.center ?? row.centerName ?? "",
-                  poc: row.poc ?? "",
-                  pocId: row.pocId ?? undefined,
-                },
-              },
-            })
-          }
+          onMemberLoanAction={(row) => {
+            const loanId = row.primaryOpenLoanId
+            if (loanId != null && loanId > 0) {
+              navigate(`/loans/${loanId}/scheduler`)
+              return
+            }
+            setAddLoanMember(memberToSearchMember(row))
+          }}
         />
       )}
 
@@ -93,7 +95,7 @@ function MemberList() {
           member={inactiveMember}
           onClose={() => setInactiveMember(null)}
           onSuccess={async () => {
-            await refetch()
+            await refreshMemberList()
             setInactiveMember(null)
           }}
         />
@@ -102,8 +104,18 @@ function MemberList() {
         value={addEditDialog}
         onClose={() => setAddEditDialog(null)}
         onSuccess={async () => {
-          await refetch()
+          await refreshMemberList()
           setAddEditDialog(null)
+        }}
+      />
+
+      <AddLoanDialog
+        open={addLoanMember != null}
+        member={addLoanMember}
+        onClose={() => setAddLoanMember(null)}
+        onSuccess={async () => {
+          await refreshMemberList()
+          setAddLoanMember(null)
         }}
       />
     </div>

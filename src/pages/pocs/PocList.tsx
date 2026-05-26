@@ -30,7 +30,7 @@ function PocList() {
 
   // Fetch POCs for current branch. Only runs when branchId is set (user is in branch context).
   const {
-    data: pocs = [],
+    data: pocsResult,
     isLoading,
     refetch,
   } = useQuery({
@@ -38,6 +38,8 @@ function PocList() {
     enabled: !!branchId,
     queryFn: () => pocService.getByBranch(branchId!),
   })
+  const pocs = pocsResult?.pocs ?? []
+  const emptyMessage = pocsResult?.emptyMessage
 
   // Table column definitions. "name", "centerName", "fullAddress" come from backend response.
   const columns = useMemo<MRT_ColumnDef<PocResponse>[]>(
@@ -86,7 +88,7 @@ function PocList() {
       {/* Empty state when no POCs; otherwise show the data table. */}
       {!isLoading && pocs.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-          <p>No POCs found</p>
+          <p>{emptyMessage ?? "No POCs found"}</p>
           <p className="text-sm mt-1">Click "Add POC" to create one.</p>
           <Button className="mt-4" onClick={() => setAddEditDialog({ mode: "add" })}>
             Add POC

@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { cn } from "@/lib/utils"
 import { useQuery } from "@tanstack/react-query"
-import { useNavigate } from "react-router-dom"
 import type { PaymentTermResponse } from "@/types/paymentTerm"
 import { paymentTermService } from "@/services/paymentTerm.service"
 import { pocService } from "@/services/poc.service"
@@ -16,16 +15,13 @@ import { getSession } from "@/services/auth.service"
 import toast from "react-hot-toast"
 import type { AddLoanRequest } from "@/types/loan"
 import { loanService } from "@/services/loan.service"
-import type { LoanResponse } from "@/types/loan"
 import { DEFAULT_API_ERROR_MESSAGE, getApiErrorDetails } from "@/lib/apiErrorHandler"
-
 
 interface AddLoanDialogProps {
   open: boolean
   onClose: (reason: "cancel" | "success") => void
   onSuccess: () => void
   member: SearchMemberResponse | null
-  mode: "add" | "view"
 }
 
 const inputClass =
@@ -100,31 +96,10 @@ function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
-function formatMoney(value: number): string {
-  return value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function statusBadgeClass(status: string): string {
-  const s = (status ?? "").trim().toLowerCase()
-  if (s === "active") return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
-  if (s === "pending") return "bg-amber-500/15 text-amber-900 dark:text-amber-200"
-  if (s === "claimed") return "bg-violet-500/15 text-violet-900 dark:text-violet-200"
-  if (s === "closed") return "bg-muted text-muted-foreground"
-  if (s === "defaulted") return "bg-destructive/15 text-destructive"
-  return "bg-muted text-foreground"
-}
-
-export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }: AddLoanDialogProps) {
-
+export default function AddLoanDialog({ open, onClose, onSuccess, member }: AddLoanDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
-  const [currentMode, setCurrentMode] = useState<"add" | "view">(mode)
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    setCurrentMode(mode)
-  }, [mode])
 
   const form = useForm<FormInput, unknown, FormOutput>({
       resolver: zodResolver(schema),
@@ -177,7 +152,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
   
     const close = (reason: "cancel" | "success" = "cancel") => {
       dialogRef.current?.close()
-      setCurrentMode(mode)
       setApiErrorMessage(null)
       onClose(reason)
     }
@@ -200,17 +174,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
             queryFn: () => pocService.getByid(member!.pocId ?? 0) as Promise<PocResponse>,
             enabled: !!member?.pocId && open
     });
-
-    const {
-            data: loans = [],
-            isLoading: loansLoading,
-            refetch: refetchMemberLoans,
-        } = useQuery({
-            queryKey: ["memberLoans", member?.id],
-            queryFn: () => loanService.getLoanByMemId(member!.id) as Promise<LoanResponse[]>,
-            enabled: !!member?.id && open && currentMode === "view",
-    })
-    const hasExistingLoan = loans.length > 0
 
     const selectedPaymentTermId = form.watch("paymentTermId")
     const loanAmountValue = form.watch("loanAmount")
@@ -305,7 +268,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       }
 
       await loanService.addLoan(payload)
-      await refetchMemberLoans()
       toast.success("Added Loan successfully")
       onSuccess()
       close("success")
@@ -317,8 +279,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
     }
   }
 
-
-  const isExistingLoanView = currentMode === "view" && hasExistingLoan
 
   if (!open) return null
 
@@ -332,108 +292,21 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
       <div className="p-6 border-b shrink-0">
         <div className="flex items-center justify-between">
           <h2 id="add-loan-title" className="text-lg font-semibold">
-            {currentMode === "view" ? "View Loan" : "Add Loan"} — {member?.name}
+            Add Loan — {member?.name}
           </h2>
-          <div className="flex items-center gap-2">
-            {currentMode === "view" && loans.length > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const latest = loans[loans.length - 1]
-                  close("cancel")
-                  navigate(`/loans/${latest.loanId}/scheduler`)
-                }}
-              >
-                View Loan
-              </Button>
-            ) : null}
-            {isExistingLoanView ? (
-              <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                Existing Loan
-              </span>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentMode(currentMode === "view" ? "add" : "view")}
-              >
-                {currentMode === "view" ? "+ Add Loan" : "View Loans"}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => close("cancel")}
-              aria-label="Close"
-            >
-              <X />
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => close("cancel")}
+            aria-label="Close"
+          >
+            <X />
+          </Button>
         </div>
       </div>
 
-      {currentMode === "view" && (
-        <div className="p-6 overflow-y-auto flex-1">
-          {loansLoading ? (
-            <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-              <p>Loading...</p>
-            </div>
-          ) : loans.length === 0 ? (
-            <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-              <p>No loans found for this member.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Member loans
-              </h3>
-              <div className="rounded-md border overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead className="bg-muted/50 border-b">
-                    <tr>
-                      <th className="text-left font-medium px-3 py-2">Loan #</th>
-                      <th className="text-left font-medium px-3 py-2">Status</th>
-                      <th className="text-left font-medium px-3 py-2">Member</th>
-                      <th className="text-right font-medium px-3 py-2">Loan total</th>
-                      <th className="text-center font-medium px-3 py-2">EMIs</th>
-                      <th className="text-right font-medium px-3 py-2">Paid</th>
-                      <th className="text-right font-medium px-3 py-2">Remaining</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loans.map((row) => (
-                      <tr key={row.loanId} className="border-t hover:bg-muted/30">
-                        <td className="px-3 py-2 font-mono tabular-nums">{row.loanId}</td>
-                        <td className="px-3 py-2">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusBadgeClass(row.status)}`}
-                          >
-                            {row.status?.trim() || "—"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 max-w-[180px] truncate" title={row.fullName}>
-                          {row.fullName}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatMoney(row.loanTotalAmount)}</td>
-                        <td className="px-3 py-2 text-center tabular-nums whitespace-nowrap">{row.noOfTerms || "—"}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatMoney(row.totalAmountPaid)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatMoney(row.remainingBal)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {currentMode === "add" && (
-        <form onSubmit={form.handleSubmit(submit)} className="flex flex-col min-h-0 overflow-hidden">
+      <form onSubmit={form.handleSubmit(submit)} className="flex flex-col min-h-0 overflow-hidden">
           <div className="p-6 overflow-y-auto space-y-6 flex-1">
             {apiErrorMessage ? (
               <div
@@ -655,7 +528,6 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member, mode }
             </Button>
           </div>
         </form>
-      )}
     </dialog>
   )
 }

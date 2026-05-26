@@ -1,3 +1,13 @@
+/** GET /Users/branch when the branch has no staff (200 with message + data). */
+export interface StaffListApiResponse {
+    message: string
+    data: StaffResponse[]
+}
+
+export interface StaffListResult {
+    staff: StaffResponse[]
+    emptyMessage?: string
+}
 
 export interface StaffResponse {
     id: number

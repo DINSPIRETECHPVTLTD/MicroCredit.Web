@@ -94,7 +94,12 @@ function PreviewField({
 
   return (
     <div className={className}>
-      <dt className="text-xs font-medium text-muted-foreground">
+      <dt
+        className={cn(
+          "text-xs font-medium text-muted-foreground",
+          highlight && "font-semibold text-foreground"
+        )}
+      >
         {label}
         {mode === "edit" && isChanged ? (
           <span className="ml-1.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800 dark:text-amber-200">
@@ -104,8 +109,8 @@ function PreviewField({
       </dt>
       <dd
         className={cn(
-          "mt-0.5 break-words text-sm",
-          highlight || isChanged ? "font-semibold text-foreground" : "text-foreground",
+          "mt-0.5 break-words text-sm text-foreground",
+          (highlight || isChanged) && "font-semibold",
           isChanged && "rounded-md bg-amber-500/10 px-2 py-1"
         )}
       >
@@ -229,7 +234,7 @@ export function MemberCreateConfirmationDialog({
         <h2 id="member-save-confirm-title" className="text-lg font-semibold text-foreground">
           {title}
         </h2>
-        <p id="member-save-confirm-desc" className="mt-1 text-sm text-muted-foreground">
+        <p id="member-save-confirm-desc" className="mt-1 text-sm font-medium text-red-700 dark:text-red-400">
           {description}
         </p>
         {isEdit && changedFields.size > 0 ? (
@@ -247,14 +252,22 @@ export function MemberCreateConfirmationDialog({
               Member ID: <span className="font-semibold text-foreground">{preview.memberId}</span>
             </p>
           ) : null}
-          <p className="mt-2 text-lg font-semibold text-foreground">{memberName}</p>
           <dl className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <PreviewField
-              fieldKey="phoneNumber"
+              fieldKey="firstName"
               mode={mode}
               changedFields={changedFields}
-              label="Mobile number"
-              value={displayValue(preview.phoneNumber)}
+              label="Member Name"
+              value={displayValue(memberName)}
+              highlight
+              forceShow
+            />
+            <PreviewField
+              fieldKey="pocId"
+              mode={mode}
+              changedFields={changedFields}
+              label="POC"
+              value={displayValue(preview.pocName)}
               highlight
               forceShow
             />
@@ -264,6 +277,7 @@ export function MemberCreateConfirmationDialog({
               changedFields={changedFields}
               label="Branch"
               value={displayValue(preview.branchName)}
+              highlight
               forceShow
             />
             <PreviewField
@@ -272,14 +286,6 @@ export function MemberCreateConfirmationDialog({
               changedFields={changedFields}
               label="Center"
               value={displayValue(preview.centerName)}
-              forceShow
-            />
-            <PreviewField
-              fieldKey="pocId"
-              mode={mode}
-              changedFields={changedFields}
-              label="POC"
-              value={displayValue(preview.pocName)}
               highlight
               forceShow
             />
@@ -334,9 +340,9 @@ export function MemberCreateConfirmationDialog({
         </PreviewSection>
 
         <PreviewSection title="Branch details" fieldKeys={branchKeys} mode={mode} changedFields={changedFields}>
+          <PreviewField fieldKey="pocId" mode={mode} changedFields={changedFields} label="POC" value={displayValue(preview.pocName)} />
           <PreviewField fieldKey="centerId" mode={mode} changedFields={changedFields} label="Branch" value={displayValue(preview.branchName)} highlight />
-          <PreviewField fieldKey="centerId" mode={mode} changedFields={changedFields} label="Center" value={displayValue(preview.centerName)} />
-          <PreviewField fieldKey="pocId" mode={mode} changedFields={changedFields} label="POC" value={displayValue(preview.pocName)} className="sm:col-span-2" />
+          <PreviewField fieldKey="centerId" mode={mode} changedFields={changedFields} label="Center" value={displayValue(preview.centerName)} className="sm:col-span-2" />
         </PreviewSection>
 
         {!isEdit ? (

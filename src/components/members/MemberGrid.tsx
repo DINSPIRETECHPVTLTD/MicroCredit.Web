@@ -26,7 +26,7 @@ type MemberGridProps = {
   isLoading: boolean
   onOpenEdit: (member: MemberResponse) => void
   onOpenSetInactive: (member: MemberResponse) => void
-  onOpenAddLoan: (member: MemberResponse) => void
+  onMemberLoanAction: (member: MemberResponse) => void
 }
 
 export default function MemberGrid({
@@ -34,7 +34,7 @@ export default function MemberGrid({
   isLoading,
   onOpenEdit,
   onOpenSetInactive,
-  onOpenAddLoan,
+  onMemberLoanAction,
 }: MemberGridProps) {
   const [printingPromissoryMemberId, setPrintingPromissoryMemberId] = useState<number | null>(null)
   const [printingMembershipMemberId, setPrintingMembershipMemberId] = useState<number | null>(null)
@@ -133,24 +133,29 @@ export default function MemberGrid({
         minSize: 280,
         enableSorting: false,
         enableColumnFilter: false,
-        Cell: ({ row }) => (
+        Cell: ({ row }) => {
+          const hasOpenLoan =
+            row.original.primaryOpenLoanId != null && row.original.primaryOpenLoanId > 0
+          return (
           <MemberRowActions
             onOpenEdit={() => onOpenEdit(row.original)}
             onOpenSetInactive={() => onOpenSetInactive(row.original)}
-            onOpenAddLoan={() => onOpenAddLoan(row.original)}
+            hasOpenLoan={hasOpenLoan}
+            onMemberLoanAction={() => onMemberLoanAction(row.original)}
             onGeneratePromissoryPdf={() => handleGeneratePromissoryPdf(row.original)}
             onGenerateMembershipPdf={() => handleGenerateMembershipPdf(row.original)}
             printingPromissory={printingPromissoryMemberId === row.original.id}
             printingMembership={printingMembershipMemberId === row.original.id}
           />
-        ),
+          )
+        },
       },
     ],
     [
       printingPromissoryMemberId,
       onOpenEdit,
       onOpenSetInactive,
-      onOpenAddLoan,
+      onMemberLoanAction,
       handleGeneratePromissoryPdf,
       handleGenerateMembershipPdf,
     ]
@@ -233,7 +238,8 @@ function formatPhone(row: MemberResponse): string {
 function MemberRowActions({
   onOpenEdit,
   onOpenSetInactive,
-  onOpenAddLoan,
+  hasOpenLoan,
+  onMemberLoanAction,
   onGeneratePromissoryPdf,
   onGenerateMembershipPdf,
   printingPromissory,
@@ -241,7 +247,8 @@ function MemberRowActions({
 }: {
   onOpenEdit: () => void
   onOpenSetInactive: () => void
-  onOpenAddLoan: () => void
+  hasOpenLoan: boolean
+  onMemberLoanAction: () => void
   onGeneratePromissoryPdf: () => void
   onGenerateMembershipPdf: () => void
   printingPromissory: boolean
@@ -257,9 +264,9 @@ function MemberRowActions({
         <UserX className="mr-1 h-4 w-4" />
         Inactive
       </Button>
-      <Button variant="ghost" size="sm" type="button" onClick={onOpenAddLoan}>
+      <Button variant="ghost" size="sm" type="button" onClick={onMemberLoanAction}>
         <Landmark className="mr-1 h-4 w-4" />
-        Add Loan
+        {hasOpenLoan ? "View Loan" : "Add Loan"}
       </Button>
       <Button variant="ghost" size="sm" type="button" onClick={onGeneratePromissoryPdf} disabled={printingPromissory}>
         <FileDown className="mr-1 h-4 w-4" />
