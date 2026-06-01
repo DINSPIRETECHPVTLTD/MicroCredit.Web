@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
+import { getTodayDateInputValue } from "@/lib/date-time"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { CreateInvestmentRequest } from "@/types/investment"
@@ -38,7 +39,7 @@ export default function AddInvestmentDialog({ open, onClose, onSuccess, users }:
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
     defaultValues: async () => {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = getTodayDateInputValue()
       return {
         userId: 0,
         amount: 0,
@@ -53,7 +54,7 @@ export default function AddInvestmentDialog({ open, onClose, onSuccess, users }:
       dialogRef.current?.close()
       return
     }
-    const today = new Date().toISOString().slice(0, 10)
+    const today = getTodayDateInputValue()
     form.reset({
       userId: 0,
       amount: 0,
