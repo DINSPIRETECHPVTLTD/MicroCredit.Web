@@ -37,7 +37,6 @@ import type { DashboardChartItem } from "@/types/dashboard"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
 import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
-import { PaidToUserLedgerPanel } from "@/components/dashboard/PaidToUserLedgerPanel"
 import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
 
@@ -833,7 +832,7 @@ function BranchDashboardNoBranch() {
   )
 }
 
-type DashboardSection = "myView" | "paidToUser" | "staffSchedules"
+type DashboardSection = "myView" | "staffSchedules"
 
 /**
  * Branch dashboard shell: reads branch id synchronously and mounts hookful content only
@@ -858,8 +857,6 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
   const [dashboardSection, setDashboardSection] = useState<DashboardSection>("myView")
 
   // Each useIsFetching must run every render — never combine hooks with `||` (short-circuits).
-  const ledgerBgFetching =
-    useIsFetching({ queryKey: ["reportRecentPaidToUser", branchId] }) > 0
   const staffSchedulesListFetching =
     useIsFetching({ queryKey: ["reportStaffSchedules", branchId] }) > 0
   const staffSchedulesStaffFetching =
@@ -874,15 +871,13 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
   const handleRefreshAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
     void queryClient.invalidateQueries({ queryKey: ["reportMembersByPocs", branchId] })
-    void queryClient.invalidateQueries({ queryKey: ["reportRecentPaidToUser", branchId] })
     void queryClient.invalidateQueries({ queryKey: ["reportStaffSchedules", branchId] })
     void queryClient.invalidateQueries({ queryKey: ["reportPocCollectionStaff", branchId] })
   }, [queryClient, branchId])
 
   const refreshSpinning =
     (dashboardSection === "myView" && myViewBgFetching) ||
-    (dashboardSection === "staffSchedules" && staffSchedulesBgFetching) ||
-    (dashboardSection === "paidToUser" && ledgerBgFetching)
+    (dashboardSection === "staffSchedules" && staffSchedulesBgFetching)
 
   return (
     <div className="space-y-6">
@@ -902,7 +897,6 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
               options={[
                 { value: "myView", label: "My View" },
                 { value: "staffSchedules", label: "Staff Schedules" },
-                { value: "paidToUser", label: "Staff Collection" },
               ]}
             />
           )}
@@ -920,9 +914,7 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
         </Button>
       </div>
 
-      {isOwner && dashboardSection === "paidToUser" ? (
-        <PaidToUserLedgerPanel branchId={branchId} />
-      ) : isOwner && dashboardSection === "staffSchedules" ? (
+      {isOwner && dashboardSection === "staffSchedules" ? (
         <StaffSchedulesReportPanel branchId={branchId} />
       ) : (
         <MyViewBranchReportSection branchId={branchId} />
