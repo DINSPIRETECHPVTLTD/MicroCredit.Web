@@ -5,6 +5,7 @@ import axios, {
 } from "axios"
 import type { QueryClient } from "@tanstack/react-query"
 import { AUTH_PATH_MARKERS } from "@/lib/auth/constants"
+import { getBrowserTimeZone } from "@/lib/date-time"
 import { resetAppState } from "@/lib/auth/reset-app-state"
 import { getToken } from "@/services/auth.service"
 
@@ -59,6 +60,9 @@ export function setupApiInterceptors(
     const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    if (!config.headers["X-Client-TimeZone"]) {
+      config.headers["X-Client-TimeZone"] = getBrowserTimeZone()
     }
     return config
   })
