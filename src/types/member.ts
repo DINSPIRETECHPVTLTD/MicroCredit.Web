@@ -1,6 +1,7 @@
 export interface MemberResponse {
   id: number
   memberId?: number
+  memberCode?: string | null
   name?: string | null
   guardianName?: string | null
   memberPhone?: string | null

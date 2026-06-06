@@ -98,6 +98,12 @@ export default function MemberGrid({
         accessorFn: (r) => r.memberId ?? r.id,
       },
       {
+        accessorKey: "memberCode",
+        header: "Member Code",
+        size: 120,
+        Cell: ({ row }) => row.original.memberCode ?? "—",
+      },
+      {
         id: "fullName",
         header: "Full Name",
         accessorFn: (r) => formatFullName(r),
