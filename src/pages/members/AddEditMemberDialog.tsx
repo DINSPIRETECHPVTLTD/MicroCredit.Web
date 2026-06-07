@@ -92,6 +92,8 @@ const baseFields = z
     // Assignment Details
     centerId: z.number({ message: "Center is required" }).min(1, "Center is required"),
     pocId: z.number({ message: "POC is required" }).min(1, "POC is required"),
+    // Member Code
+    memberCode: z.string().max(20, "Member code must be 20 characters or less").optional(),
     // Member Personal Details
     firstName: z.string().min(1, "First name is required").max(100, "First name must be 100 characters or less"),
     middleName: z.string().max(100, "Middle name must be 100 characters or less").optional(),
@@ -348,6 +350,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
       formMode: "add",
       centerId: 0,
       pocId: 0,
+      memberCode: "",
       firstName: "",
       middleName: "",
       lastName: "",
@@ -461,6 +464,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
         formMode: "edit",
         centerId: Number(editMember.centerId) || 0,
         pocId: Number(editMember.pocId) || 0,
+        memberCode: editMember.memberCode ?? "",
         firstName: editMember.firstName ?? "",
         middleName: editMember.middleName ?? "",
         lastName: editMember.lastName ?? "",
@@ -607,6 +611,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
   const buildRequest = (data: CreateFormData): MemberSaveRequest => ({
     centerId: data.centerId,
     pocId: data.pocId && data.pocId > 0 ? data.pocId : undefined,
+    memberCode: data.memberCode?.trim() || null,
     firstName: data.firstName,
     middleName: data.middleName || null,
     lastName: data.lastName,
@@ -837,6 +842,19 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
           <section>
             <h3 className="text-sm font-medium mb-3">Member Personal Details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Member Code</label>
+                <input
+                  {...form.register("memberCode")}
+                  className={cn(inputClass, form.formState.errors.memberCode && "border-destructive")}
+                  placeholder="e.g. NM0001"
+                  maxLength={20}
+                />
+                {form.formState.errors.memberCode && (
+                  <p className="text-xs text-destructive mt-1">{form.formState.errors.memberCode.message}</p>
+                )}
+              </div>
+              <div />
               <div>
                 <label className="text-sm font-medium mb-1 block">First Name <span className="text-destructive">*</span></label>
                 <input

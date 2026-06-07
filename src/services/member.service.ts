@@ -27,6 +27,7 @@ function normalizeMemberResponse(raw: unknown): MemberResponse {
 export interface MemberSaveRequest {
   centerId: number
   pocId?: number
+  memberCode?: string | null
   firstName: string
   middleName?: string | null
   lastName: string
