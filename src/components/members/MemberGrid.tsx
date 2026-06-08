@@ -262,25 +262,25 @@ function MemberRowActions({
 }) {
   return (
     <div className="flex items-center justify-end gap-1 flex-nowrap whitespace-nowrap">
-      <Button variant="ghost" size="sm" onClick={onOpenEdit}>
-        <Pencil className="mr-1 h-4 w-4" />
-        Edit
+      <Button variant="ghost" size="sm" onClick={onOpenEdit} title="Edit">
+        <Pencil className="h-4 w-4 sm:mr-1" />
+        <span className="hidden sm:inline">Edit</span>
       </Button>
-      <Button variant="ghost" size="sm" onClick={onOpenSetInactive}>
-        <UserX className="mr-1 h-4 w-4" />
-        Inactive
+      <Button variant="ghost" size="sm" onClick={onOpenSetInactive} title="Set Inactive">
+        <UserX className="h-4 w-4 sm:mr-1" />
+        <span className="hidden sm:inline">Inactive</span>
       </Button>
-      <Button variant="ghost" size="sm" type="button" onClick={onMemberLoanAction}>
-        <Landmark className="mr-1 h-4 w-4" />
-        {hasOpenLoan ? "View Loan" : "Add Loan"}
+      <Button variant="ghost" size="sm" type="button" onClick={onMemberLoanAction} title={hasOpenLoan ? "View Loan" : "Add Loan"}>
+        <Landmark className="h-4 w-4 sm:mr-1" />
+        <span className="hidden sm:inline">{hasOpenLoan ? "View Loan" : "Add Loan"}</span>
       </Button>
-      <Button variant="ghost" size="sm" type="button" onClick={onGeneratePromissoryPdf} disabled={printingPromissory}>
-        <FileDown className="mr-1 h-4 w-4" />
-        {printingPromissory ? "…" : "PN"}
+      <Button variant="ghost" size="sm" type="button" onClick={onGeneratePromissoryPdf} disabled={printingPromissory} title="Promissory Note">
+        <FileDown className="h-4 w-4 sm:mr-1" />
+        <span className="hidden sm:inline">{printingPromissory ? "…" : "PN"}</span>
       </Button>
-      <Button variant="ghost" size="sm" type="button" onClick={onGenerateMembershipPdf} disabled={printingMembership}>
-        <FileText className="mr-1 h-4 w-4" />
-        {printingMembership ? "…" : "MF"}
+      <Button variant="ghost" size="sm" type="button" onClick={onGenerateMembershipPdf} disabled={printingMembership} title="Membership Form">
+        <FileText className="h-4 w-4 sm:mr-1" />
+        <span className="hidden sm:inline">{printingMembership ? "…" : "MF"}</span>
       </Button>
     </div>
   )

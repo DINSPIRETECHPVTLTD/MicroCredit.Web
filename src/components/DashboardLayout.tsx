@@ -44,6 +44,8 @@ import {
   Plus,
   List,
   RefreshCw,
+  Menu,
+  X,
   type LucideIcon,
 } from "lucide-react"
 
@@ -80,6 +82,7 @@ export default function DashboardLayout() {
   const queryClient = useQueryClient()
   const session = getSession()
   const [expandedOverride, setExpandedOverride] = useState<string | null | undefined>(undefined)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const { mode, role } = getNormalizedSessionMeta(session)
   const safeMode: AppMode = mode
@@ -96,7 +99,7 @@ export default function DashboardLayout() {
     [filteredMenu, location.pathname]
   )
   const expandedKey = expandedOverride === undefined ? routeExpandedKey : expandedOverride
-  
+
   const getLink = (route: string | undefined) => {
     if (route == null || route === "") return "/"
     return `/${route}`
@@ -105,6 +108,8 @@ export default function DashboardLayout() {
   const isExpanded = (key: string) => expandedKey === key
   const toggleExpanded = (key: string) =>
     setExpandedOverride((k) => ((k ?? routeExpandedKey) === key ? null : key))
+
+  const closeSidebar = () => setSidebarOpen(false)
 
   const handleReturnToOrg = async () => {
     try {
@@ -118,148 +123,189 @@ export default function DashboardLayout() {
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
             "Failed to switch to Org mode"
           : "Failed to switch to Org mode"
-  
       toast.error(message)
     }
   }
 
   const handleLogout = async () => {
-    // Single full-page redirect — avoids race with BroadcastChannel logout + queryClient.clear()
     await resetAppState(queryClient, { redirect: true })
   }
 
-  return (
-    <div className="flex h-screen min-h-screen w-full bg-muted/40">
-      {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-1 border-b border-border px-4 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {organization?.name ?? "MCS"}
-              </p>
-              {selectedBranch && (
-                <p className="truncate text-xs font-medium text-primary">
-                  {selectedBranch.name}
-                </p>
-              )}
-            </div>
+  const sidebarContent = (
+    <>
+      <div className="flex flex-col gap-1 border-b border-border px-4 py-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Building2 className="h-5 w-5" />
           </div>
-          {organization?.address && (
-            <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span className="line-clamp-2">
-                {organization.address}
-                {organization.phoneNumber ? ` • ${organization.phoneNumber}` : ""}
-              </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {organization?.name ?? "MCS"}
             </p>
-          )}
+            {selectedBranch && (
+              <p className="truncate text-xs font-medium text-primary">
+                {selectedBranch.name}
+              </p>
+            )}
+          </div>
+          {/* Close button — mobile only */}
+          <button
+            type="button"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:hidden"
+            onClick={closeSidebar}
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+        {organization?.address && (
+          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="line-clamp-2">
+              {organization.address}
+              {organization.phoneNumber ? ` • ${organization.phoneNumber}` : ""}
+            </span>
+          </p>
+        )}
+      </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-3">
-          <ul className="space-y-0.5">
-            {filteredMenu.map((item) =>
-              item.route !== undefined && !item.children?.length ? (
-                <li key={item.key}>
-                  <NavLink
-                    to={getLink(item.route)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )
-                    }
-                  >
-                    {(() => {
-                      const Icon = getMenuIcon(item.key)
-                      return (
-                        <>
-                          {Icon ? (
-                            <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                          ) : (
-                            <span className="h-4 w-4 shrink-0" />
-                          )}
-                          <span className="truncate">{item.label}</span>
-                        </>
-                      )
-                    })()}
-                  </NavLink>
-                </li>
-              ) : item.children?.length ? (
-                <li key={item.key}>
+      <nav className="flex-1 overflow-y-auto px-3 py-3">
+        <ul className="space-y-0.5">
+          {filteredMenu.map((item) =>
+            item.route !== undefined && !item.children?.length ? (
+              <li key={item.key}>
+                <NavLink
+                  to={getLink(item.route)}
+                  onClick={closeSidebar}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )
+                  }
+                >
                   {(() => {
-                    const ParentIcon = getMenuIcon(item.key)
+                    const Icon = getMenuIcon(item.key)
                     return (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(item.key)}
-                        className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <span className="flex items-center gap-3">
-                          {ParentIcon ? (
-                            <ParentIcon className="h-4 w-4 shrink-0" aria-hidden />
-                          ) : (
-                            <span className="h-4 w-4 shrink-0" />
-                          )}
-                          <span className="truncate">{item.label}</span>
-                        </span>
-                        {isExpanded(item.key) ? (
-                          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                      <>
+                        {Icon ? (
+                          <Icon className="h-4 w-4 shrink-0" aria-hidden />
                         ) : (
-                          <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+                          <span className="h-4 w-4 shrink-0" />
                         )}
-                      </button>
+                        <span className="truncate">{item.label}</span>
+                      </>
                     )
                   })()}
-                  {isExpanded(item.key) && (
-                    <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
-                      {item.children?.map((child) => (
-                        <li key={child.key}>
-                          <NavLink
-                            to={getLink(child.route)}
-                            className={({ isActive }) =>
-                              cn(
-                                "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
-                                isActive
-                                  ? "bg-primary/10 font-medium text-primary"
-                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                              )
-                            }
-                          >
-                            {(() => {
-                              const Icon = getMenuIcon(child.key)
-                              return (
-                                <>
-                                  {Icon ? (
-                                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                                  ) : (
-                                    <span className="h-3.5 w-3.5 shrink-0" />
-                                  )}
-                                  <span className="truncate">{child.label}</span>
-                                </>
-                              )
-                            })()}
-                          </NavLink>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ) : null
-            )}
-          </ul>
-        </nav>
+                </NavLink>
+              </li>
+            ) : item.children?.length ? (
+              <li key={item.key}>
+                {(() => {
+                  const ParentIcon = getMenuIcon(item.key)
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(item.key)}
+                      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <span className="flex items-center gap-3">
+                        {ParentIcon ? (
+                          <ParentIcon className="h-4 w-4 shrink-0" aria-hidden />
+                        ) : (
+                          <span className="h-4 w-4 shrink-0" />
+                        )}
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      {isExpanded(item.key) ? (
+                        <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+                      )}
+                    </button>
+                  )
+                })()}
+                {isExpanded(item.key) && (
+                  <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
+                    {item.children?.map((child) => (
+                      <li key={child.key}>
+                        <NavLink
+                          to={getLink(child.route)}
+                          onClick={closeSidebar}
+                          className={({ isActive }) =>
+                            cn(
+                              "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
+                              isActive
+                                ? "bg-primary/10 font-medium text-primary"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )
+                          }
+                        >
+                          {(() => {
+                            const Icon = getMenuIcon(child.key)
+                            return (
+                              <>
+                                {Icon ? (
+                                  <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                ) : (
+                                  <span className="h-3.5 w-3.5 shrink-0" />
+                                )}
+                                <span className="truncate">{child.label}</span>
+                              </>
+                            )
+                          })()}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ) : null
+          )}
+        </ul>
+      </nav>
+    </>
+  )
+
+  return (
+    <div className="flex h-screen min-h-screen w-full bg-muted/40">
+
+      {/* ── Mobile backdrop ─────────────────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
+          onClick={closeSidebar}
+          aria-hidden
+        />
+      )}
+
+      {/* ── Sidebar — drawer on mobile, fixed on desktop ─────────────────── */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-border bg-card shadow-sm transition-transform duration-200",
+          "lg:static lg:z-auto lg:w-64 lg:translate-x-0 lg:transition-none",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent}
       </aside>
 
-      {/* Main */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+      {/* ── Main ────────────────────────────────────────────────────────────── */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
+          <div className="flex items-center gap-2">
+            {/* Hamburger — mobile only */}
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
             <span
               className={cn(
                 "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider",
@@ -272,7 +318,7 @@ export default function DashboardLayout() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2">
             <div className="hidden items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 sm:flex">
               <User className="h-4 w-4 text-muted-foreground" aria-hidden />
               <span className="max-w-[140px] truncate text-sm font-medium text-foreground">
@@ -280,7 +326,7 @@ export default function DashboardLayout() {
               </span>
             </div>
             {safeMode === "BRANCH" && role === "Owner" && (
-              <Button variant="outline" size="sm" onClick={handleReturnToOrg}>
+              <Button variant="outline" size="sm" onClick={handleReturnToOrg} className="hidden sm:flex">
                 Back to Org
               </Button>
             )}
@@ -296,7 +342,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-6">
           {!role && (
             <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
               Your account role is not recognized. Only limited navigation is available. Contact an

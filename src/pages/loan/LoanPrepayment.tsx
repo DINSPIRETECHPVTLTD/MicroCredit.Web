@@ -814,7 +814,7 @@ export default function LoanPrepayment() {
               type="text"
               inputMode="decimal"
               className={cn(
-                "h-8 w-[110px] rounded-md border border-input bg-background px-2 text-sm",
+                "h-8 w-full min-w-[80px] rounded-md border border-input bg-background px-2 text-sm",
                 (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={displayValue}
@@ -890,7 +890,7 @@ export default function LoanPrepayment() {
           return (
             <select
               className={cn(
-                "h-8 w-[120px] rounded-md border border-input bg-background px-2 text-sm",
+                "h-8 w-full min-w-[90px] rounded-md border border-input bg-background px-2 text-sm",
                 (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={value}
@@ -917,7 +917,7 @@ export default function LoanPrepayment() {
             <input
               type="text"
               className={cn(
-                "h-8 w-[160px] rounded-md border border-input bg-background px-2 text-sm",
+                "h-8 w-full min-w-[100px] rounded-md border border-input bg-background px-2 text-sm",
                 (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
               )}
               value={row.original.comments || ""}

@@ -286,7 +286,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member }: AddL
     <dialog
       ref={dialogRef}
       onCancel={() => close("cancel")}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
+      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-[calc(100vw-1rem)] max-h-[90vh] flex flex-col sm:w-full"
       aria-labelledby="add-loan-title"
     >
       <div className="p-6 border-b shrink-0">
