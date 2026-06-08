@@ -8,6 +8,8 @@ import toast, { Toaster } from "react-hot-toast"
 import { AddEditBranchDialog, type AddEditBranchDialogMode } from "@/pages/branches/AddEditBranchDialog"
 import { authService } from "@/services/auth.service"
 import { Button } from "../../components/ui/button"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { branchService } from "../../services/branch.service"
 import type { BranchResponse } from "../../types/branch"
 
@@ -85,15 +87,19 @@ function BranchList() {
         [handleNavigateToBranch]
     )
 
+    const tableOptions = useStandardTableOptions("branches", columns)
+
     return (
         <div>
-            <div className="mb-6 flex items-center justify-between">
-                <h1 className="text-2xl font-semibold">All Branches</h1>
-                <Button onClick={() => setAddEditDialog({ mode: "add" })}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    ADD Branch
-                </Button>
-            </div>
+            <PageHeader
+                title="All Branches"
+                actions={
+                    <Button onClick={() => setAddEditDialog({ mode: "add" })}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        ADD Branch
+                    </Button>
+                }
+            />
 
             {!isLoading && branches.length === 0 ? (
                 <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
@@ -107,12 +113,14 @@ function BranchList() {
                 <MaterialReactTable
                     columns={columns}
                     data={branches}
-                    state={{ isLoading }}
+                    state={{ isLoading, ...tableOptions.state }}
                     enableSorting
                     enableColumnFilters
                     enableGrouping
-                    enableExpanding={false}
+                    enableExpanding={tableOptions.enableExpanding}
+                    renderDetailPanel={tableOptions.renderDetailPanel}
                     enableColumnPinning
+                    muiTableContainerProps={tableOptions.muiTableContainerProps}
                 />
             )}
 

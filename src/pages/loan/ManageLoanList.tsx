@@ -6,6 +6,9 @@ import { Button } from "../../components/ui/button"
 import { useQuery } from "@tanstack/react-query"
 import type { LoanResponse } from "../../types/loan"
 import { loanService } from "../../services/loan.service"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
+import { useIsMobile } from "@/lib/responsive/useBreakpoint"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -33,6 +36,7 @@ function formatCurrency(value: unknown): string {
 
 function ManageLoanList() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
 
   const { data: loans = [], isLoading, isError, error } = useQuery({
     queryKey: ["manageLoansAllStatuses"],
@@ -121,10 +125,10 @@ function ManageLoanList() {
         enableSorting: false,
         enableColumnFilter: false,
         Cell: ({ row }) => (
-          <div className="flex items-center justify-start gap-2">
+          <div className="flex items-center justify-start gap-2 flex-wrap">
             <Button variant="ghost" size="sm" onClick={() => handleViewLoan(row.original)}>
               <Eye className="mr-1 h-4 w-4" />
-              View Schedule
+              {isMobile ? "Schedule" : "View Schedule"}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => handlePrepayment(row.original)}>
               <IndianRupee className="mr-1 h-4 w-4" />
@@ -134,14 +138,26 @@ function ManageLoanList() {
         ),
       },
     ],
-    [paidNoOfTermsLabel, handleViewLoan, handlePrepayment]
+    [paidNoOfTermsLabel, handleViewLoan, handlePrepayment, isMobile]
   )
+
+  const desktopDefaults = useMemo(
+    () => ({
+      loanId: false,
+      memberId: false,
+      schedulerTotalAmount: false,
+      remainingBal: false,
+    }),
+    []
+  )
+
+  const tableOptions = useStandardTableOptions("manageLoans", columns, {
+    defaultVisibility: desktopDefaults,
+  })
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Manage Loans</h1>
-      </div>
+      <PageHeader title="Manage Loans" />
 
       {isError ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
@@ -156,21 +172,14 @@ function ManageLoanList() {
         <MaterialReactTable
           columns={columns}
           data={loans}
-          state={{ isLoading }}
-          initialState={{
-            columnVisibility: {
-              status: true,
-              loanId: false,
-              memberId: false,
-              schedulerTotalAmount: false,
-              remainingBal: false,
-            },
-          }}
+          state={{ isLoading, ...tableOptions.state }}
           enableSorting
           enableColumnFilters
           enableGrouping
-          enableExpanding={false}
+          enableExpanding={tableOptions.enableExpanding}
+          renderDetailPanel={tableOptions.renderDetailPanel}
           enableColumnPinning
+          muiTableContainerProps={tableOptions.muiTableContainerProps}
         />
       )}
     </div>

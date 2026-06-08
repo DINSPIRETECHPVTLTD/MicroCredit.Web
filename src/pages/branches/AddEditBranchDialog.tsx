@@ -5,6 +5,7 @@ import { z } from "zod"
 import { Button } from "../../components/ui/button"
 import { cn } from "../../lib/utils"
 import toast from "react-hot-toast"
+import { dialogShellLgClass } from "@/lib/responsive/dialogClasses"
 import { branchService } from "../../services/branch.service"
 import { masterlookupService } from "../../services/masterLookup.service"
 import type { BranchResponse } from "../../types/branch"
@@ -155,7 +156,7 @@ export function AddEditBranchDialog({ value, onClose, onSuccess }: Props) {
         <dialog
             ref={dialogRef}
             onCancel={close}
-            className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
+            className={dialogShellLgClass}
             aria-labelledby="add-edit-branch-title"
         >
             <div className="p-6 border-b shrink-0">

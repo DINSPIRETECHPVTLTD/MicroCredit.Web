@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { userService } from "@/services/user.service"
 import AddInvestmentDialog from "./AddInvestmentDialog"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 function InvestmentsList() {
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -70,15 +72,19 @@ function InvestmentsList() {
     [userMap]
   )
 
+  const tableOptions = useStandardTableOptions("investments", columns)
+
   const table = useMaterialReactTable({
     columns,
     data: investments,
-    state: { isLoading: isDataLoading },
+    state: { isLoading: isDataLoading, ...tableOptions.state },
     enableSorting: true,
     enableColumnFilters: true,
     enableGrouping: true,
-    enableExpanding: false,
+    enableExpanding: tableOptions.enableExpanding,
+    renderDetailPanel: tableOptions.renderDetailPanel,
     enableColumnPinning: true,
+    muiTableContainerProps: tableOptions.muiTableContainerProps,
   })
 
   const handleCreated = async () => {
@@ -87,13 +93,15 @@ function InvestmentsList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Investments</h1>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          ADD Investment
-        </Button>
-      </div>
+      <PageHeader
+        title="All Investments"
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            ADD Investment
+          </Button>
+        }
+      />
 
       {!isDataLoading && investments.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">

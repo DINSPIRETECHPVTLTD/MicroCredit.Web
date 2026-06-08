@@ -7,6 +7,8 @@ import { Button } from "../../components/ui/button"
 import { Plus, Pencil, Trash } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import AddMasterLookupDialog, { type AddEditMasterLookupDialogMode } from "./AddMasterLookupDialog"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
     const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -47,11 +49,13 @@ function MasterLookupList() {
             },
             {
                 header: "Code",
+                id: "lookupCode",
                 accessorFn: (row) => row.lookupCode ?? "_",
             },
 
             {
                 header: "Numeric Value",
+                id: "numericValue",
                 accessorFn: (row) => (row.numericValue ?? "_"),
             },
             {
@@ -59,6 +63,7 @@ function MasterLookupList() {
                 header: "Sort Order",
             },
             {
+                id: "status",
                 header: "Status",
                 accessorFn:()=> "Active",
             },
@@ -95,15 +100,19 @@ function MasterLookupList() {
         [refetch]
     )
 
+    const tableOptions = useStandardTableOptions("masterLookups", columns)
+
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-semibold">All Master Lookups</h1>
-                <Button onClick={() => setAddEditDialog({ mode: "add" })}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add LookUp
-                </Button>
-            </div>
+            <PageHeader
+                title="All Master Lookups"
+                actions={
+                    <Button onClick={() => setAddEditDialog({ mode: "add" })}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add LookUp
+                    </Button>
+                }
+            />
 
             {!isLoading && masterLookups.length === 0 ? (
                 <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
@@ -117,12 +126,14 @@ function MasterLookupList() {
                 <MaterialReactTable
                     columns={columns}
                         data={masterLookups}
-                    state={{ isLoading }}
+                    state={{ isLoading, ...tableOptions.state }}
                     enableSorting
                     enableColumnFilters
                     enableGrouping
-                    enableExpanding={false}
+                    enableExpanding={tableOptions.enableExpanding}
+                    renderDetailPanel={tableOptions.renderDetailPanel}
                     enableColumnPinning
+                    muiTableContainerProps={tableOptions.muiTableContainerProps}
                 />
             )}
             <AddMasterLookupDialog

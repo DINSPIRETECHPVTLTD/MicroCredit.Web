@@ -8,6 +8,7 @@ import type { UserResponse } from "@/types/user"
 import { masterlookupService } from "@/services/masterLookup.service"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { dialogShellLgClass } from "@/lib/responsive/dialogClasses"
 import toast from "react-hot-toast"
 
 const nameRegex = /^[A-Za-z ]+$/
@@ -285,7 +286,7 @@ export function AddEditUserDialog({ value, onClose, onSuccess }: Props) {
     <dialog
       ref={dialogRef}
       onCancel={close}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
+      className={dialogShellLgClass}
       aria-labelledby="add-edit-user-title"
     >
       <div className="p-6 border-b shrink-0">

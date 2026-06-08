@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { dialogShellXlClass } from "@/lib/responsive/dialogClasses"
 import toast from "react-hot-toast"
 import type { CreateMasterLookupRequest, MasterLookupResponse } from "@/types/masterLookup"
 import { masterlookupService } from "@/services/masterLookup.service"
@@ -137,7 +138,7 @@ export default function AddMasterLookupDialog({ value, onClose, onSuccess, onSub
     <dialog
       ref={dialogRef}
       onCancel={close}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-xl w-full"
+      className={dialogShellXlClass}
       aria-labelledby="add-edit-master-lookup-title"
     >
       <div className="p-6 border-b">

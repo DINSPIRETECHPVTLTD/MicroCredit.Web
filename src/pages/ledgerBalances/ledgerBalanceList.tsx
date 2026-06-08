@@ -13,11 +13,15 @@ import type { UserResponse } from "@/types/user"
 import { Plus } from "lucide-react"
 import FundTransferDialog from "./FundTransferDialog"
 import { useNavigate } from "react-router-dom"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
+import { useIsMobile } from "@/lib/responsive/useBreakpoint"
 
 
 function LedgerBalancesList() {
     const [dialogOpen, setDialogOpen] = useState(false)
     const navigate = useNavigate()
+    const isMobile = useIsMobile()
 
     const {
         data: users = [],
@@ -79,15 +83,19 @@ function LedgerBalancesList() {
         [openTransactions, userMap]
     )
 
+    const tableOptions = useStandardTableOptions("ledgerBalances", columns)
+
     const table = useMaterialReactTable({
         columns,
         data: ledgerBalances,
-        state: { isLoading },
+        state: { isLoading, ...tableOptions.state },
         enableSorting: true,
         enableColumnFilters: true,
         enableGrouping: true,
-        enableExpanding: false,
+        enableExpanding: tableOptions.enableExpanding,
+        renderDetailPanel: tableOptions.renderDetailPanel,
         enableColumnPinning: true,
+        muiTableContainerProps: tableOptions.muiTableContainerProps,
     })
 
     const handleCreated = async () => {
@@ -96,13 +104,15 @@ function LedgerBalancesList() {
 
     return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Ledger Balances</h1>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Fund Transfer
-        </Button>
-      </div>
+      <PageHeader
+        title="All Ledger Balances"
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            {isMobile ? "Fund Transfer" : "Create Fund Transfer"}
+          </Button>
+        }
+      />
 
       {!isLoading && ledgerBalances.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">

@@ -7,6 +7,8 @@ import { Button } from "../../components/ui/button"
 import { Plus, Pencil, Trash } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import AddEditPaymentTerm, { type AddEditPaymentTermMode } from "./AddEditPaymentTerm"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -48,10 +50,12 @@ function PaymentTermList() {
         accessorKey: "paymentType",
       },
       {
+        id: "noOfTerms",
         header: "No Of Terms",
         accessorFn: (row) => row.noOfTerms ?? "_",
       },
       {
+        id: "processingFee",
         header: "Processing Fee",
         accessorFn: (row) => row.processingFee ?? "_",
       },
@@ -97,15 +101,19 @@ function PaymentTermList() {
     []
   )
 
+  const tableOptions = useStandardTableOptions("paymentTerms", columns)
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Payment Terms</h1>
-        <Button onClick={() => setAddEditDialog({ mode: "add" })}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Payment Term
-        </Button>
-      </div>
+      <PageHeader
+        title="All Payment Terms"
+        actions={
+          <Button onClick={() => setAddEditDialog({ mode: "add" })}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Payment Term
+          </Button>
+        }
+      />
 
       <AddEditPaymentTerm
         value={addEditDialog}
@@ -144,12 +152,14 @@ function PaymentTermList() {
         <MaterialReactTable
           columns={columns}
           data={paymentTerms}
-          state={{ isLoading }}
+          state={{ isLoading, ...tableOptions.state }}
           enableSorting
           enableColumnFilters
           enableGrouping
-          enableExpanding={false}
+          enableExpanding={tableOptions.enableExpanding}
+          renderDetailPanel={tableOptions.renderDetailPanel}
           enableColumnPinning
+          muiTableContainerProps={tableOptions.muiTableContainerProps}
         />
       )}
     </div>

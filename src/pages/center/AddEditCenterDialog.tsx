@@ -5,6 +5,7 @@ import { z } from "zod"
 import { Button } from "../../components/ui/button"
 import { cn } from "../../lib/utils"
 import toast from "react-hot-toast"
+import { dialogShellMdClass } from "@/lib/responsive/dialogClasses"
 import { centerService } from "../../services/center.service"
 import type { CenterResponse } from "../../types/center"
 
@@ -102,7 +103,7 @@ export function AddEditCenterDialog({ value, onClose, onSuccess }: Props) {
         <dialog
             ref={dialogRef}
             onCancel={close}
-            className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-lg w-full"
+            className={dialogShellMdClass}
             aria-labelledby="add-edit-center-title"
         >
             <form onSubmit={form.handleSubmit(onSubmit)} className="p-6">

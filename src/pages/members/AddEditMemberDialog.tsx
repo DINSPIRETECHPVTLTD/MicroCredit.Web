@@ -11,6 +11,7 @@ import type { MemberResponse } from "@/types/member"
 import { memberService, type MemberSaveRequest } from "@/services/member.service"
 import { memberFeeService } from "@/services/memberFee.service"
 import { centerService } from "@/services/center.service"
+import { dialogShellLgClass, dialogHeaderClass, dialogBodyScrollClass, dialogFooterClass } from "@/lib/responsive/dialogClasses"
 import { getBranch } from "@/services/auth.service"
 import { pocService } from "@/services/poc.service"
 import type { PocResponse } from "@/types/poc"
@@ -770,17 +771,17 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
     <dialog
       ref={dialogRef}
       onCancel={close}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
+      className={dialogShellLgClass}
       aria-labelledby="add-edit-member-title"
     >
-      <div className="p-6 border-b shrink-0">
+      <div className={dialogHeaderClass}>
         <h2 id="add-edit-member-title" className="text-lg font-semibold">
           {isEdit ? "Update member" : "Create member"}
         </h2>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit, onValidationError)} className="flex flex-col min-h-0 overflow-hidden">
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className={dialogBodyScrollClass}>
           <section>
             <h3 className="text-sm font-medium mb-3">Assignment Details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1242,7 +1243,7 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 p-6 border-t shrink-0">
+        <div className={dialogFooterClass}>
           <Button type="button" variant="outline" onClick={close}>
             Cancel
           </Button>

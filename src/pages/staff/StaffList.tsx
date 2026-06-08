@@ -14,6 +14,8 @@ import { AddEditStaffDialog, type AddEditStaffDialogMode } from "@/pages/staff/A
 import { Plus, Pencil, Key, UserX } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/utils"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
@@ -98,26 +100,32 @@ function StaffList() {
         [refetch]
     )
 
+    const tableOptions = useStandardTableOptions("staff", columns)
+
     const table = useMaterialReactTable({
         columns,
         data: staffs,
-        state: { isLoading },
+        state: { isLoading, ...tableOptions.state },
         enableSorting: true,
         enableColumnFilters: true,
         enableGrouping: true,
-        enableExpanding: false,
+        enableExpanding: tableOptions.enableExpanding,
+        renderDetailPanel: tableOptions.renderDetailPanel,
         enableColumnPinning: true,
+        muiTableContainerProps: tableOptions.muiTableContainerProps,
     })
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-semibold">All Staff</h1>
-                <Button onClick={() => setAddEditDialog({ mode: "add" })}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    ADD STAFF
-                </Button>
-            </div>
+            <PageHeader
+                title="All Staff"
+                actions={
+                    <Button onClick={() => setAddEditDialog({ mode: "add" })}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        ADD STAFF
+                    </Button>
+                }
+            />
 
             {!isLoading && staffs.length === 0 ? (
                 <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">

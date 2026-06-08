@@ -9,6 +9,8 @@ import type { LedgerTransactionResponse } from "@/types/ledgerTransaction"
 import { useQuery } from "@tanstack/react-query"
 import { userService } from "@/services/user.service"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { Plus } from "lucide-react"
 import type { UserResponse } from "@/types/user"
 import AddExpenseDialog from "./AddExpenseDialog"
@@ -76,15 +78,19 @@ function ExpenseList() {
         [refetch, userMap]
     )
 
+    const tableOptions = useStandardTableOptions("expenses", columns)
+
     const table = useMaterialReactTable({
         columns,
         data: expenses,
-        state: { isLoading },
+        state: { isLoading, ...tableOptions.state },
         enableSorting: true,
         enableColumnFilters: true,
         enableGrouping: true,
-        enableExpanding: false,
+        enableExpanding: tableOptions.enableExpanding,
+        renderDetailPanel: tableOptions.renderDetailPanel,
         enableColumnPinning: true,
+        muiTableContainerProps: tableOptions.muiTableContainerProps,
     })
 
     const handleCreated = async () => {
@@ -93,13 +99,15 @@ function ExpenseList() {
 
     return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Expenses</h1>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          ADD Expense
-        </Button>
-      </div>
+      <PageHeader
+        title="All Expenses"
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            ADD Expense
+          </Button>
+        }
+      />
 
       {!isLoading && expenses.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
