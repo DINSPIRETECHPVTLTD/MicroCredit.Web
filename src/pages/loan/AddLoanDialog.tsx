@@ -219,7 +219,9 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member }: AddL
 
     const collectionDayError = useMemo(() => {
         if (!pocs?.collectionDay || !collectionStartDate) return null
-        const selectedDay = DAYS[new Date(collectionStartDate).getDay()]
+        const parsedCollectionDate = parseDateInputAsLocal(collectionStartDate)
+        if (!parsedCollectionDate) return null
+        const selectedDay = DAYS[parsedCollectionDate.getDay()]
         if (selectedDay !== pocs.collectionDay) {
             return `Collection start date must be a ${pocs.collectionDay}`
         }
