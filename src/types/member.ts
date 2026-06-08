@@ -1,3 +1,14 @@
+/** GET /Member/by-branch/{id} when the branch has no members (200 with message + data). */
+export interface MembersListApiResponse {
+  message: string
+  data: MemberResponse[]
+}
+
+export interface MembersListResult {
+  members: MemberResponse[]
+  emptyMessage?: string
+}
+
 export interface MemberResponse {
   id: number
   memberId?: number
@@ -24,6 +35,8 @@ export interface MemberResponse {
   centerId?: number
   centerName?: string | null
   pocId?: number | null
+  /** When set, member has an open loan; use for View Schedule on Members page. */
+  primaryOpenLoanId?: number | null
   createdAt?: string
   aadhaar?: string | null
   occupation?: string | null

@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
+import { getTodayDateInputValue } from "@/lib/date-time"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { CreateFundTransferRequest } from "@/types/ledgerBalance"
@@ -45,7 +46,7 @@ export default function FundTransferDialog({ open, onClose, onSuccess, users }: 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
     defaultValues: async () => {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = getTodayDateInputValue()
       return {
         paidFromUserId: 0,
         paidToUserId: 0,
@@ -62,7 +63,7 @@ export default function FundTransferDialog({ open, onClose, onSuccess, users }: 
       dialogRef.current?.close()
       return
     }
-    const today = new Date().toISOString().slice(0, 10)
+    const today = getTodayDateInputValue()
     form.reset({
       paidFromUserId: 0,
       paidToUserId: 0,

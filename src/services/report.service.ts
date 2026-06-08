@@ -2,7 +2,6 @@ import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import type {
   MemberByPocReportRow,
-  PaidToUserLedgerReportRow,
   PocBranchReportRow,
   PocCollectionStaffReportRow,
   StaffScheduleReportRow,
@@ -171,28 +170,6 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
   }
 }
 
-function normalizePaidToUserLedgerRow(raw: Record<string, unknown>): PaidToUserLedgerReportRow | null {
-  const id = pickId(raw.id ?? raw.Id)
-  if (!id) return null
-  const paidToUserFullName = pickStr(
-    raw.paidToUserFullName ?? raw.PaidToUserFullName ?? raw.fullName ?? raw.FullName
-  )
-  const paidToUserIdRaw = raw.paidToUserId ?? raw.PaidToUserId
-  const paidToUserId =
-    paidToUserIdRaw == null || paidToUserIdRaw === "" ? null : pickNum(paidToUserIdRaw)
-  const amount = pickNum(raw.amount ?? raw.Amount)
-  const paymentDate = pickScheduleDateIso(raw.paymentDate ?? raw.PaymentDate)
-  const transactionType = pickStr(raw.transactionType ?? raw.TransactionType)
-  return {
-    id,
-    paidToUserFullName: paidToUserFullName || "—",
-    paidToUserId,
-    amount,
-    paymentDate,
-    transactionType: transactionType || "—",
-  }
-}
-
 function normalizePocCollectionStaffRow(
   raw: Record<string, unknown>
 ): PocCollectionStaffReportRow | null {
@@ -268,13 +245,6 @@ export const reportService = {
     return asObjectArray(data)
       .map(normalizeMemberRow)
       .filter((r): r is MemberByPocReportRow => r !== null)
-  },
-
-  async getRecentPaidToUserTransactions(branchId: number): Promise<PaidToUserLedgerReportRow[]> {
-    const { data } = await apiClient.get<unknown>(api.report.recentPaidToUserTransactions(branchId))
-    return asObjectArray(data)
-      .map(normalizePaidToUserLedgerRow)
-      .filter((r): r is PaidToUserLedgerReportRow => r !== null)
   },
 
   async getMembersByPocs(branchId: number, pocIds: number[]): Promise<MemberByPocReportRow[]> {

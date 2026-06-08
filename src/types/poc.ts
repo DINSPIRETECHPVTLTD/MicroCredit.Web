@@ -1,3 +1,14 @@
+/** GET /POC/branch/{id} when the branch has no POCs (200 with message + data). */
+export interface PocsListApiResponse {
+  message: string
+  data: PocResponse[]
+}
+
+export interface PocsListResult {
+  pocs: PocResponse[]
+  emptyMessage?: string
+}
+
 export interface PocResponse {
   id: number
   firstName: string
