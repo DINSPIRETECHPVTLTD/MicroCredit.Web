@@ -207,7 +207,8 @@ function RecoveryPostingList() {
 
   const { data: centersData } = useQuery({
     queryKey: ["centers"],
-    queryFn: async () => (await centerService.getCenters()).centers,
+    queryFn: () => centerService.getCenters(),
+    select: (result) => result.centers,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnMount: "always",
@@ -216,7 +217,8 @@ function RecoveryPostingList() {
 
   const { data: pocsData } = useQuery({
     queryKey: ["pocs", branchId],
-    queryFn: async () => (await pocService.getByBranch(branchId!)).pocs,
+    queryFn: () => pocService.getByBranch(branchId!),
+    select: (result) => result.pocs,
     enabled: !!branchId && centerId > 0,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,

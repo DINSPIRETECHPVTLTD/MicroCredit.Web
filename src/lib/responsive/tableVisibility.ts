@@ -129,20 +129,12 @@ const TABLE_VISIBILITY: Record<
       totalAmountPaid: false,
       loanId: false,
       memberId: false,
-      schedulerTotalAmount: false,
-      remainingBal: false,
     },
     tablet: {
       loanId: false,
       memberId: false,
-      schedulerTotalAmount: false,
     },
-    desktop: {
-      loanId: false,
-      memberId: false,
-      schedulerTotalAmount: false,
-      remainingBal: false,
-    },
+    desktop: {},
   },
   loanScheduler: {
     mobile: {
@@ -158,10 +150,7 @@ const TABLE_VISIBILITY: Record<
       PaymentMode: false,
       Comments: false,
     },
-    desktop: {
-      LoanschedulerId: false,
-      LoanID: false,
-    },
+    desktop: {},
   },
   addLoanSearch: {
     mobile: {

@@ -306,7 +306,8 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
   const { data: centers = [] } = useQuery({
     queryKey: ["centers"],
-    queryFn: async () => (await centerService.getCenters()).centers,
+    queryFn: () => centerService.getCenters(),
+    select: (result) => result.centers,
     enabled: isOpen,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
@@ -389,7 +390,8 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
 
   const { data: pocsByBranch = [] } = useQuery({
     queryKey: ["pocs", branchId],
-    queryFn: async () => (await pocService.getByBranch(branchId!)).pocs,
+    queryFn: () => pocService.getByBranch(branchId!),
+    select: (result) => result.pocs,
     enabled: isOpen && !!branchId && !!selectedCenterId,
   })
 

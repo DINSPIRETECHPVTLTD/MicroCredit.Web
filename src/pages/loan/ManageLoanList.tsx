@@ -110,16 +110,6 @@ function ManageLoanList() {
         header: "Member Id",
       },
       {
-        accessorKey: "schedulerTotalAmount",
-        header: "Scheduler Total Amount",
-        Cell: ({ cell }) => formatCurrency(cell.getValue()),
-      },
-      {
-        accessorKey: "remainingBal",
-        header: "Remaining Balance",
-        Cell: ({ cell }) => formatCurrency(cell.getValue()),
-      },
-      {
         id: "actions",
         header: "Actions",
         enableSorting: false,
@@ -141,19 +131,7 @@ function ManageLoanList() {
     [paidNoOfTermsLabel, handleViewLoan, handlePrepayment, isMobile]
   )
 
-  const desktopDefaults = useMemo(
-    () => ({
-      loanId: false,
-      memberId: false,
-      schedulerTotalAmount: false,
-      remainingBal: false,
-    }),
-    []
-  )
-
-  const tableOptions = useStandardTableOptions("manageLoans", columns, {
-    defaultVisibility: desktopDefaults,
-  })
+  const tableOptions = useStandardTableOptions("manageLoans", columns)
 
   return (
     <div>

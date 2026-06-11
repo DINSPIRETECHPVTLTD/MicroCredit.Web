@@ -191,9 +191,7 @@ export default function LoanSchedulerList() {
     []
   )
 
-  const tableOptions = useStandardTableOptions("loanScheduler", columns, {
-    defaultVisibility: { LoanschedulerId: false, LoanID: false },
-  })
+  const tableOptions = useStandardTableOptions("loanScheduler", columns)
 
   return (
     <div>

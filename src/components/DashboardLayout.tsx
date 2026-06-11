@@ -20,8 +20,10 @@ import {
   authService,
 } from "@/services/auth.service"
 import { Button } from "@/components/ui/button"
+import AppErrorBoundary from "@/components/AppErrorBoundary"
 import { cn } from "@/lib/utils"
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronRight,
   LogOut,
@@ -330,9 +332,20 @@ export default function DashboardLayout() {
               </span>
             </div>
             {safeMode === "BRANCH" && role === "Owner" && (
-              <Button variant="outline" size="sm" onClick={handleReturnToOrg} className="hidden sm:flex">
-                Back to Org
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleReturnToOrg}
+                  className="h-9 w-9 shrink-0 border-border bg-background text-foreground shadow-sm hover:bg-muted sm:hidden [&_svg]:text-foreground"
+                  aria-label="Back to Org"
+                >
+                  <ArrowLeft className="h-5 w-5" strokeWidth={2} aria-hidden />
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleReturnToOrg} className="hidden sm:flex">
+                  Back to Org
+                </Button>
+              </>
             )}
             <Button
               variant="outline"
@@ -362,7 +375,9 @@ export default function DashboardLayout() {
               administrator if this is unexpected.
             </div>
           )}
-          <Outlet />
+          <AppErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </AppErrorBoundary>
         </main>
       </div>
     </div>
