@@ -6,6 +6,8 @@ import {
 } from "material-react-table"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
 import { fetchLoanSchedulerList } from "@/services/loanScheduler.service"
@@ -189,19 +191,23 @@ export default function LoanSchedulerList() {
     []
   )
 
+  const tableOptions = useStandardTableOptions("loanScheduler", columns)
+
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3 justify-between">
-        <h1 className="text-2xl font-semibold">Loan Scheduler</h1>
-        <div className="flex items-center gap-2">
-          {Number.isFinite(loanId) ? (
-            <div className="text-sm text-muted-foreground">Loan Id: {loanId}</div>
-          ) : null}
-          <Button variant="outline" onClick={() => navigate("/loans/manage")}>
-            Cancel
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Loan Scheduler"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {Number.isFinite(loanId) ? (
+              <div className="text-sm text-muted-foreground">Loan Id: {loanId}</div>
+            ) : null}
+            <Button variant="outline" onClick={() => navigate("/loans/manage")}>
+              Cancel
+            </Button>
+          </div>
+        }
+      />
 
       {!Number.isFinite(loanId) ? (
         <div className="rounded-lg border bg-card p-6 text-center text-muted-foreground">
@@ -213,7 +219,7 @@ export default function LoanSchedulerList() {
           <p className="mt-1 text-sm">{getApiErrorMessage(error, "Unknown error")}</p>
         </div>
       ) : (
-        <div className="mb-4 grid grid-cols-4 gap-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border bg-card p-4">
             <div className="text-sm text-muted-foreground">Member Name</div>
             <div className="mt-1 text-lg font-semibold">{memberName}</div>
@@ -243,19 +249,14 @@ export default function LoanSchedulerList() {
         <MaterialReactTable
           columns={columns}
           data={rows}
-          state={{ isLoading }}
-          initialState={{
-            columnVisibility: {
-              // Keep columns defined, but hide them by default.
-              LoanschedulerId: false,
-              LoanID: false,
-            },
-          }}
+          state={{ isLoading, ...tableOptions.state }}
           enableSorting
           enableColumnFilters
           enableGrouping
           enableColumnPinning
-          enableExpanding={false}
+          enableExpanding={tableOptions.enableExpanding}
+          renderDetailPanel={tableOptions.renderDetailPanel}
+          muiTableContainerProps={tableOptions.muiTableContainerProps}
         />
       )}
     </div>

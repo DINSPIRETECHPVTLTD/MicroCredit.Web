@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useMemo } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { dialogShellLgClass } from "@/lib/responsive/dialogClasses"
 import { cn } from "@/lib/utils"
 import { useQuery } from "@tanstack/react-query"
 import type { PaymentTermResponse } from "@/types/paymentTerm"
@@ -288,7 +289,7 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member }: AddL
     <dialog
       ref={dialogRef}
       onCancel={() => close("cancel")}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-[calc(100vw-1rem)] max-h-[90vh] flex flex-col sm:w-full"
+      className={dialogShellLgClass}
       aria-labelledby="add-loan-title"
     >
       <div className="p-6 border-b shrink-0">

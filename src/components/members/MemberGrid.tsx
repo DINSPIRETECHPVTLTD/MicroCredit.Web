@@ -7,6 +7,8 @@ import type { MemberResponse } from "@/types/member"
 import { buildPromissoryNoteHtml } from "@/templates/promissoryNoteTemplate"
 import { buildMembershipFormHtml } from "@/templates/membershipFormTemplate"
 import { getBranch } from "@/services/auth.service"
+import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import { HiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 
 function buildDisplayName(row: MemberResponse): string {
   const primary =
@@ -89,6 +91,9 @@ export default function MemberGrid({
     }
   }, [])
 
+  const { columnVisibility, enableExpanding, hiddenColumnIds } =
+    useResponsiveTable("members")
+
   const columns = useMemo<MRT_ColumnDef<MemberResponse>[]>(
     () => [
       {
@@ -167,16 +172,30 @@ export default function MemberGrid({
     ]
   )
 
+  const renderDetailPanel = useCallback(
+    ({ row }: { row: { original: MemberResponse } }) => (
+      <HiddenColumnsDetailPanel
+        row={row.original}
+        columns={columns}
+        hiddenColumnIds={hiddenColumnIds}
+        className="[&_dd]:whitespace-pre-wrap"
+      />
+    ),
+    [columns, hiddenColumnIds]
+  )
+
   return (
     <MaterialReactTable
       columns={columns}
       data={members}
-      state={{ isLoading }}
+      state={{ isLoading, columnVisibility }}
       enableSorting
       enableColumnFilters
       enableGrouping
-      enableExpanding={false}
+      enableExpanding={enableExpanding}
+      renderDetailPanel={enableExpanding ? renderDetailPanel : undefined}
       enableColumnPinning
+      muiTableContainerProps={{ sx: { overflowX: "auto" } }}
     />
   )
 }

@@ -26,6 +26,8 @@ import {
   round2,
 } from "./prepaymentCalculations"
 import { postPrepaymentRecoveries } from "@/services/prepayment.service"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 
 type LoanSchedulerApiRow = {
   loanSchedulerId?: number
@@ -931,6 +933,88 @@ export default function LoanPrepayment() {
     [apiReadOnlyByRowKey, handlePaymentAmountChange, paymentAmountDrafts, paymentModes, rowSelection, updateDraft]
   )
 
+  const { columnVisibility, enableExpanding, hiddenColumnIds } =
+    useResponsiveTable("loanPrepayment")
+
+  const renderDetailPanel = useCallback(
+    ({ row }: { row: { original: PrepaymentRow } }) => {
+      if (hiddenColumnIds.length === 0) return null
+      const r = row.original
+      const isReadOnly = !!apiReadOnlyByRowKey[r.rowKey]
+      const isSelected = !!rowSelection[r.rowKey]
+      return (
+        <div
+          className="border-t border-border bg-muted/30 px-3 py-3 sm:px-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {hiddenColumnIds.includes("paymentDate") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Paid Date</dt>
+                <dd className="mt-0.5 text-sm">{parseDate(r.paymentDate)}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("principalAmount") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Principal Amount</dt>
+                <dd className="mt-0.5 text-sm">{formatCurrency(toNumber(r.principalAmount))}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("interestAmount") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Interest Amount</dt>
+                <dd className="mt-0.5 text-sm">{formatCurrency(toNumber(r.interestAmount))}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("paymentMode") && isSelected ? (
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-muted-foreground">Payment Mode</label>
+                <select
+                  className={cn(
+                    "mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-sm",
+                    (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                  )}
+                  value={r.paymentMode || ""}
+                  disabled={isReadOnly || !isSelected}
+                  onChange={(e) => updateDraft(r, { paymentMode: e.target.value })}
+                >
+                  <option value="">Select</option>
+                  {paymentModes.map((m) => (
+                    <option key={m.id} value={m.lookupValue}>
+                      {m.lookupValue}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("comments") && isSelected ? (
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-muted-foreground">Reasons</label>
+                <input
+                  type="text"
+                  className={cn(
+                    "mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-sm",
+                    (isReadOnly || !isSelected) && "cursor-not-allowed bg-muted text-muted-foreground"
+                  )}
+                  value={r.comments || ""}
+                  readOnly={isReadOnly || !isSelected}
+                  onChange={(e) => updateDraft(r, { comments: e.target.value })}
+                />
+              </div>
+            ) : null}
+          </dl>
+        </div>
+      )
+    },
+    [
+      hiddenColumnIds,
+      apiReadOnlyByRowKey,
+      rowSelection,
+      paymentModes,
+      updateDraft,
+    ]
+  )
+
   if (!Number.isFinite(loanId) || loanId <= 0) {
     return (
       <div className="rounded-lg border bg-card p-6 text-center text-muted-foreground">
@@ -941,33 +1025,35 @@ export default function LoanPrepayment() {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Modify Loan</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setBulkPopupOpen(true)}
-            disabled={selectedRows.length === 0}
-          >
-            Apply to Selected
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setClaimConfirmOpen(true)}
-            className="bg-amber-500 text-white hover:bg-amber-600"
-            disabled={isSaving || isLockedLoan}
-          >
-            Claim
-          </Button>
-          <Button variant="outline" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving || isLockedLoan || (pendingRows.length === 0 && !loanStatusChanged)}>
-            <Save className="h-4 w-4" />
-            {isSaving ? "Saving..." : pendingRows.length === 0 && !loanStatusChanged ? "All Paid" : "Save"}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Modify Loan"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setBulkPopupOpen(true)}
+              disabled={selectedRows.length === 0}
+            >
+              Apply to Selected
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setClaimConfirmOpen(true)}
+              className="bg-amber-500 text-white hover:bg-amber-600"
+              disabled={isSaving || isLockedLoan}
+            >
+              Claim
+            </Button>
+            <Button variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving || isLockedLoan || (pendingRows.length === 0 && !loanStatusChanged)}>
+              <Save className="h-4 w-4" />
+              {isSaving ? "Saving..." : pendingRows.length === 0 && !loanStatusChanged ? "All Paid" : "Save"}
+            </Button>
+          </div>
+        }
+      />
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Loan Summary</h2>
@@ -1036,13 +1122,15 @@ export default function LoanPrepayment() {
               sx: apiReadOnlyByRowKey[row.original.rowKey] ? { visibility: "hidden" } : undefined,
             })}
             onRowSelectionChange={handleRowSelectionChange}
-            state={{ rowSelection, isLoading }}
+            state={{ rowSelection, isLoading, columnVisibility }}
             initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
             enableSorting
             enableColumnFilters={false}
             enableGrouping={false}
-            enableExpanding={false}
+            enableExpanding={enableExpanding}
+            renderDetailPanel={enableExpanding ? renderDetailPanel : undefined}
             enableColumnPinning
+            muiTableContainerProps={{ sx: { overflowX: "auto" } }}
           />
         )}
       </section>

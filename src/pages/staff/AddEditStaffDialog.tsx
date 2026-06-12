@@ -8,6 +8,7 @@ import type { StaffResponse } from "@/types/staff"
 import { masterlookupService } from "@/services/masterLookup.service"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { dialogShellLgClass } from "@/lib/responsive/dialogClasses"
 import toast from "react-hot-toast"
 
 const alphaNumericRegex = /^[A-Za-z0-9 ]+$/
@@ -273,7 +274,7 @@ export function AddEditStaffDialog({ value, onClose, onSuccess }: Props) {
         <dialog
             ref={dialogRef}
             onCancel={close}
-            className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
+            className={dialogShellLgClass}
             aria-labelledby="add-edit-staff-title"
         >
             <div className="p-6 border-b shrink-0">

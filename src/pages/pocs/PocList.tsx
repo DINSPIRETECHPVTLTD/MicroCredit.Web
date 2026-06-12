@@ -16,6 +16,8 @@ import type { PocResponse } from "@/types/poc"
 import { pocService } from "@/services/poc.service"
 import { AddEditPocDialog, type AddEditPocDialogMode } from "@/pages/pocs/AddEditPocDialog"
 import { getBranch } from "@/services/auth.service"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 const INACTIVE_DIALOG_TOASTER_ID = "poc-inactive-dialog"
 
@@ -66,24 +68,27 @@ function PocList() {
     []
   )
 
-  // MaterialReactTable config: columns, data, loading state, and table features.
+  const tableOptions = useStandardTableOptions("pocs", columns)
+
   const table = useMaterialReactTable({
     columns,
     data: pocs,
-    state: { isLoading },
+    state: { isLoading, ...tableOptions.state },
     enableSorting: true,
     enableColumnFilters: true,
     enableGrouping: true,
-    enableExpanding: false,
+    enableExpanding: tableOptions.enableExpanding,
+    renderDetailPanel: tableOptions.renderDetailPanel,
     enableColumnPinning: true,
+    muiTableContainerProps: tableOptions.muiTableContainerProps,
   })
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">POCs</h1>
-        <Button onClick={() => setAddEditDialog({ mode: "add" })}>Add POC</Button>
-      </div>
+      <PageHeader
+        title="POCs"
+        actions={<Button onClick={() => setAddEditDialog({ mode: "add" })}>Add POC</Button>}
+      />
 
       {/* Empty state when no POCs; otherwise show the data table. */}
       {!isLoading && pocs.length === 0 ? (

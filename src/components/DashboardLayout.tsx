@@ -20,8 +20,10 @@ import {
   authService,
 } from "@/services/auth.service"
 import { Button } from "@/components/ui/button"
+import AppErrorBoundary from "@/components/AppErrorBoundary"
 import { cn } from "@/lib/utils"
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronRight,
   LogOut,
@@ -149,14 +151,16 @@ export default function DashboardLayout() {
             )}
           </div>
           {/* Close button — mobile only */}
-          <button
+          <Button
             type="button"
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:hidden"
+            variant="outline"
+            size="icon"
+            className="ml-auto h-8 w-8 shrink-0 border-border bg-background text-foreground shadow-sm hover:bg-muted lg:hidden [&_svg]:text-foreground"
             onClick={closeSidebar}
             aria-label="Close menu"
           >
-            <X className="h-5 w-5" />
-          </button>
+            <X className="h-5 w-5" strokeWidth={2} />
+          </Button>
         </div>
         {organization?.address && (
           <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -297,14 +301,16 @@ export default function DashboardLayout() {
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
           <div className="flex items-center gap-2">
             {/* Hamburger — mobile only */}
-            <button
+            <Button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:hidden"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 border-border bg-background text-foreground shadow-sm hover:bg-muted lg:hidden [&_svg]:text-foreground"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
             >
-              <Menu className="h-5 w-5" />
-            </button>
+              <Menu className="h-5 w-5" strokeWidth={2} />
+            </Button>
 
             <span
               className={cn(
@@ -326,18 +332,38 @@ export default function DashboardLayout() {
               </span>
             </div>
             {safeMode === "BRANCH" && role === "Owner" && (
-              <Button variant="outline" size="sm" onClick={handleReturnToOrg} className="hidden sm:flex">
-                Back to Org
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleReturnToOrg}
+                  className="h-9 w-9 shrink-0 border-border bg-background text-foreground shadow-sm hover:bg-muted sm:hidden [&_svg]:text-foreground"
+                  aria-label="Back to Org"
+                >
+                  <ArrowLeft className="h-5 w-5" strokeWidth={2} aria-hidden />
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleReturnToOrg} className="hidden sm:flex">
+                  Back to Org
+                </Button>
+              </>
             )}
             <Button
-              variant="ghost"
+              variant="outline"
+              size="icon"
+              onClick={handleLogout}
+              className="h-9 w-9 shrink-0 border-border bg-background text-foreground shadow-sm hover:bg-muted sm:hidden [&_svg]:text-foreground"
+              aria-label="Log out"
+            >
+              <LogOut className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </Button>
+            <Button
+              variant="outline"
               size="sm"
               onClick={handleLogout}
-              className="text-muted-foreground hover:text-foreground"
+              className="hidden border-border bg-background text-foreground shadow-sm hover:bg-muted sm:inline-flex [&_svg]:text-foreground"
             >
-              <LogOut className="h-4 w-4 sm:mr-1.5" aria-hidden />
-              <span className="hidden sm:inline">Log out</span>
+              <LogOut className="h-4 w-4" strokeWidth={2} aria-hidden />
+              Log out
             </Button>
           </div>
         </header>
@@ -349,7 +375,9 @@ export default function DashboardLayout() {
               administrator if this is unexpected.
             </div>
           )}
-          <Outlet />
+          <AppErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </AppErrorBoundary>
         </main>
       </div>
     </div>

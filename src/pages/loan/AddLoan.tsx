@@ -11,6 +11,8 @@ import { searchMemberService } from "@/services/searchMemeberAddLoan.service"
 import type { SearchMemberResponse } from "@/types/searchMemeber"
 import AddLoanDialog from "./AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 function AddLoan() {
     const [selectedMember, setSelectedMember] = useState<SearchMemberResponse | null>(null)
@@ -116,15 +118,19 @@ function AddLoan() {
         [handleMemberLoanAction]
     )
 
+    const tableOptions = useStandardTableOptions("addLoanSearch", columns)
+
     const table = useMaterialReactTable({
         columns,
         data: members,
-        state: { isLoading: membersLoading },
+        state: { isLoading: membersLoading, ...tableOptions.state },
         enableSorting: true,
         enableColumnFilters: true,
         enableGrouping: true,
-        enableExpanding: false,
+        enableExpanding: tableOptions.enableExpanding,
+        renderDetailPanel: tableOptions.renderDetailPanel,
         enableColumnPinning: true,
+        muiTableContainerProps: tableOptions.muiTableContainerProps,
         renderTopToolbarCustomActions: () => (
         <span className="text-base font-semibold self-center">{firstName || lastName || middleName ? "Members" : "Recent Memebers"}</span>
     ),
@@ -141,20 +147,22 @@ function AddLoan() {
 
     return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Add Loan</h1>
-        <div className="flex gap-3 mb-4">
-            <input className= {searchBoxClass}
+      <PageHeader
+        title="Add Loan"
+        toolbar={
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <input className={searchBoxClass}
                 placeholder="First Name"
                 value={firstName} onChange={e => setFirstName(e.target.value)} />
-            <input className= {searchBoxClass}
+            <input className={searchBoxClass}
                 placeholder="Middle Name"
                 value={middleName} onChange={e => setMiddleName(e.target.value)} />
-            <input className= {searchBoxClass}
+            <input className={searchBoxClass}
                 placeholder="Last Name"
                 value={lastName} onChange={e => setLastName(e.target.value)} />
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {!membersLoading && members.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">

@@ -5,6 +5,8 @@ import { Plus, Pencil, UserX } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import { AddEditCenterDialog, type AddEditCenterDialogMode } from "@/pages/center/AddEditCenterDialog"
 import { Button } from "../../components/ui/button"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { centerService } from "../../services/center.service"
 import type { CenterResponse } from "../../types/center"
 
@@ -66,15 +68,19 @@ function CenterList() {
     []
   )
 
+  const tableOptions = useStandardTableOptions("centers", columns)
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">All Centers</h1>
-        <Button onClick={() => setAddEditDialog({ mode: "add" })}>
-          <Plus className="mr-2 h-4 w-4" />
-          ADD Center
-        </Button>
-      </div>
+      <PageHeader
+        title="All Centers"
+        actions={
+          <Button onClick={() => setAddEditDialog({ mode: "add" })}>
+            <Plus className="mr-2 h-4 w-4" />
+            ADD Center
+          </Button>
+        }
+      />
 
       {!isLoading && centers.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
@@ -88,12 +94,14 @@ function CenterList() {
         <MaterialReactTable
           columns={columns}
           data={centers}
-          state={{ isLoading }}
+          state={{ isLoading, ...tableOptions.state }}
           enableSorting
           enableColumnFilters
           enableGrouping
-          enableExpanding={false}
+          enableExpanding={tableOptions.enableExpanding}
+          renderDetailPanel={tableOptions.renderDetailPanel}
           enableColumnPinning
+          muiTableContainerProps={tableOptions.muiTableContainerProps}
         />
       )}
 

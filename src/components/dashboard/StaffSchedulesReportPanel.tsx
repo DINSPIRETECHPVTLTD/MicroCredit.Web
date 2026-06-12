@@ -25,6 +25,8 @@ import type {
 } from "@/types/report"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
+import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -223,10 +225,13 @@ const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
 }: {
   lines: StaffScheduleReportRow[]
 }) {
+  const memberTableResponsive = useResponsiveTable("staffScheduleMemberLines")
+
   const table = useMaterialReactTable({
     columns: scheduleLineColumns,
     data: lines,
     getRowId: (r, index) => `${r.loanSchedulerId}-${r.memberId}-${index}`,
+    state: { columnVisibility: memberTableResponsive.columnVisibility },
     enableGlobalFilter: true,
     enablePagination: true,
     enableSorting: true,
@@ -234,6 +239,11 @@ const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
     enableTopToolbar: true,
     enableFullScreenToggle: false,
     enableKeyboardShortcuts: false,
+    enableExpanding: memberTableResponsive.enableExpanding,
+    renderDetailPanel: memberTableResponsive.enableExpanding
+      ? renderHiddenColumnsDetailPanel(scheduleLineColumns, memberTableResponsive.hiddenColumnIds)
+      : undefined,
+    muiTableContainerProps: { sx: { overflowX: "auto" } },
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
     muiSearchTextFieldProps: { placeholder: "Search members…" },
   })
@@ -270,6 +280,8 @@ const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
 }: {
   pocRows: StaffSchedulePocSummaryRow[]
 }) {
+  const pocTableResponsive = useResponsiveTable("staffSchedulePoc")
+
   const renderPocDetail = useCallback(
     ({ row }: { row: MRT_Row<StaffSchedulePocSummaryRow> }) => (
       <StaffPocMemberDetailPanel lines={row.original.scheduleLines} />
@@ -304,6 +316,7 @@ const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
     columns: pocColumns,
     data: pocRows,
     getRowId: (r) => String(r.pocId),
+    state: { columnVisibility: pocTableResponsive.columnVisibility },
     enableGlobalFilter: true,
     enablePagination: true,
     enableSorting: true,
@@ -312,6 +325,7 @@ const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
     renderDetailPanel: renderPocDetail,
     muiTableBodyRowProps: getPocBodyRowProps,
     muiDetailPanelProps: DETAIL_PANEL_SX,
+    muiTableContainerProps: { sx: { overflowX: "auto" } },
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
     muiSearchTextFieldProps: { placeholder: "Search POCs…" },
   })
@@ -466,11 +480,16 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     []
   )
 
+  const staffTableResponsive = useResponsiveTable("staffScheduleStaff")
+
   const staffTable = useMaterialReactTable({
     columns: staffColumns,
     data: staffRows,
     getRowId: (r) => String(r.userId),
-    state: { isLoading: isSchedulesLoading },
+    state: {
+      isLoading: isSchedulesLoading,
+      columnVisibility: staffTableResponsive.columnVisibility,
+    },
     enableGlobalFilter: true,
     enablePagination: true,
     enableSorting: true,
@@ -479,6 +498,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     enableKeyboardShortcuts: false,
     enableExpandAll: false,
     renderDetailPanel: renderStaffDetail,
+    muiTableContainerProps: { sx: { overflowX: "auto" } },
     muiTableBodyRowProps: getStaffBodyRowProps,
     muiDetailPanelProps: DETAIL_PANEL_SX,
     muiTableBodyCellProps: () => ({

@@ -7,6 +7,7 @@ import { setupApiInterceptors, initAuthSync } from '@/lib/auth'
 import { hydrateAuth, authService } from '@/services/auth.service'
 import './index.css'
 import App from './App.tsx'
+import AppErrorBoundary from '@/components/AppErrorBoundary'
 
 const apiUrl = getViteApiUrl()
 
@@ -63,7 +64,9 @@ if (!apiUrl) {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
         <Toaster
           position="top-right"
           toastOptions={{

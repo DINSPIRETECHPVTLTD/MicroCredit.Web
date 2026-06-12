@@ -10,6 +10,7 @@ import { z } from "zod"
 import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { dialogShellLgClass } from "@/lib/responsive/dialogClasses"
 import type { PocResponse } from "@/types/poc"
 import { pocService, type PocSaveRequest } from "@/services/poc.service"
 import { userService } from "@/services/user.service"
@@ -254,7 +255,7 @@ export function AddEditPocDialog({ value, onClose, onSuccess }: Props) {
   <dialog
     ref={dialogRef}
     onCancel={close}
-    className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-2xl w-full max-h-[90vh] flex flex-col"
+    className={dialogShellLgClass}
     aria-labelledby="add-edit-poc-title"
   >
     <div className="p-6 border-b shrink-0">

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { dialogShellXlClass } from "@/lib/responsive/dialogClasses"
 import toast from "react-hot-toast"
 import type { PaymentTermResponse } from "@/types/paymentTerm"
 import { paymentTermService } from "@/services/paymentTerm.service"
@@ -163,7 +164,7 @@ export default function AddEditPaymentTerm({ value, onClose, onSuccess }: Props)
     <dialog
       ref={dialogRef}
       onCancel={close}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-xl w-full"
+      className={dialogShellXlClass}
       aria-labelledby="add-edit-payment-term-title"
     >
       <div className="p-6 border-b">

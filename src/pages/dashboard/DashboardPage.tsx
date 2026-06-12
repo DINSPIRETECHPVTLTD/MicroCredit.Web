@@ -39,6 +39,8 @@ import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
 import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
 import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
+import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 
 /** POC row with counts/amounts derived from members-by-poc (POC API often omits memberCount/totalAmount). */
 type PocTableRow = PocBranchReportRow & {
@@ -459,16 +461,23 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
     })
   }, [members, activeScheduleDateKey])
 
+  const memberTableResponsive = useResponsiveTable("dashboardMemberDetail")
+
   const memberTable = useMaterialReactTable({
     columns: memberReportColumns,
     data: filteredMembers,
-    state: { isLoading },
+    state: { isLoading, columnVisibility: memberTableResponsive.columnVisibility },
     enableGlobalFilter: true,
     enablePagination: true,
     enableSorting: true,
     enableColumnFilters: true,
     enableTopToolbar: true,
     enableFullScreenToggle: false,
+    enableExpanding: memberTableResponsive.enableExpanding,
+    renderDetailPanel: memberTableResponsive.enableExpanding
+      ? renderHiddenColumnsDetailPanel(memberReportColumns, memberTableResponsive.hiddenColumnIds)
+      : undefined,
+    muiTableContainerProps: { sx: { overflowX: "auto" } },
     muiTableBodyCellProps: () => ({
       sx: {
         userSelect: "none",
@@ -714,11 +723,16 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     []
   )
 
+  const pocTableResponsive = useResponsiveTable("dashboardPoc")
+
   const pocTable = useMaterialReactTable({
     columns: pocColumns,
     data: visiblePocTableRows,
     getRowId: (row) => String(row.pocId),
-    state: { isLoading: isLoading || membersIsLoading || membersIsFetching },
+    state: {
+      isLoading: isLoading || membersIsLoading || membersIsFetching,
+      columnVisibility: pocTableResponsive.columnVisibility,
+    },
     enableGlobalFilter: true,
     enablePagination: true,
     enableSorting: true,
@@ -726,6 +740,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     enableStickyHeader: true,
     enableKeyboardShortcuts: false,
     enableExpandAll: false,
+    muiTableContainerProps: { sx: { overflowX: "auto" } },
     muiTableBodyCellProps: () => ({
       sx: {
         userSelect: "none",

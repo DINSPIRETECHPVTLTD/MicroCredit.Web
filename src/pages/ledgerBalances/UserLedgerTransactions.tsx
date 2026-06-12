@@ -13,6 +13,8 @@ import type { UserResponse } from "@/types/user"
 import { useParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 
 
@@ -79,14 +81,19 @@ export default function UserLedgerTransactions() {
     [userMap]
   )
 
+  const tableOptions = useStandardTableOptions("ledgerTransactions", columns)
+
   const table = useMaterialReactTable({
     columns,
     data: rows,
-    state: { isLoading },
+    state: { isLoading, ...tableOptions.state },
     enableSorting: true,
     enableColumnFilters: true,
     enableGrouping: true,
+    enableExpanding: tableOptions.enableExpanding,
+    renderDetailPanel: tableOptions.renderDetailPanel,
     enableColumnPinning: true,
+    muiTableContainerProps: tableOptions.muiTableContainerProps,
     initialState: {
       sorting: [{ id: "createdDate", desc: true }],
       pagination: { pageSize: 20, pageIndex: 0 },
@@ -95,13 +102,15 @@ export default function UserLedgerTransactions() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">Ledger Transactions</h1>
+      <PageHeader
+        title="Ledger Transactions"
+        actions={
           <Button onClick={() => backToLedgers()}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Ledgers
           </Button>
-      </div>
+        }
+      />
 
       <MaterialReactTable table={table} />
     </div>

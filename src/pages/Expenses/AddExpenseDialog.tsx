@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { dialogShellMdClass } from "@/lib/responsive/dialogClasses"
 import { Button } from "@/components/ui/button"
 import { getTodayDateInputValue } from "@/lib/date-time"
 import { cn } from "@/lib/utils"
@@ -113,7 +114,7 @@ export default function AddExpenseDialog({ open, onClose, onSuccess, users }: Pr
     <dialog
       ref={dialogRef}
       onCancel={close}
-      className="rounded-lg border bg-card p-0 shadow-lg backdrop:bg-black/50 max-w-lg w-full"
+      className={dialogShellMdClass}
       aria-labelledby="add-expense-title"
     >
       <div className="p-6 border-b relative">

@@ -43,6 +43,8 @@ import {
   RECOVERY_STATUS,
   validateRecoveryPostRows,
 } from "./recoveryPostingCalculations"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 
 const inputClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
@@ -205,7 +207,8 @@ function RecoveryPostingList() {
 
   const { data: centersData } = useQuery({
     queryKey: ["centers"],
-    queryFn: async () => (await centerService.getCenters()).centers,
+    queryFn: () => centerService.getCenters(),
+    select: (result) => result.centers,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
     refetchOnMount: "always",
@@ -214,7 +217,8 @@ function RecoveryPostingList() {
 
   const { data: pocsData } = useQuery({
     queryKey: ["pocs", branchId],
-    queryFn: async () => (await pocService.getByBranch(branchId!)).pocs,
+    queryFn: () => pocService.getByBranch(branchId!),
+    select: (result) => result.pocs,
     enabled: !!branchId && centerId > 0,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
@@ -944,6 +948,125 @@ function RecoveryPostingList() {
     [paymentAmountDraft, paymentModeDraft, statusDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows, rowSelection]
   )
 
+  const { columnVisibility, enableExpanding, hiddenColumnIds } =
+    useResponsiveTable("recoveryPosting")
+
+  const renderDetailPanel = useCallback(
+    ({ row }: { row: { original: RecoveryPostingRow } }) => {
+      if (hiddenColumnIds.length === 0) return null
+      const r = row.original
+      const key = r.rowKey
+      const isSelected = !!rowSelection[key]
+      const rowFieldErrors = fieldErrors.rows[key]
+      const selectedStatus = normalizeStatusValue(statusDraft[key] ?? getAutoStatusForRow(r))
+      const isOverdueSelected = selectedStatus === RECOVERY_STATUS.OVERDUE
+
+      return (
+        <div
+          className="border-t border-border bg-muted/30 px-3 py-3 sm:px-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {hiddenColumnIds.includes("loanId") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Loan Id</dt>
+                <dd className="mt-0.5 text-sm tabular-nums">{r.loanId}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("installmentNo") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Installment</dt>
+                <dd className="mt-0.5 text-sm tabular-nums">{r.installmentNo}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("actualPrincipal") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Actual Principal</dt>
+                <dd className="mt-0.5 text-sm">
+                  {r.actualPrincipalAmount != null ? formatCurrency(r.actualPrincipalAmount) : "—"}
+                </dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("actualInterest") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Actual Interest</dt>
+                <dd className="mt-0.5 text-sm">
+                  {r.actualInterestAmount != null ? formatCurrency(r.actualInterestAmount) : "—"}
+                </dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("principalAmt") && isSelected ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Principal Amt</dt>
+                <dd className="mt-0.5 text-sm">{formatCurrency(r.principalAmount ?? 0)}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("interestAmt") && isSelected ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Interest Amt</dt>
+                <dd className="mt-0.5 text-sm">{formatCurrency(r.interestAmount ?? 0)}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("pocName") ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">POC Name</dt>
+                <dd className="mt-0.5 text-sm">{r.pocName ?? "—"}</dd>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("paymentMode") && isSelected ? (
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-muted-foreground">Payment Mode</label>
+                <select
+                  className={cn(
+                    inputClass,
+                    "mt-1 py-1.5 text-sm",
+                    (isOverdueSelected) &&
+                      "cursor-not-allowed border-dashed border-muted-foreground/40 bg-muted/70 text-muted-foreground opacity-80",
+                    rowFieldErrors?.paymentMode && "border-destructive"
+                  )}
+                  value={isOverdueSelected ? "" : (paymentModeDraft[key] ?? r.paymentMode ?? "")}
+                  disabled={isOverdueSelected}
+                  onChange={(e) => {
+                    if (isOverdueSelected) return
+                    setPaymentModeDraft((prev) => ({ ...prev, [key]: e.target.value }))
+                  }}
+                >
+                  <option value="">{isOverdueSelected ? "N/A" : "Select"}</option>
+                  {paymentModeLookups.map((m) => (
+                    <option key={m.id} value={m.lookupValue}>
+                      {m.lookupValue}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            {hiddenColumnIds.includes("comments") && isSelected ? (
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium text-muted-foreground">Comments</label>
+                <input
+                  type="text"
+                  className={cn(inputClass, "mt-1 py-1.5", rowFieldErrors?.comments && "border-destructive")}
+                  value={commentsDraft[key] ?? r.comments ?? ""}
+                  placeholder="Comments"
+                  onChange={(e) => setCommentsDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                />
+              </div>
+            ) : null}
+          </dl>
+        </div>
+      )
+    },
+    [
+      hiddenColumnIds,
+      rowSelection,
+      fieldErrors.rows,
+      statusDraft,
+      paymentModeDraft,
+      commentsDraft,
+      paymentModeLookups,
+    ]
+  )
+
   if (!branchId) {
     return (
       <div className="rounded-lg border bg-card p-6 space-y-2">
@@ -960,25 +1083,23 @@ function RecoveryPostingList() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Recovery Posting</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Load today&apos;s schedules, adjust payments, then post collections.
-          </p>
-        </div>
-        <div className="rounded-lg border border-border bg-muted/40 px-4 py-2 text-right">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Schedule date</p>
-          <p className="text-base font-semibold tabular-nums text-foreground">{formatDisplayDate(dateKey)}</p>
-        </div>
-      </header>
+      <PageHeader
+        title="Recovery Posting"
+        description="Load today's schedules, adjust payments, then post collections."
+        actions={
+          <div className="rounded-lg border border-border bg-muted/40 px-4 py-2 text-right">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Schedule date</p>
+            <p className="text-base font-semibold tabular-nums text-foreground">{formatDisplayDate(dateKey)}</p>
+          </div>
+        }
+      />
 
       <section
         aria-label="Schedule filters"
         className="rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:p-5"
       >
         <div className="grid grid-cols-1 gap-3 min-[500px]:grid-cols-2 lg:grid-cols-3 lg:max-w-4xl lg:gap-4">
-            <div className="w-full max-w-[200px] min-w-0">
+            <div className="w-full min-w-0 sm:max-w-[200px]">
               <label htmlFor="recovery-date" className="mb-1 block text-sm font-medium text-foreground">
                 Schedule date
               </label>
@@ -993,7 +1114,7 @@ function RecoveryPostingList() {
                 }}
               />
             </div>
-            <div className="w-full max-w-[260px] min-w-0">
+            <div className="w-full min-w-0 sm:max-w-[260px]">
               <label className="mb-1 block text-sm font-medium text-foreground">Center</label>
               <Autocomplete
                 className="w-full max-w-full"
@@ -1024,7 +1145,7 @@ function RecoveryPostingList() {
                 )}
               />
             </div>
-            <div className="w-full max-w-[260px] min-w-0">
+            <div className="w-full min-w-0 sm:max-w-[260px]">
               <label className="mb-1 block text-sm font-medium text-foreground">POC</label>
               <Autocomplete
                 className="w-full max-w-full"
@@ -1058,7 +1179,7 @@ function RecoveryPostingList() {
         </div>
 
         <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-          <div className="w-full max-w-[240px] min-w-0 sm:shrink-0">
+          <div className="w-full min-w-0 sm:max-w-[240px] sm:shrink-0">
             <label className="mb-1 block text-sm font-medium text-foreground">Collected by</label>
             <select
               className={cn(
@@ -1115,12 +1236,13 @@ function RecoveryPostingList() {
             getRowId={(row) => row.rowKey}
             enableRowSelection
             onRowSelectionChange={handleRowSelectionChange}
-            state={{ rowSelection, isLoading }}
+            state={{ rowSelection, isLoading, columnVisibility }}
             initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
             enableSorting
             enableColumnFilters={false}
             enableGrouping={false}
-            enableExpanding={false}
+            enableExpanding={enableExpanding}
+            renderDetailPanel={enableExpanding ? renderDetailPanel : undefined}
             enableColumnPinning
             enableFullScreenToggle={false}
             muiTablePaperProps={{
@@ -1165,9 +1287,9 @@ function RecoveryPostingList() {
             })}
             muiTableContainerProps={{
               sx: {
-                // Avoid empty scroll area / gray bar when there are no rows
                 maxHeight: hasTableRows || isLoading ? "min(65vh, 680px)" : "none",
                 overflowY: hasTableRows || isLoading ? "auto" : "visible",
+                overflowX: "auto",
               },
             }}
           />

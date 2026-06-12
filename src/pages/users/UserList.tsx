@@ -15,6 +15,8 @@ import { AddEditUserDialog, type AddEditUserDialogMode } from "@/pages/users/Add
 import { Plus, Pencil, Key, UserX } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import { cn } from "@/lib/utils"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
 const passwordValidationMessage =
@@ -104,26 +106,32 @@ function UserList() {
     [refetch]
   )
 
+  const tableOptions = useStandardTableOptions("users", columns)
+
   const table = useMaterialReactTable({
     columns,
     data: filteredUsers,
-    state: { isLoading },
+    state: { isLoading, ...tableOptions.state },
     enableSorting: true,
     enableColumnFilters: true,
     enableGrouping: true,
-    enableExpanding: false,
+    enableExpanding: tableOptions.enableExpanding,
+    renderDetailPanel: tableOptions.renderDetailPanel,
     enableColumnPinning: true,
+    muiTableContainerProps: tableOptions.muiTableContainerProps,
   })
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">All Users</h1>
-        <Button onClick={() => setAddEditDialog({ mode: "add" })}>
-          <Plus className="h-4 w-4 mr-2" />
-          ADD USER
-        </Button>
-      </div>
+      <PageHeader
+        title="All Users"
+        actions={
+          <Button onClick={() => setAddEditDialog({ mode: "add" })}>
+            <Plus className="h-4 w-4 mr-2" />
+            ADD USER
+          </Button>
+        }
+      />
 
       {!isLoading && filteredUsers.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
