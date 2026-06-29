@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
+import { formatDisplayDate } from "@/lib/date-time"
 import { fetchLoanSchedulerList } from "@/services/loanScheduler.service"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
@@ -62,16 +63,6 @@ export default function LoanSchedulerList() {
   const formatCurrency = (value: number) =>
     value.toLocaleString(undefined, { style: "currency", currency: "INR" })
 
-  const formatDateDDMMYYYY = (raw: string | Date | null | undefined): string => {
-    if (raw == null || raw === "") return "-"
-    const d = raw instanceof Date ? raw : new Date(String(raw))
-    if (Number.isNaN(d.getTime())) return "-"
-    const dd = String(d.getDate()).padStart(2, "0")
-    const mm = String(d.getMonth() + 1).padStart(2, "0")
-    const yyyy = d.getFullYear()
-    return `${dd}/${mm}/${yyyy}`
-  }
-
   const getStatusToneClass = (statusRaw: unknown): string => {
     const status = String(statusRaw ?? "").trim().toLowerCase()
     if (status === "paid") {
@@ -121,21 +112,14 @@ export default function LoanSchedulerList() {
       {
         accessorKey: "ScheduleDate",
         header: "Schedule Date",
-        Cell: ({ cell }) => {
-          const raw = cell.getValue<string | Date | null | undefined>()
-          return formatDateDDMMYYYY(raw)
-        },
+        Cell: ({ cell }) =>
+          formatDisplayDate(cell.getValue<string | Date | null | undefined>(), { empty: "-" }),
       },
       {
         accessorKey: "PaymentDate",
         header: "Payment Date",
-        Cell: ({ cell }) => {
-          const raw = cell.getValue<string | Date | null | undefined>()
-          if (raw == null || raw === "") return "-"
-          const d = raw instanceof Date ? raw : new Date(String(raw))
-          if (Number.isNaN(d.getTime())) return "-"
-          return d.toLocaleDateString()
-        },
+        Cell: ({ cell }) =>
+          formatDisplayDate(cell.getValue<string | Date | null | undefined>(), { empty: "-" }),
       },
       {
         accessorKey: "Status",

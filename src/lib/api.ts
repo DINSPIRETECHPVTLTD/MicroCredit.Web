@@ -203,9 +203,12 @@ export const api = {
     membersByPocs: (branchId: number) =>
       `${getApiBase()}/Report/members-by-pocs/${branchId}`,
     memberWiseCollectionReport: () => `${getApiBase()}/Report/MemberWiseCollectionSheet`,
-    pocCollectionStaffByBranch: (branchId: number) =>
-      `${getApiBase()}/Report/poc-collection-staff-by-branch/${branchId}`,
+    staffSchedulesReport: (branchId: number) =>
+      `${getApiBase()}/Report/staff-schedules-report/${branchId}`,
+    /** Legacy flat endpoints — used as fallback when staff-schedules-report is not deployed. */
     staffSchedulesByBranch: (branchId: number) =>
       `${getApiBase()}/Report/staff-schedules-by-branch/${branchId}`,
+    pocCollectionStaffByBranch: (branchId: number) =>
+      `${getApiBase()}/Report/poc-collection-staff-by-branch/${branchId}`,
   },
 }

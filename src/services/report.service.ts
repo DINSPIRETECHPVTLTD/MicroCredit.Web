@@ -1,10 +1,13 @@
 import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
+import { getTodayDateInputValue } from "@/lib/date-time"
 import type {
   MemberByPocReportRow,
   PocBranchReportRow,
-  PocCollectionStaffReportRow,
-  StaffScheduleReportRow,
+  StaffReportMemberRow,
+  StaffSchedulesPocNode,
+  StaffSchedulesReport,
+  StaffSchedulesStaffNode,
 } from "@/types/report"
 
 function pickNum(v: unknown): number {
@@ -50,14 +53,6 @@ function pickScheduleDateKey(v: unknown): string | null {
     return `${y}-${m}-${day}`
   }
   return null
-}
-
-/** Parse API date to ISO string, or null if missing/invalid. */
-function pickScheduleDateIso(v: unknown): string | null {
-  const key = pickScheduleDateKey(v)
-  if (!key) return null
-  const d = new Date(`${key}T12:00:00`)
-  return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
 /** Normalize one POC row from Report/pocs-by-branch (camelCase or PascalCase). */
@@ -151,15 +146,20 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
     | null
     | undefined
 
-  const scheduleDate = pickScheduleDateIso(raw.scheduleDate ?? raw.ScheduleDate)
+  const scheduleDate =
+    pickScheduleDateKey(raw.scheduleDate ?? raw.ScheduleDate) ??
+    pickScheduleDateKey(raw.scheduleDateIso ?? raw.ScheduleDateIso)
 
   const loanSchedulerStatus = pickStr(
     raw.loanSchedulerStatus ?? raw.LoanSchedulerStatus ?? ""
   )
 
+  const memberCode = pickStr(raw.memberCode ?? raw.MemberCode) || null
+
   return {
     pocId,
     memberId,
+    memberCode,
     memberName: memberName || "—",
     due,
     actualEmi,
@@ -167,54 +167,6 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
     scheduleDate,
     statusRaw,
     loanSchedulerStatus: loanSchedulerStatus || "NotPaid",
-  }
-}
-
-function normalizePocCollectionStaffRow(
-  raw: Record<string, unknown>
-): PocCollectionStaffReportRow | null {
-  const userId = pickId(raw.userId ?? raw.UserId)
-  if (!userId) return null
-  return {
-    userId,
-    userFullName: pickStr(raw.userFullName ?? raw.UserFullName) || "—",
-    userRole: pickStr(raw.userRole ?? raw.UserRole) || "—",
-  }
-}
-
-function normalizeStaffScheduleRow(raw: Record<string, unknown>): StaffScheduleReportRow | null {
-  const loanSchedulerId = pickId(
-    raw.loanSchedulerId ??
-      raw.LoanSchedulerId ??
-      raw.loanSchedulerID ??
-      raw.LoanSchedulerID ??
-      raw.id ??
-      raw.Id
-  )
-  const userId = pickId(raw.userId ?? raw.UserId)
-  const pocId = pickId(raw.pocId ?? raw.PocId ?? raw.pocID ?? raw.PocID)
-  const memberId = pickId(raw.memberId ?? raw.MemberId)
-  if (!loanSchedulerId || !userId || !pocId || !memberId) return null
-
-  const scheduleDateKey =
-    pickScheduleDateKey(raw.scheduleDate ?? raw.ScheduleDate) ??
-    pickScheduleDateKey(raw.scheduleDateIso ?? raw.ScheduleDateIso)
-
-  return {
-    pocId,
-    pocStaffId: pickId(raw.pocStaffId ?? raw.PocStaffId ?? raw.collectionBy ?? raw.CollectionBy),
-    userId,
-    pocFullName: pickStr(raw.pocFullName ?? raw.PocFullName) || "—",
-    userFullName: pickStr(raw.userFullName ?? raw.UserFullName) || "—",
-    memberFullName: pickStr(raw.memberFullName ?? raw.MemberFullName) || "—",
-    memberId,
-    centerId: pickId(raw.centerId ?? raw.CenterId),
-    pocIsDeleted: Boolean(raw.pocIsDeleted ?? raw.PocIsDeleted),
-    loanSchedulerId,
-    actualEmiAmount: pickNum(raw.actualEmiAmount ?? raw.ActualEmiAmount),
-    scheduleDate: scheduleDateKey,
-    branchId: pickId(raw.branchId ?? raw.BranchId),
-    userRole: pickStr(raw.userRole ?? raw.UserRole) || "—",
   }
 }
 
@@ -230,6 +182,227 @@ function asObjectArray(data: unknown): Record<string, unknown>[] {
     }
   }
   return []
+}
+
+function normalizeStaffReportMember(raw: Record<string, unknown>): StaffReportMemberRow | null {
+  const memberId = pickId(raw.memberId ?? raw.MemberId)
+  const pocId = pickId(raw.pocId ?? raw.PocId ?? raw.pocID ?? raw.PocID)
+  if (!memberId || !pocId) return null
+
+  const loanSchedulerId =
+    pickId(raw.loanSchedulerId ?? raw.LoanSchedulerId ?? raw.id ?? raw.Id) ||
+    memberId * 10000 + pickId(raw.loanId ?? raw.LoanId)
+
+  const scheduleDate =
+    pickScheduleDateKey(raw.scheduleDate ?? raw.ScheduleDate) ??
+    pickScheduleDateKey(raw.scheduleDateIso ?? raw.ScheduleDateIso)
+
+  const loanSchedulerStatus = pickStr(raw.loanSchedulerStatus ?? raw.LoanSchedulerStatus)
+
+  return {
+    memberId,
+    memberCode: pickStr(raw.memberCode ?? raw.MemberCode) || null,
+    pocId,
+    memberFullName:
+      pickStr(
+        raw.memberFullName ??
+          raw.MemberFullName ??
+          raw.membersFullName ??
+          raw.MembersFullName
+      ) || "—",
+    loanId: pickId(raw.loanId ?? raw.LoanId),
+    loanStatus: pickStr(raw.loanStatus ?? raw.LoanStatus) || "—",
+    loanSchedulerId,
+    scheduleDate,
+    actualEmiAmount: pickNum(raw.actualEmiAmount ?? raw.ActualEmiAmount),
+    loanSchedulerStatus: loanSchedulerStatus || "NotPaid",
+  }
+}
+
+function normalizePocCollectionStaffRow(
+  raw: Record<string, unknown>
+): Pick<StaffSchedulesStaffNode, "userId" | "userFullName" | "userRole"> | null {
+  const userId = pickId(raw.userId ?? raw.UserId)
+  if (!userId) return null
+  return {
+    userId,
+    userFullName: pickStr(raw.userFullName ?? raw.UserFullName) || "—",
+    userRole: pickStr(raw.userRole ?? raw.UserRole) || "—",
+  }
+}
+
+function buildStaffSchedulesFromLegacyFlatRows(
+  staffRows: Pick<StaffSchedulesStaffNode, "userId" | "userFullName" | "userRole">[],
+  scheduleRows: StaffReportMemberRow[],
+  pocMeta: Map<number, { pocFullName: string; centerId: number; userId: number; userFullName: string; userRole: string }>
+): StaffSchedulesReport {
+  const staffById = new Map<number, StaffSchedulesStaffNode>()
+  for (const staff of staffRows) {
+    staffById.set(staff.userId, { ...staff, pocs: [] })
+  }
+
+  const pocNodesByStaff = new Map<number, Map<number, StaffSchedulesPocNode>>()
+
+  for (const member of scheduleRows) {
+    const meta = pocMeta.get(member.pocId)
+    const userId = meta?.userId
+    if (!userId) continue
+
+    if (!staffById.has(userId)) {
+      staffById.set(userId, {
+        userId,
+        userFullName: meta.userFullName,
+        userRole: meta.userRole,
+        pocs: [],
+      })
+    }
+
+    let pocMap = pocNodesByStaff.get(userId)
+    if (!pocMap) {
+      pocMap = new Map()
+      pocNodesByStaff.set(userId, pocMap)
+    }
+
+    if (!pocMap.has(member.pocId)) {
+      pocMap.set(member.pocId, {
+        pocId: member.pocId,
+        pocFullName: meta.pocFullName,
+        centerId: meta.centerId,
+        members: [],
+      })
+    }
+
+    pocMap.get(member.pocId)!.members.push(member)
+  }
+
+  for (const [userId, staff] of staffById) {
+    const pocMap = pocNodesByStaff.get(userId)
+    staff.pocs = pocMap
+      ? Array.from(pocMap.values()).sort((a, b) =>
+          a.pocFullName.localeCompare(b.pocFullName, undefined, { sensitivity: "base" })
+        )
+      : []
+  }
+
+  const staff = Array.from(staffById.values()).sort((a, b) =>
+    a.userFullName.localeCompare(b.userFullName, undefined, { sensitivity: "base" })
+  )
+
+  return { staff }
+}
+
+function normalizeLegacyStaffScheduleFlatRow(
+  raw: Record<string, unknown>
+): { member: StaffReportMemberRow; pocMeta: { pocFullName: string; centerId: number; userId: number; userFullName: string; userRole: string } } | null {
+  const member = normalizeStaffReportMember(raw)
+  if (!member) return null
+
+  const userId = pickId(raw.userId ?? raw.UserId ?? raw.pocStaffId ?? raw.PocStaffId)
+  if (!userId) return null
+
+  return {
+    member,
+    pocMeta: {
+      pocFullName: pickStr(raw.pocFullName ?? raw.PocFullName) || "—",
+      centerId: pickId(raw.centerId ?? raw.CenterId),
+      userId,
+      userFullName: pickStr(raw.userFullName ?? raw.UserFullName) || "—",
+      userRole: pickStr(raw.userRole ?? raw.UserRole) || "—",
+    },
+  }
+}
+
+async function getStaffSchedulesReportFromLegacyEndpoints(
+  branchId: number
+): Promise<StaffSchedulesReport> {
+  const [staffRes, schedulesRes] = await Promise.all([
+    apiClient.get<unknown>(api.report.pocCollectionStaffByBranch(branchId)),
+    apiClient.get<unknown>(api.report.staffSchedulesByBranch(branchId)),
+  ])
+
+  const staffRows = asObjectArray(staffRes.data)
+    .map(normalizePocCollectionStaffRow)
+    .filter((r): r is Pick<StaffSchedulesStaffNode, "userId" | "userFullName" | "userRole"> => r !== null)
+
+  const pocMeta = new Map<
+    number,
+    { pocFullName: string; centerId: number; userId: number; userFullName: string; userRole: string }
+  >()
+  const scheduleRows: StaffReportMemberRow[] = []
+
+  for (const raw of asObjectArray(schedulesRes.data)) {
+    const parsed = normalizeLegacyStaffScheduleFlatRow(raw)
+    if (!parsed) continue
+    scheduleRows.push(parsed.member)
+    if (!pocMeta.has(parsed.member.pocId)) {
+      pocMeta.set(parsed.member.pocId, {
+        pocFullName: parsed.pocMeta.pocFullName,
+        centerId: parsed.pocMeta.centerId,
+        userId: parsed.pocMeta.userId,
+        userFullName: parsed.pocMeta.userFullName,
+        userRole: parsed.pocMeta.userRole,
+      })
+    }
+  }
+
+  return buildStaffSchedulesFromLegacyFlatRows(staffRows, scheduleRows, pocMeta)
+}
+
+function normalizeStaffSchedulesPocNode(raw: Record<string, unknown>): StaffSchedulesPocNode | null {
+  const pocId = pickId(raw.pocId ?? raw.PocId)
+  if (!pocId) return null
+
+  const membersRaw = raw.members ?? raw.Members
+  const members = Array.isArray(membersRaw)
+    ? membersRaw
+        .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object")
+        .map(normalizeStaffReportMember)
+        .filter((r): r is StaffReportMemberRow => r !== null)
+    : []
+
+  return {
+    pocId,
+    pocFullName: pickStr(raw.pocFullName ?? raw.PocFullName) || "—",
+    centerId: pickId(raw.centerId ?? raw.CenterId),
+    members,
+  }
+}
+
+function normalizeStaffSchedulesStaffNode(
+  raw: Record<string, unknown>
+): StaffSchedulesStaffNode | null {
+  const userId = pickId(raw.userId ?? raw.UserId)
+  if (!userId) return null
+
+  const pocsRaw = raw.pocs ?? raw.Pocs
+  const pocs = Array.isArray(pocsRaw)
+    ? pocsRaw
+        .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object")
+        .map(normalizeStaffSchedulesPocNode)
+        .filter((r): r is StaffSchedulesPocNode => r !== null)
+    : []
+
+  return {
+    userId,
+    userFullName: pickStr(raw.userFullName ?? raw.UserFullName) || "—",
+    userRole: pickStr(raw.userRole ?? raw.UserRole) || "—",
+    pocs,
+  }
+}
+
+function normalizeStaffSchedulesReport(data: unknown): StaffSchedulesReport {
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>
+    const staffRaw = obj.staff ?? obj.Staff
+    if (Array.isArray(staffRaw)) {
+      const staff = staffRaw
+        .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object")
+        .map(normalizeStaffSchedulesStaffNode)
+        .filter((r): r is StaffSchedulesStaffNode => r !== null)
+      return { staff }
+    }
+  }
+  return { staff: [] }
 }
 
 export const reportService = {
@@ -257,18 +430,17 @@ export const reportService = {
       .filter((r): r is MemberByPocReportRow => r !== null)
   },
 
-  async getPocCollectionStaffByBranch(branchId: number): Promise<PocCollectionStaffReportRow[]> {
-    const { data } = await apiClient.get<unknown>(api.report.pocCollectionStaffByBranch(branchId))
-    return asObjectArray(data)
-      .map(normalizePocCollectionStaffRow)
-      .filter((r): r is PocCollectionStaffReportRow => r !== null)
-  },
-
-  async getStaffSchedulesByBranch(branchId: number): Promise<StaffScheduleReportRow[]> {
-    const { data } = await apiClient.get<unknown>(api.report.staffSchedulesByBranch(branchId))
-    return asObjectArray(data)
-      .map(normalizeStaffScheduleRow)
-      .filter((r): r is StaffScheduleReportRow => r !== null)
+  async getStaffSchedulesReport(branchId: number): Promise<StaffSchedulesReport> {
+    try {
+      const { data } = await apiClient.get<unknown>(api.report.staffSchedulesReport(branchId))
+      return normalizeStaffSchedulesReport(data)
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 404) {
+        return getStaffSchedulesReportFromLegacyEndpoints(branchId)
+      }
+      throw err
+    }
   },
 
   async getMemeberWiseCollectionReport() {
@@ -280,7 +452,7 @@ export const reportService = {
     const url = window.URL.createObjectURL(new Blob([data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Report_${new Date().toLocaleDateString().slice(0, 10)}.xlsx`);
+    link.setAttribute('download', `Report_${getTodayDateInputValue()}.xlsx`);
     document.body.appendChild(link);
     link.click();
 

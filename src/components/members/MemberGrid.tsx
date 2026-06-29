@@ -7,6 +7,7 @@ import type { MemberResponse } from "@/types/member"
 import { buildPromissoryNoteHtml } from "@/templates/promissoryNoteTemplate"
 import { buildMembershipFormHtml } from "@/templates/membershipFormTemplate"
 import { getBranch } from "@/services/auth.service"
+import { formatDisplayDate, formatDisplayDateFromDate } from "@/lib/date-time"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { HiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 
@@ -53,7 +54,7 @@ export default function MemberGrid({
       const memberId = String(row.memberId ?? row.id)
       const memberName = buildDisplayName(row)
       const guardianName = buildGuardianDisplayName(row)
-      const formattedDate = new Date().toLocaleDateString("en-IN")
+      const formattedDate = formatDisplayDateFromDate(new Date())
       const html = buildPromissoryNoteHtml(memberName, memberId, formattedDate, guardianName)
 
       popup.document.write(html)
@@ -76,7 +77,7 @@ export default function MemberGrid({
         return
       }
 
-      const formattedDate = new Date().toLocaleDateString("en-IN")
+      const formattedDate = formatDisplayDateFromDate(new Date())
       const branchName = getBranch()?.name ?? ""
       const html = buildMembershipFormHtml(row, formattedDate, branchName)
 
@@ -202,12 +203,8 @@ export default function MemberGrid({
 
 function formatDob(iso?: string | null): string | null {
   if (!iso?.trim()) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${day}-${m}-${y}`
+  const formatted = formatDisplayDate(iso, { empty: "" })
+  return formatted || null
 }
 
 function formatDobForSort(row: MemberResponse): string {

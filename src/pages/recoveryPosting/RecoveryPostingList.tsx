@@ -44,6 +44,7 @@ import {
   validateRecoveryPostRows,
 } from "./recoveryPostingCalculations"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { formatDisplayDate } from "@/lib/date-time"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 
 const inputClass =
@@ -80,19 +81,6 @@ type RecoveryPostingFieldErrorState = {
 }
 
 const EMPTY_FIELD_ERRORS: RecoveryPostingFieldErrorState = { rows: {} }
-
-function formatDisplayDate(dateKey: string): string {
-  const parts = dateKey.split("-").map(Number)
-  const y = parts[0]
-  const m = parts[1]
-  const d = parts[2]
-  if (!y || !m || !d) return dateKey
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
 
 function formatCurrency(n: number): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "INR" })

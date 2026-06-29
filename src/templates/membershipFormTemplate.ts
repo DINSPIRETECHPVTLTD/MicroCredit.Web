@@ -1,4 +1,5 @@
 import type { MemberResponse } from "@/types/member"
+import { formatDisplayDate } from "@/lib/date-time"
 
 function escapeHtml(value: string): string {
   return value
@@ -15,15 +16,6 @@ function valueOrDash(value?: string | number | null): string {
   return str ? str : "—"
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return "—"
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return "—"
-  const day = String(d.getDate()).padStart(2, "0")
-  const month = String(d.getMonth() + 1).padStart(2, "0")
-  const year = d.getFullYear()
-  return `${day}/${month}/${year}`
-}
 
 function buildMemberName(member: MemberResponse): string {
   const composed = [member.firstName, member.middleName, member.lastName].filter(Boolean).join(" ").trim()
@@ -67,8 +59,8 @@ export function buildMembershipFormHtml(
   const district = valueOrDash(member.city)
   const state = valueOrDash(member.state)
   const pinCode = valueOrDash(member.zipCode)
-  const memberDob = formatDate(member.dob)
-  const guardianDob = formatDate(member.guardianDOB)
+  const memberDob = formatDisplayDate(member.dob)
+  const guardianDob = formatDisplayDate(member.guardianDOB)
 
   return `<!DOCTYPE html>
   <html lang="en">

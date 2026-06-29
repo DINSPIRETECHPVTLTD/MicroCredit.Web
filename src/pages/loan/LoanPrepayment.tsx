@@ -27,6 +27,7 @@ import {
 } from "./prepaymentCalculations"
 import { postPrepaymentRecoveries } from "@/services/prepayment.service"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { formatDisplayDate } from "@/lib/date-time"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 
 type LoanSchedulerApiRow = {
@@ -120,16 +121,6 @@ function toNumber(v: unknown): number {
 
 function formatCurrency(value: number): string {
   return value.toLocaleString(undefined, { style: "currency", currency: "INR" })
-}
-
-function parseDate(raw: unknown): string {
-  if (!raw) return "-"
-  const d = raw instanceof Date ? raw : new Date(String(raw))
-  if (Number.isNaN(d.getTime())) return "-"
-  const day = String(d.getDate()).padStart(2, "0")
-  const month = String(d.getMonth() + 1).padStart(2, "0")
-  const year = String(d.getFullYear())
-  return `${day}/${month}/${year}`
 }
 
 function isPastScheduleDate(raw: unknown): boolean {
@@ -773,12 +764,14 @@ export default function LoanPrepayment() {
       {
         accessorKey: "scheduleDate",
         header: "Collection Date",
-        Cell: ({ cell }) => parseDate(cell.getValue()),
+        Cell: ({ cell }) =>
+          formatDisplayDate(cell.getValue<string | Date | null>(), { empty: "-" }),
       },
       {
         accessorKey: "paymentDate",
         header: "Paid Date",
-        Cell: ({ cell }) => parseDate(cell.getValue()),
+        Cell: ({ cell }) =>
+          formatDisplayDate(cell.getValue<string | Date | null>(), { empty: "-" }),
       },
       {
         accessorKey: "status",
@@ -951,7 +944,7 @@ export default function LoanPrepayment() {
             {hiddenColumnIds.includes("paymentDate") ? (
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Paid Date</dt>
-                <dd className="mt-0.5 text-sm">{parseDate(r.paymentDate)}</dd>
+                <dd className="mt-0.5 text-sm">{formatDisplayDate(r.paymentDate, { empty: "-" })}</dd>
               </div>
             ) : null}
             {hiddenColumnIds.includes("principalAmount") ? (

@@ -13,6 +13,7 @@ import { Plus } from "lucide-react"
 import { userService } from "@/services/user.service"
 import AddInvestmentDialog from "./AddInvestmentDialog"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { formatDisplayDate } from "@/lib/date-time"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 function InvestmentsList() {
@@ -56,7 +57,7 @@ function InvestmentsList() {
       {
         accessorKey: "investmentDate",
         header: "Investment Date",
-        Cell: ({ cell }) => new Date(cell.getValue<string>()).toLocaleDateString(),
+        Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>()),
       },
       {
         id: "createdByName",
@@ -66,7 +67,7 @@ function InvestmentsList() {
       {
         accessorKey: "createdDate",
         header: "Created Date",
-        Cell: ({ cell }) => new Date(cell.getValue<string>()).toLocaleDateString(),
+        Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>()),
       },
     ],
     [userMap]

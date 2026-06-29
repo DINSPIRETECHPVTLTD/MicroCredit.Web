@@ -14,6 +14,7 @@ import { useParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { formatDisplayDate } from "@/lib/date-time"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 
@@ -66,14 +67,12 @@ export default function UserLedgerTransactions() {
       {
         accessorKey: "paymentDate",
         header: "Payment Date",
-        Cell: ({ cell }) =>
-          new Date(cell.getValue<string>()).toLocaleDateString(),
+        Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>()),
       },
       {
         accessorKey: "createdDate",
         header: "Created Date",
-        Cell: ({ cell }) =>
-          new Date(cell.getValue<string>()).toLocaleDateString(),
+        Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>()),
       },
       { accessorKey: "transactionType", header: "Transaction Type" },
       { accessorKey: "comments", header: "Comments" },
