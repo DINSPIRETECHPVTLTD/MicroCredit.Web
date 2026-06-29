@@ -33,8 +33,6 @@ const TABLE_VISIBILITY: Record<
 > = {
   members: {
     mobile: {
-      memberId: false,
-      memberCode: false,
       phone: false,
       dob: false,
       center: false,
@@ -42,7 +40,6 @@ const TABLE_VISIBILITY: Record<
       poc: false,
     },
     tablet: {
-      memberId: false,
       dob: false,
       fullAddress: false,
       poc: false,
@@ -128,11 +125,9 @@ const TABLE_VISIBILITY: Record<
       noOfTerms: false,
       totalAmountPaid: false,
       loanId: false,
-      memberId: false,
     },
     tablet: {
       loanId: false,
-      memberId: false,
     },
     desktop: {},
   },

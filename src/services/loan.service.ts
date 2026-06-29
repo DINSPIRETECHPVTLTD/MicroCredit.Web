@@ -6,6 +6,8 @@ type ApiLoanLike = {
     loanId?: number | string
     id?: number | string
     memberId?: number | string
+    memberCode?: string
+    MemberCode?: string
     fullName?: string
     memberName?: string
     pocName?: string
@@ -166,6 +168,8 @@ function buildActiveLoanTermsLabel(x: ApiLoanLike): string {
 function normalizeLoan(x: ApiLoanLike): LoanResponse {
     const loanId = getValueCaseInsensitive(x, ['loanId', 'id'])
     const memberId = getValueCaseInsensitive(x, ['memberId'])
+    const memberCodeRaw = getValueCaseInsensitive(x, ['memberCode', 'MemberCode'])
+    const memberCodeText = toText(memberCodeRaw)
     const fullName = getValueCaseInsensitive(x, ['fullName', 'memberName'])
     const pocName = getValueCaseInsensitive(x, ['pocName', 'PocName'])
     const status = getValueCaseInsensitive(x, ['status', 'Status'])
@@ -177,6 +181,7 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
     return {
         loanId: toNumber(loanId),
         memberId: toNumber(memberId),
+        memberCode: memberCodeText || null,
         fullName: typeof fullName === 'string' ? fullName : '',
         pocName: typeof pocName === 'string' ? pocName : '',
         status: typeof status === 'string' ? status : '',

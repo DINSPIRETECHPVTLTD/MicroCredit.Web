@@ -298,7 +298,7 @@ export default function DashboardLayout() {
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
+        <header className="relative sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
           <div className="flex items-center gap-2">
             {/* Hamburger — mobile only */}
             <Button
@@ -323,6 +323,26 @@ export default function DashboardLayout() {
               {safeMode === "ORG" ? "Org" : "Branch"}
             </span>
           </div>
+
+          {safeMode === "BRANCH" && selectedBranch?.name ? (
+            <div className="pointer-events-none absolute left-1/2 max-w-[min(62vw,30rem)] -translate-x-1/2 px-2">
+              <div
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-lg border px-4 py-1.5 shadow-md",
+                  "border-amber-300/90 bg-amber-100 ring-2 ring-amber-200/70",
+                  "dark:border-amber-500/50 dark:bg-amber-950/60 dark:ring-amber-600/35"
+                )}
+              >
+                <MapPin
+                  className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300"
+                  aria-hidden
+                />
+                <span className="truncate text-sm font-bold tracking-wide text-amber-950 dark:text-amber-50 sm:text-base">
+                  {selectedBranch.name}
+                </span>
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 sm:flex">

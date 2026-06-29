@@ -24,6 +24,17 @@ function buildGuardianDisplayName(row: MemberResponse): string {
   return guardian || "—"
 }
 
+function formatMemberRef(row: MemberResponse): string {
+  const memberCode = row.memberCode?.trim() || null
+  const memberId = row.memberId ?? row.id
+  const hasCode = Boolean(memberCode)
+  const hasId = memberId != null && memberId > 0
+  if (hasCode && hasId) return `${memberCode}/${memberId}`
+  if (hasCode) return memberCode!
+  if (hasId) return String(memberId)
+  return "—"
+}
+
 type MemberGridProps = {
   members: MemberResponse[]
   isLoading: boolean
@@ -98,16 +109,13 @@ export default function MemberGrid({
   const columns = useMemo<MRT_ColumnDef<MemberResponse>[]>(
     () => [
       {
-        id: "memberId",
-        header: "ID",
-        size: 80,
-        accessorFn: (r) => r.memberId ?? r.id,
-      },
-      {
-        accessorKey: "memberCode",
-        header: "Member Code",
-        size: 120,
-        Cell: ({ row }) => row.original.memberCode ?? "—",
+        id: "memberRef",
+        header: "Member Code/ID",
+        size: 140,
+        accessorFn: (r) => formatMemberRef(r),
+        Cell: ({ row }) => (
+          <span className="tabular-nums font-mono text-xs">{formatMemberRef(row.original)}</span>
+        ),
       },
       {
         id: "fullName",
