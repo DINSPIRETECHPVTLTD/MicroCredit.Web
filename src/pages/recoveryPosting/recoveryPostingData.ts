@@ -11,6 +11,7 @@ export type RecoveryPostingRow = {
   loanId: number
   loanSchedulerId: number
   memberId: number
+  memberCode: string | null
   installmentNo: number
   scheduleDate: string
   actualEmiAmount: number
@@ -46,6 +47,8 @@ type RecoveryPostingApiRow = {
   LoanId?: number
   memberId?: number
   MemberId?: number
+  memberCode?: string | null
+  MemberCode?: string | null
   loanStatus?: string
   LoanStatus?: string
   loanSchedulerId?: number
@@ -119,6 +122,11 @@ function getField(raw: RecoveryPostingApiRow, candidates: string[]): unknown {
   return undefined
 }
 
+function toText(v: unknown): string {
+  if (v === null || v === undefined) return ""
+  return String(v).trim()
+}
+
 function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
   const loanId = toNum(getField(raw, ["loanId", "schedulerLoanId"]))
   const loanSchedulerId = toNum(
@@ -147,6 +155,7 @@ function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
     loanId,
     loanSchedulerId,
     memberId: toNum(getField(raw, ["memberId"])),
+    memberCode: toText(getField(raw, ["memberCode"])) || null,
     installmentNo: toNum(getField(raw, ["installmentNo"])),
     scheduleDate: String(getField(raw, ["scheduleDate"]) ?? ""),
     actualEmiAmount,

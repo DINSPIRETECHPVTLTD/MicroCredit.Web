@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { Plus } from "lucide-react"
 import type { UserResponse } from "@/types/user"
+import { formatDisplayDate } from "@/lib/date-time"
 import AddExpenseDialog from "./AddExpenseDialog"
 
 
@@ -58,7 +59,7 @@ function ExpenseList() {
             {
                 accessorKey: "paymentDate",
                 header: "Payment Date",
-                Cell: ({ cell }) => new Date(cell.getValue<string>()).toLocaleDateString()
+                Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>())
             },
             {
                 id: "createdByName",
@@ -66,9 +67,9 @@ function ExpenseList() {
                 accessorFn: (row) => userMap[row.createdBy] ?? "Unknown"
             },
             {
-                id: "createdDate",
+                accessorKey: "createdDate",
                 header: "Created Date",
-                accessorFn: (row) => new Date(row.createdDate).toLocaleDateString()
+                Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>()),
             },
             {
                 accessorKey: "comments",

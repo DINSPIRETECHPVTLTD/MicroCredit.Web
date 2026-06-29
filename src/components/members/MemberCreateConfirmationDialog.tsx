@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { MemberPreviewFieldKey } from "@/components/members/member-preview-utils"
+import { formatDisplayDate } from "@/lib/date-time"
 
 export type MemberCreatePreviewData = {
   memberId?: string
@@ -48,19 +49,7 @@ type MemberCreateConfirmationDialogProps = {
 }
 
 function formatPreviewDate(value: string | undefined): string {
-  if (!value?.trim()) return "—"
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
-  if (match) {
-    const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    }
-  }
-  return value
+  return formatDisplayDate(value)
 }
 
 function displayValue(value: string | undefined | null): string {

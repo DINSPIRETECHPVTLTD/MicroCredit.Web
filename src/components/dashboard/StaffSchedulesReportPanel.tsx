@@ -17,16 +17,22 @@ import {
 import toast from "react-hot-toast"
 import { IndianRupee, UserCheck, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { formatDisplayDate } from "@/lib/date-time"
 import { reportService } from "@/services/report.service"
 import type {
-  StaffSchedulePocSummaryRow,
-  StaffScheduleReportRow,
-  StaffScheduleSummaryRow,
+  MemberByPocReportRow,
+  StaffReportMemberRow,
+  StaffSchedulesPocTableRow,
+  StaffSchedulesReport,
+  StaffSchedulesStaffTableRow,
 } from "@/types/report"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
-import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
+
+const BRANCH_SCHEDULE_WINDOW_DAYS = 7
+const MUI_DETAIL_PANEL_SX = { sx: { backgroundColor: "transparent" } } as const
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -54,14 +60,29 @@ function localDateKey(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-function getTodayAndTomorrowDateKeys() {
+function addDaysToDateKey(key: string, days: number): string {
+  const d = new Date(`${key}T12:00:00`)
+  d.setDate(d.getDate() + days)
+  return localDateKey(d)
+}
+
+function getScheduleWindowBounds() {
   const today = new Date()
+  const todayKey = localDateKey(today)
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  return {
-    todayKey: localDateKey(today),
-    tomorrowKey: localDateKey(tomorrow),
-  }
+  const tomorrowKey = localDateKey(tomorrow)
+  const maxKey = addDaysToDateKey(todayKey, BRANCH_SCHEDULE_WINDOW_DAYS - 1)
+  return { todayKey, tomorrowKey, minKey: todayKey, maxKey }
+}
+
+function clampScheduleDateKey(
+  key: string,
+  bounds: ReturnType<typeof getScheduleWindowBounds>
+): string {
+  if (key < bounds.minKey) return bounds.minKey
+  if (key > bounds.maxKey) return bounds.maxKey
+  return key
 }
 
 function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
@@ -73,114 +94,105 @@ function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
   return localDateKey(d)
 }
 
-function matchesScheduleDay(
-  row: StaffScheduleReportRow,
-  activeScheduleDateKey: string
-): boolean {
-  const key = scheduleDateKey(row.scheduleDate)
-  if (!key) return true
-  return key === activeScheduleDateKey
+function formatScheduleDateShort(key: string): string {
+  return formatDisplayDate(key)
 }
 
-function emiDueDayLabel(scheduleIsoOrKey: string | null): "Today" | "Tomorrow" | null {
+function emiDueDayLabel(scheduleIsoOrKey: string | null): string | null {
   const dueKey = scheduleDateKey(scheduleIsoOrKey)
   if (!dueKey) return null
-  const { todayKey, tomorrowKey } = getTodayAndTomorrowDateKeys()
+  const { todayKey, tomorrowKey, minKey, maxKey } = getScheduleWindowBounds()
   if (dueKey === todayKey) return "Today"
   if (dueKey === tomorrowKey) return "Tomorrow"
+  if (dueKey >= minKey && dueKey <= maxKey) return formatScheduleDateShort(dueKey)
   return null
 }
 
 function formatScheduleDateDisplay(scheduleIso: string | null): string {
-  if (!scheduleIso) return "—"
-  const key = scheduleDateKey(scheduleIso)
-  if (!key) return "—"
-  const d = new Date(`${key}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
+  return formatDisplayDate(scheduleIso)
 }
 
-function sumEmi(rows: { actualEmiAmount: number }[]): number {
-  return rows.reduce((sum, r) => {
-    const n = r.actualEmiAmount
-    return sum + (Number.isFinite(n) ? n : 0)
-  }, 0)
+function formatMemberRef(memberId: number, memberCode: string | null): string {
+  const hasCode = Boolean(memberCode?.trim())
+  if (hasCode && memberId) return `${memberCode}/${memberId}`
+  if (hasCode) return memberCode!
+  return memberId ? String(memberId) : "—"
 }
 
-function buildStaffSummaries(
-  schedules: StaffScheduleReportRow[],
+function toMemberDisplayRow(m: StaffReportMemberRow): MemberByPocReportRow {
+  return {
+    pocId: m.pocId,
+    memberId: String(m.memberId),
+    memberCode: m.memberCode,
+    memberName: m.memberFullName,
+    due: m.actualEmiAmount,
+    actualEmi: m.actualEmiAmount,
+    amountPaid: m.actualEmiAmount,
+    scheduleDate: m.scheduleDate,
+    statusRaw: null,
+    loanSchedulerStatus: m.loanSchedulerStatus,
+  }
+}
+
+function buildStaffTableRows(
+  staffNodes: StaffSchedulesReport["staff"],
   activeScheduleDateKey: string
-): StaffScheduleSummaryRow[] {
-  const filtered = schedules.filter((r) => matchesScheduleDay(r, activeScheduleDateKey))
-  const byUser = new Map<number, StaffScheduleReportRow[]>()
-  for (const row of filtered) {
-    const list = byUser.get(row.userId) ?? []
-    list.push(row)
-    byUser.set(row.userId, list)
+): StaffSchedulesStaffTableRow[] {
+  const rows: StaffSchedulesStaffTableRow[] = []
+
+  for (const staffNode of staffNodes) {
+    const pocsForDay: StaffSchedulesPocTableRow[] = []
+    let scheduleCount = 0
+    let totalAmount = 0
+
+    for (const poc of staffNode.pocs) {
+      const membersForDay = poc.members.filter(
+        (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
+      )
+      if (membersForDay.length === 0) continue
+
+      const pocTotal = membersForDay.reduce((sum, m) => sum + m.actualEmiAmount, 0)
+      scheduleCount += membersForDay.length
+      totalAmount += pocTotal
+
+      pocsForDay.push({
+        ...poc,
+        membersForDay,
+        resolvedMemberCount: new Set(membersForDay.map((m) => m.memberId)).size,
+        resolvedTotalAmount: pocTotal,
+      })
+    }
+
+    if (pocsForDay.length === 0) continue
+
+    rows.push({
+      userId: staffNode.userId,
+      userFullName: staffNode.userFullName,
+      userRole: staffNode.userRole,
+      pocCount: pocsForDay.length,
+      scheduleCount,
+      totalAmount,
+      pocsForDay,
+    })
   }
 
-  return Array.from(byUser.entries())
-    .map(([userId, lines]) => {
-      const pocIds = new Set(lines.map((l) => l.pocId))
-      return {
-        userId,
-        userFullName: lines[0]?.userFullName ?? "—",
-        userRole: lines[0]?.userRole ?? "—",
-        pocCount: pocIds.size,
-        scheduleCount: lines.length,
-        totalAmount: sumEmi(lines),
-      }
-    })
-    .sort((a, b) =>
-      a.userFullName.localeCompare(b.userFullName, undefined, { sensitivity: "base" })
-    )
-}
-
-function buildPocSummariesForStaff(
-  schedules: StaffScheduleReportRow[],
-  userId: number,
-  activeScheduleDateKey: string
-): StaffSchedulePocSummaryRow[] {
-  const lines = schedules.filter(
-    (r) => r.userId === userId && matchesScheduleDay(r, activeScheduleDateKey)
+  return rows.sort((a, b) =>
+    a.userFullName.localeCompare(b.userFullName, undefined, { sensitivity: "base" })
   )
-  const byPoc = new Map<number, StaffScheduleReportRow[]>()
-  for (const row of lines) {
-    const list = byPoc.get(row.pocId) ?? []
-    list.push(row)
-    byPoc.set(row.pocId, list)
-  }
-
-  return Array.from(byPoc.entries())
-    .map(([pocId, pocLines]) => {
-      const memberIds = new Set(pocLines.map((l) => l.memberId))
-      return {
-        pocId,
-        pocFullName: pocLines[0]?.pocFullName ?? "—",
-        centerId: pocLines[0]?.centerId ?? 0,
-        memberCount: memberIds.size,
-        totalAmount: sumEmi(pocLines),
-        scheduleLines: pocLines,
-      }
-    })
-    .sort((a, b) =>
-      a.pocFullName.localeCompare(b.pocFullName, undefined, { sensitivity: "base" })
-    )
 }
 
-const DETAIL_PANEL_SX = { sx: { backgroundColor: "transparent" } } as const
-
-const scheduleLineColumns: MRT_ColumnDef<StaffScheduleReportRow>[] = [
+const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
   {
-    accessorKey: "memberId",
-    header: "Member ID",
-    Cell: ({ cell }) => <span className="tabular-nums">{cell.getValue<number>()}</span>,
+    id: "memberRef",
+    header: "Member Code/ID",
+    accessorFn: (row) => formatMemberRef(Number(row.memberId), row.memberCode),
+    Cell: ({ row }) => (
+      <span className="tabular-nums font-mono text-xs">
+        {formatMemberRef(Number(row.original.memberId), row.original.memberCode)}
+      </span>
+    ),
   },
-  { accessorKey: "memberFullName", header: "Member Name" },
+  { accessorKey: "memberName", header: "Member Name" },
   {
     id: "dueDay",
     header: "Due",
@@ -201,6 +213,13 @@ const scheduleLineColumns: MRT_ColumnDef<StaffScheduleReportRow>[] = [
           </span>
         )
       }
+      if (label) {
+        return (
+          <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {label}
+          </span>
+        )
+      }
       return <span className="text-muted-foreground">—</span>
     },
   },
@@ -214,23 +233,44 @@ const scheduleLineColumns: MRT_ColumnDef<StaffScheduleReportRow>[] = [
     ),
   },
   {
-    accessorKey: "actualEmiAmount",
+    accessorKey: "amountPaid",
     header: "Actual EMI",
     Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
+  },
+  {
+    accessorKey: "loanSchedulerStatus",
+    header: "Status",
+    Cell: ({ cell }) => {
+      const status = String(cell.getValue() ?? "")
+      const colorMap: Record<string, string> = {
+        "Not Paid": "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
+        NotPaid: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
+        Partial: "bg-blue-500/15 text-blue-800 dark:text-blue-200",
+        Overdue: "bg-red-500/15 text-red-800 dark:text-red-200",
+        Claimed: "bg-purple-500/15 text-purple-800 dark:text-purple-200",
+      }
+      const cls = colorMap[status] ?? "bg-muted text-muted-foreground"
+      return (
+        <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${cls}`}>
+          {status || "—"}
+        </span>
+      )
+    },
   },
 ]
 
 const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
-  lines,
+  members,
 }: {
-  lines: StaffScheduleReportRow[]
+  members: StaffReportMemberRow[]
 }) {
   const memberTableResponsive = useResponsiveTable("staffScheduleMemberLines")
+  const displayRows = useMemo(() => members.map(toMemberDisplayRow), [members])
 
   const table = useMaterialReactTable({
-    columns: scheduleLineColumns,
-    data: lines,
-    getRowId: (r, index) => `${r.loanSchedulerId}-${r.memberId}-${index}`,
+    columns: memberReportColumns,
+    data: displayRows,
+    getRowId: (r) => `${r.memberId}-${r.scheduleDate ?? ""}`,
     state: { columnVisibility: memberTableResponsive.columnVisibility },
     enableGlobalFilter: true,
     enablePagination: true,
@@ -238,10 +278,9 @@ const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
     enableColumnFilters: true,
     enableTopToolbar: true,
     enableFullScreenToggle: false,
-    enableKeyboardShortcuts: false,
     enableExpanding: memberTableResponsive.enableExpanding,
     renderDetailPanel: memberTableResponsive.enableExpanding
-      ? renderHiddenColumnsDetailPanel(scheduleLineColumns, memberTableResponsive.hiddenColumnIds)
+      ? renderHiddenColumnsDetailPanel(memberReportColumns, memberTableResponsive.hiddenColumnIds)
       : undefined,
     muiTableContainerProps: { sx: { overflowX: "auto" } },
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
@@ -253,21 +292,34 @@ const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
       className="border-t border-border bg-muted/20 px-2 py-3 sm:px-4"
       onClick={(e) => e.stopPropagation()}
     >
-      <MaterialReactTable table={table} />
+      {members.length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          No members for the selected date.
+        </p>
+      ) : (
+        <MaterialReactTable table={table} />
+      )}
     </div>
   )
 })
 
-const pocColumns: MRT_ColumnDef<StaffSchedulePocSummaryRow>[] = [
+const pocColumns: MRT_ColumnDef<StaffSchedulesPocTableRow>[] = [
   { accessorKey: "pocFullName", header: "POC Name" },
   {
-    accessorKey: "memberCount",
+    accessorKey: "resolvedMemberCount",
     header: "Members",
     muiTableHeadCellProps: { sx: { textAlign: "right" } },
     muiTableBodyCellProps: { sx: { textAlign: "right" } },
   },
   {
-    accessorKey: "totalAmount",
+    id: "scheduleCount",
+    header: "Schedules",
+    accessorFn: (row) => row.membersForDay.length,
+    muiTableHeadCellProps: { sx: { textAlign: "right" } },
+    muiTableBodyCellProps: { sx: { textAlign: "right" } },
+  },
+  {
+    accessorKey: "resolvedTotalAmount",
     header: "Total Amount",
     muiTableHeadCellProps: { sx: { textAlign: "right" } },
     muiTableBodyCellProps: { sx: { textAlign: "right" } },
@@ -278,13 +330,13 @@ const pocColumns: MRT_ColumnDef<StaffSchedulePocSummaryRow>[] = [
 const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
   pocRows,
 }: {
-  pocRows: StaffSchedulePocSummaryRow[]
+  pocRows: StaffSchedulesPocTableRow[]
 }) {
   const pocTableResponsive = useResponsiveTable("staffSchedulePoc")
 
   const renderPocDetail = useCallback(
-    ({ row }: { row: MRT_Row<StaffSchedulePocSummaryRow> }) => (
-      <StaffPocMemberDetailPanel lines={row.original.scheduleLines} />
+    ({ row }: { row: MRT_Row<StaffSchedulesPocTableRow> }) => (
+      <StaffPocMemberDetailPanel members={row.original.membersForDay} />
     ),
     []
   )
@@ -295,8 +347,8 @@ const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
       table,
       isDetailPanel,
     }: {
-      row: MRT_Row<StaffSchedulePocSummaryRow>
-      table: MRT_TableInstance<StaffSchedulePocSummaryRow>
+      row: MRT_Row<StaffSchedulesPocTableRow>
+      table: MRT_TableInstance<StaffSchedulesPocTableRow>
       isDetailPanel?: boolean
     }) => {
       if (isDetailPanel) return {}
@@ -324,7 +376,7 @@ const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
     enableKeyboardShortcuts: false,
     renderDetailPanel: renderPocDetail,
     muiTableBodyRowProps: getPocBodyRowProps,
-    muiDetailPanelProps: DETAIL_PANEL_SX,
+    muiDetailPanelProps: MUI_DETAIL_PANEL_SX,
     muiTableContainerProps: { sx: { overflowX: "auto" } },
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
     muiSearchTextFieldProps: { placeholder: "Search POCs…" },
@@ -335,7 +387,11 @@ const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
       className="border-t border-border bg-muted/30 px-2 py-4 sm:px-4"
       onClick={(e) => e.stopPropagation()}
     >
-      <MaterialReactTable table={pocTable} />
+      {pocRows.length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">No POCs for this staff.</p>
+      ) : (
+        <MaterialReactTable table={pocTable} />
+      )}
     </div>
   )
 })
@@ -345,83 +401,50 @@ type StaffSchedulesReportPanelProps = {
 }
 
 export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPanelProps) {
-  const { todayKey, tomorrowKey } = useMemo(() => getTodayAndTomorrowDateKeys(), [])
-  const [scheduleWindow, setScheduleWindow] = useState<"today" | "tomorrow">("today")
-  const activeScheduleDateKey = scheduleWindow === "today" ? todayKey : tomorrowKey
+  const bounds = useMemo(() => getScheduleWindowBounds(), [])
+  const [selectedDateKey, setSelectedDateKey] = useState(bounds.todayKey)
+  const activeScheduleDateKey = selectedDateKey
 
   const {
-    data: schedulesRaw,
-    isLoading: schedulesLoading,
-    isError: schedulesError,
-    error: schedulesErr,
-    refetch: refetchSchedules,
+    data: reportRaw,
+    isLoading,
+    isError,
+    error,
+    refetch,
   } = useQuery({
     queryKey: ["reportStaffSchedules", branchId],
-    queryFn: () => reportService.getStaffSchedulesByBranch(branchId),
+    queryFn: () => reportService.getStaffSchedulesReport(branchId),
     enabled: branchId > 0,
+    staleTime: 0,
+    refetchOnMount: "always",
   })
 
-  const {
-    data: staffListRaw,
-    isLoading: staffListLoading,
-    isError: staffListError,
-    error: staffListErr,
-  } = useQuery({
-    queryKey: ["reportPocCollectionStaff", branchId],
-    queryFn: () => reportService.getPocCollectionStaffByBranch(branchId),
-    enabled: branchId > 0,
-  })
-
-  const schedules = useMemo(
-    () => (Array.isArray(schedulesRaw) ? schedulesRaw : []),
-    [schedulesRaw]
-  )
-  const staffList = useMemo(
-    () => (Array.isArray(staffListRaw) ? staffListRaw : []),
-    [staffListRaw]
-  )
+  const staffNodes = reportRaw?.staff ?? []
 
   const staffRows = useMemo(
-    () => buildStaffSummaries(schedules, activeScheduleDateKey),
-    [schedules, activeScheduleDateKey]
+    () => buildStaffTableRows(staffNodes, activeScheduleDateKey),
+    [staffNodes, activeScheduleDateKey]
   )
 
-  const registeredStaffCount = staffList.length > 0
-    ? staffList.length
-    : new Set(schedules.map((r) => r.userId)).size
-
+  const totalCollectingStaff = staffNodes.length
+  const totalStaffWithSchedules = staffRows.length
   const totalSchedules = staffRows.reduce((s, r) => s + r.scheduleCount, 0)
   const totalAmount = staffRows.reduce((s, r) => s + r.totalAmount, 0)
-  const totalStaff = staffRows.length
-  const apiScheduleLineCount = schedules.length
-
-  const isSchedulesLoading = schedulesLoading
-  const schedulesFailed = schedulesError
+  const hasWindowData = staffNodes.some((s) =>
+    s.pocs.some((p) => p.members.length > 0)
+  )
 
   useEffect(() => {
-    if (schedulesError && schedulesErr) {
-      toast.error(getApiErrorMessage(schedulesErr, "Failed to load staff schedules"))
+    if (isError && error) {
+      toast.error(getApiErrorMessage(error, "Failed to load staff schedules report"))
     }
-  }, [schedulesError, schedulesErr])
-
-  useEffect(() => {
-    if (staffListError && staffListErr) {
-      toast.error(
-        getApiErrorMessage(staffListErr, "Failed to load collection staff list")
-      )
-    }
-  }, [staffListError, staffListErr])
+  }, [isError, error])
 
   const renderStaffDetail = useCallback(
-    ({ row }: { row: MRT_Row<StaffScheduleSummaryRow> }) => {
-      const pocRows = buildPocSummariesForStaff(
-        schedules,
-        row.original.userId,
-        activeScheduleDateKey
-      )
-      return <StaffPocDetailPanel pocRows={pocRows} />
-    },
-    [schedules, activeScheduleDateKey]
+    ({ row }: { row: MRT_Row<StaffSchedulesStaffTableRow> }) => (
+      <StaffPocDetailPanel pocRows={row.original.pocsForDay} />
+    ),
+    []
   )
 
   const getStaffBodyRowProps = useCallback(
@@ -430,8 +453,8 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
       table,
       isDetailPanel,
     }: {
-      row: MRT_Row<StaffScheduleSummaryRow>
-      table: MRT_TableInstance<StaffScheduleSummaryRow>
+      row: MRT_Row<StaffSchedulesStaffTableRow>
+      table: MRT_TableInstance<StaffSchedulesStaffTableRow>
       isDetailPanel?: boolean
     }) => {
       if (isDetailPanel) return {}
@@ -453,7 +476,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     []
   )
 
-  const staffColumns = useMemo<MRT_ColumnDef<StaffScheduleSummaryRow>[]>(
+  const staffColumns = useMemo<MRT_ColumnDef<StaffSchedulesStaffTableRow>[]>(
     () => [
       { accessorKey: "userFullName", header: "Staff Name" },
       { accessorKey: "userRole", header: "Role" },
@@ -487,7 +510,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     data: staffRows,
     getRowId: (r) => String(r.userId),
     state: {
-      isLoading: isSchedulesLoading,
+      isLoading,
       columnVisibility: staffTableResponsive.columnVisibility,
     },
     enableGlobalFilter: true,
@@ -500,14 +523,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     renderDetailPanel: renderStaffDetail,
     muiTableContainerProps: { sx: { overflowX: "auto" } },
     muiTableBodyRowProps: getStaffBodyRowProps,
-    muiDetailPanelProps: DETAIL_PANEL_SX,
-    muiTableBodyCellProps: () => ({
-      sx: {
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        caretColor: "transparent",
-      },
-    }),
+    muiDetailPanelProps: MUI_DETAIL_PANEL_SX,
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
     muiSearchTextFieldProps: { placeholder: "Search staff…" },
   })
@@ -517,21 +533,21 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <SummaryMetricCard
           title="Collecting staff (branch)"
-          value={String(registeredStaffCount)}
+          value={String(totalCollectingStaff)}
           icon={UserCheck}
-          loading={isSchedulesLoading || staffListLoading}
+          loading={isLoading}
         />
         <SummaryMetricCard
           title="Staff with schedules"
-          value={String(totalStaff)}
+          value={String(totalStaffWithSchedules)}
           icon={Users}
-          loading={isSchedulesLoading}
+          loading={isLoading}
         />
         <SummaryMetricCard
           title="Total schedule amount"
           value={formatInr(totalAmount)}
           icon={IndianRupee}
-          loading={isSchedulesLoading}
+          loading={isLoading}
         />
       </div>
 
@@ -540,39 +556,81 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
           <div>
             <h2 className="text-base font-semibold text-foreground">Staff schedules</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Expand a staff row to see POCs, then expand a POC to view member schedules (
-              {totalSchedules} line{totalSchedules === 1 ? "" : "s"} on selected day).
+              Pick a date within the next {BRANCH_SCHEDULE_WINDOW_DAYS} days. Expand a staff row to
+              see POCs ({totalSchedules} line{totalSchedules === 1 ? "" : "s"} on selected day).
             </p>
           </div>
-          <SegmentedToggle
-            value={scheduleWindow}
-            onChange={setScheduleWindow}
-            ariaLabel="Schedule date"
-            className="self-start"
-            options={[
-              { value: "today", label: "Today" },
-              { value: "tomorrow", label: "Tomorrow" },
-            ]}
-          />
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <div
+              className="inline-flex rounded-lg border border-border bg-muted p-1"
+              role="group"
+              aria-label="Schedule date"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedDateKey(bounds.todayKey)}
+                aria-pressed={selectedDateKey === bounds.todayKey}
+                className={cn(
+                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+                  selectedDateKey === bounds.todayKey
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
+                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                )}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDateKey(bounds.tomorrowKey)}
+                aria-pressed={selectedDateKey === bounds.tomorrowKey}
+                className={cn(
+                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+                  selectedDateKey === bounds.tomorrowKey
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
+                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                )}
+              >
+                Tomorrow
+              </button>
+            </div>
+            <label className="inline-flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Date</span>
+              <input
+                type="date"
+                min={bounds.minKey}
+                max={bounds.maxKey}
+                value={selectedDateKey}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDateKey(clampScheduleDateKey(e.target.value, bounds))
+                  }
+                }}
+                className={cn(
+                  "rounded-md border border-input bg-background px-2 py-1.5 text-xs font-medium text-foreground shadow-sm",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                )}
+                aria-label="Pick schedule date within the next seven days"
+              />
+            </label>
+          </div>
         </div>
 
-        {schedulesFailed ? (
+        {isError ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
             <p className="font-medium text-destructive">Could not load staff schedules.</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {getApiErrorMessage(schedulesErr, "Schedules request failed.")}
-            </p>
-            <Button className="mt-4" variant="outline" onClick={() => void refetchSchedules()}>
+            <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
               Try again
             </Button>
           </div>
-        ) : isSchedulesLoading ? (
+        ) : isLoading ? (
           <div className="h-72 animate-pulse rounded-lg bg-muted" aria-hidden />
         ) : staffRows.length === 0 ? (
           <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-            {apiScheduleLineCount > 0
-              ? "No schedules match the selected date. Try Today or Tomorrow."
-              : "No schedules for this branch in the next two days."}
+            {hasWindowData
+              ? "No schedules match the selected date. Try Tomorrow or another day in the next seven days."
+              : totalCollectingStaff > 0
+                ? "Collecting staff found, but none have schedules in the next seven days."
+                : `No schedules for this branch in the next ${BRANCH_SCHEDULE_WINDOW_DAYS} days.`}
           </div>
         ) : (
           <div className="[caret-color:transparent]">

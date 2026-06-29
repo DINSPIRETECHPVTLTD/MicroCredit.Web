@@ -13,6 +13,7 @@ export interface PocBranchReportRow {
 export interface MemberByPocReportRow {
   pocId: number
   memberId: string
+  memberCode: string | null
   memberName: string
   /** Scheduled due EMI amount (API field naming varies). */
   due: number
@@ -30,47 +31,52 @@ export interface MemberByPocReportRow {
   loanSchedulerStatus: string
 }
 
-/** GET /Report/poc-collection-staff-by-branch/{branchId} */
-export interface PocCollectionStaffReportRow {
-  userId: number
-  userFullName: string
-  userRole: string
-}
-
-/** GET /Report/staff-schedules-by-branch/{branchId} */
-export interface StaffScheduleReportRow {
-  pocId: number
-  pocStaffId: number
-  userId: number
-  pocFullName: string
-  userFullName: string
-  memberFullName: string
+/** GET /Report/staff-schedules-report/{branchId} — member schedule line. */
+export interface StaffReportMemberRow {
   memberId: number
-  centerId: number
-  pocIsDeleted: boolean
+  memberCode: string | null
+  pocId: number
+  memberFullName: string
+  loanId: number
+  loanStatus: string
   loanSchedulerId: number
-  actualEmiAmount: number
   scheduleDate: string | null
-  branchId: number
-  userRole: string
+  actualEmiAmount: number
+  loanSchedulerStatus: string
 }
 
-/** Staff row for expandable staff-schedules report UI. */
-export interface StaffScheduleSummaryRow {
+export interface StaffSchedulesPocNode {
+  pocId: number
+  pocFullName: string
+  centerId: number
+  members: StaffReportMemberRow[]
+}
+
+export interface StaffSchedulesStaffNode {
+  userId: number
+  userFullName: string
+  userRole: string
+  pocs: StaffSchedulesPocNode[]
+}
+
+export interface StaffSchedulesReport {
+  staff: StaffSchedulesStaffNode[]
+}
+
+/** POC row with counts for the selected schedule day. */
+export type StaffSchedulesPocTableRow = StaffSchedulesPocNode & {
+  resolvedMemberCount: number
+  resolvedTotalAmount: number
+  membersForDay: StaffReportMemberRow[]
+}
+
+/** Staff row with aggregated counts for the selected schedule day. */
+export type StaffSchedulesStaffTableRow = {
   userId: number
   userFullName: string
   userRole: string
   pocCount: number
   scheduleCount: number
   totalAmount: number
-}
-
-/** POC aggregate under a staff collector in staff-schedules report. */
-export interface StaffSchedulePocSummaryRow {
-  pocId: number
-  pocFullName: string
-  centerId: number
-  memberCount: number
-  totalAmount: number
-  scheduleLines: StaffScheduleReportRow[]
+  pocsForDay: StaffSchedulesPocTableRow[]
 }

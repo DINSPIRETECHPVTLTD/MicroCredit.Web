@@ -34,6 +34,13 @@ function formatCurrency(value: unknown): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "INR" })
 }
 
+function formatMemberRef(memberId: number, memberCode: string | null | undefined): string {
+  const hasCode = Boolean(memberCode?.trim())
+  if (hasCode && memberId) return `${memberCode}/${memberId}`
+  if (hasCode) return memberCode!
+  return memberId ? String(memberId) : "—"
+}
+
 function ManageLoanList() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -106,8 +113,15 @@ function ManageLoanList() {
         header: "Loan Id",
       },
       {
-        accessorKey: "memberId",
-        header: "Member Id",
+        id: "memberRef",
+        header: "Member Code/ID",
+        size: 140,
+        accessorFn: (row) => formatMemberRef(row.memberId, row.memberCode),
+        Cell: ({ row }) => (
+          <span className="tabular-nums font-mono text-xs">
+            {formatMemberRef(row.original.memberId, row.original.memberCode)}
+          </span>
+        ),
       },
       {
         id: "actions",

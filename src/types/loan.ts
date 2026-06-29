@@ -1,6 +1,7 @@
 export interface LoanResponse {
     loanId: number
     memberId: number
+    memberCode?: string | null
     fullName: string
     pocName?: string
     status: string

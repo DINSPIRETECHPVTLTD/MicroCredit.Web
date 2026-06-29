@@ -37,15 +37,24 @@ import type { DashboardChartItem } from "@/types/dashboard"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
 import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
-import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
+import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
+import {
+  formatDashboardClock,
+  formatDisplayDate,
+  formatOrgModeDateHighlight,
+} from "@/lib/date-time"
 
 /** POC row with counts/amounts derived from members-by-poc (POC API often omits memberCount/totalAmount). */
 type PocTableRow = PocBranchReportRow & {
   resolvedMemberCount: number | null
   resolvedTotalAmount: number | null
+}
+
+function countDistinctMemberIds(rows: MemberByPocReportRow[]): number {
+  return new Set(rows.map((m) => m.memberId)).size
 }
 
 function sumMemberEmi(members: MemberByPocReportRow[] | undefined): number {
@@ -85,6 +94,9 @@ function formatInr(amount: number): string {
   })
 }
 
+/** API returns schedules for today + next 6 days (7 calendar days). */
+const BRANCH_SCHEDULE_WINDOW_DAYS = 7
+
 /** Calendar day in local timezone YYYY-MM-DD */
 function localDateKey(d: Date): string {
   const y = d.getFullYear()
@@ -93,44 +105,57 @@ function localDateKey(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-function getTodayAndTomorrowDateKeys() {
+function addDaysToDateKey(key: string, days: number): string {
+  const d = new Date(`${key}T12:00:00`)
+  d.setDate(d.getDate() + days)
+  return localDateKey(d)
+}
+
+function getScheduleWindowBounds() {
   const today = new Date()
+  const todayKey = localDateKey(today)
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  return {
-    todayKey: localDateKey(today),
-    tomorrowKey: localDateKey(tomorrow),
-  }
+  const tomorrowKey = localDateKey(tomorrow)
+  const maxKey = addDaysToDateKey(todayKey, BRANCH_SCHEDULE_WINDOW_DAYS - 1)
+  return { todayKey, tomorrowKey, minKey: todayKey, maxKey }
+}
+
+function clampScheduleDateKey(
+  key: string,
+  bounds: ReturnType<typeof getScheduleWindowBounds>
+): string {
+  if (key < bounds.minKey) return bounds.minKey
+  if (key > bounds.maxKey) return bounds.maxKey
+  return key
 }
 
 function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
   if (!scheduleIsoOrKey) return null
   const s = scheduleIsoOrKey.trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return null
   return localDateKey(d)
 }
 
-/** Label relative to viewer's local today / tomorrow. */
-function emiDueDayLabel(scheduleIsoOrKey: string | null): "Today" | "Tomorrow" | null {
+function formatScheduleDateShort(key: string): string {
+  return formatDisplayDate(key)
+}
+
+/** Label relative to local today / tomorrow, or date within the 7-day window. */
+function emiDueDayLabel(scheduleIsoOrKey: string | null): string | null {
   const dueKey = scheduleDateKey(scheduleIsoOrKey)
   if (!dueKey) return null
-  const { todayKey, tomorrowKey } = getTodayAndTomorrowDateKeys()
+  const { todayKey, tomorrowKey, minKey, maxKey } = getScheduleWindowBounds()
   if (dueKey === todayKey) return "Today"
   if (dueKey === tomorrowKey) return "Tomorrow"
+  if (dueKey >= minKey && dueKey <= maxKey) return formatScheduleDateShort(dueKey)
   return null
 }
 
 function formatScheduleDateDisplay(scheduleIso: string | null): string {
-  if (!scheduleIso) return "—"
-  const d = new Date(scheduleIso)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
+  return formatDisplayDate(scheduleIso)
 }
 
 /** Isolated so the rest of the dashboard does not re-render every minute tick. */
@@ -143,21 +168,6 @@ function DashboardClock() {
   return (
     <p className="mt-1 text-sm text-muted-foreground">{formatDashboardClock(now)}</p>
   )
-}
-
-function formatDashboardClock(d: Date): string {
-  const datePart = d.toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-  const timePart = d.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
-  return `${datePart} • ${timePart}`
 }
 
 function DashboardSkeleton() {
@@ -182,22 +192,11 @@ function OrgModeDateHighlight() {
     return () => window.clearInterval(t)
   }, [])
 
-  const datePart = now.toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  })
-  const timePart = now.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
+  const dateTimePart = formatOrgModeDateHighlight(now)
 
   return (
     <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
-      <span className="text-sm font-semibold text-primary">{datePart}</span>
-      <span className="text-xs text-primary/80">• {timePart}</span>
+      <span className="text-sm font-semibold text-primary">{dateTimePart}</span>
     </div>
   )
 }
@@ -366,10 +365,24 @@ function OrgDashboardHome() {
   )
 }
 
+function formatMemberRef(memberId: string, memberCode: string | null): string {
+  const hasCode = Boolean(memberCode?.trim())
+  const hasId = Boolean(memberId?.trim())
+  if (hasCode && hasId) return `${memberCode}/${memberId}`
+  if (hasCode) return memberCode!
+  return memberId || "—"
+}
+
 const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
   {
-    accessorKey: "memberId",
-    header: "Member ID",
+    id: "memberRef",
+    header: "Member Code/ID",
+    accessorFn: (row) => formatMemberRef(row.memberId, row.memberCode),
+    Cell: ({ row }) => (
+      <span className="tabular-nums font-mono text-xs">
+        {formatMemberRef(row.original.memberId, row.original.memberCode)}
+      </span>
+    ),
   },
   {
     accessorKey: "memberName",
@@ -392,6 +405,13 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
         return (
           <span className="inline-flex rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-200">
             Tomorrow
+          </span>
+        )
+      }
+      if (label) {
+        return (
+          <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {label}
           </span>
         )
       }
@@ -508,9 +528,9 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
 })
 
 function MyViewBranchReportSection({ branchId }: { branchId: number }) {
-  const { todayKey, tomorrowKey } = useMemo(() => getTodayAndTomorrowDateKeys(), [])
-  const [scheduleWindow, setScheduleWindow] = useState<"today" | "tomorrow">("today")
-  const activeScheduleDateKey = scheduleWindow === "today" ? todayKey : tomorrowKey
+  const bounds = useMemo(() => getScheduleWindowBounds(), [])
+  const [selectedDateKey, setSelectedDateKey] = useState(bounds.todayKey)
+  const activeScheduleDateKey = selectedDateKey
 
   const {
     data: pocsRaw,
@@ -568,7 +588,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
 
   const totalMembersInBranch = membersIsError
     ? pocs.reduce((sum, poc) => sum + (poc.memberCount ?? 0), 0)
-    : filteredMembers.length
+    : countDistinctMemberIds(filteredMembers)
   const totalAmountInBranch = membersIsError
     ? pocs.reduce((sum, poc) => sum + (poc.totalAmount ?? 0), 0)
     : sumMemberEmi(filteredMembers)
@@ -594,7 +614,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
       const pocMembers = membersByPoc.get(poc.pocId) ?? []
       return {
         ...poc,
-        resolvedMemberCount: pocMembers.length,
+        resolvedMemberCount: countDistinctMemberIds(pocMembers),
         resolvedTotalAmount: sumMemberEmi(pocMembers),
       }
     })
@@ -804,19 +824,63 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
           <div>
             <h2 className="text-base font-semibold text-foreground">POC schedules</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Use the date filter, then expand a row to view member schedules.
+              Pick a date within the next {BRANCH_SCHEDULE_WINDOW_DAYS} days, then expand a row to
+              view member schedules.
             </p>
           </div>
-          <SegmentedToggle
-            value={scheduleWindow}
-            onChange={setScheduleWindow}
-            ariaLabel="Schedule date"
-            className="self-start"
-            options={[
-              { value: "today", label: "Today" },
-              { value: "tomorrow", label: "Tomorrow" },
-            ]}
-          />
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <div
+              className="inline-flex rounded-lg border border-border bg-muted p-1"
+              role="group"
+              aria-label="Schedule date"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedDateKey(bounds.todayKey)}
+                aria-pressed={selectedDateKey === bounds.todayKey}
+                className={cn(
+                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+                  selectedDateKey === bounds.todayKey
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
+                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                )}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDateKey(bounds.tomorrowKey)}
+                aria-pressed={selectedDateKey === bounds.tomorrowKey}
+                className={cn(
+                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
+                  selectedDateKey === bounds.tomorrowKey
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
+                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                )}
+              >
+                Tomorrow
+              </button>
+            </div>
+            <label className="inline-flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Date</span>
+              <input
+                type="date"
+                min={bounds.minKey}
+                max={bounds.maxKey}
+                value={selectedDateKey}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDateKey(clampScheduleDateKey(e.target.value, bounds))
+                  }
+                }}
+                className={cn(
+                  "rounded-md border border-input bg-background px-2 py-1.5 text-xs font-medium text-foreground shadow-sm",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                )}
+                aria-label="Pick schedule date within the next seven days"
+              />
+            </label>
+          </div>
         </div>
         {visiblePocTableRows.length === 0 && !isLoading && !membersIsLoading && !membersIsFetching ? (
           <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
@@ -847,8 +911,6 @@ function BranchDashboardNoBranch() {
   )
 }
 
-type DashboardSection = "myView" | "staffSchedules"
-
 /**
  * Branch dashboard shell: reads branch id synchronously and mounts hookful content only
  * when branchId is defined (avoids optional branchId in hook dependency arrays).
@@ -863,36 +925,28 @@ function BranchReportDashboard() {
 
 /**
  * All dashboard hooks live here with a guaranteed numeric branchId.
- * Child report panels mount/unmount by tab without affecting this hook list.
  */
 function BranchReportDashboardContent({ branchId }: { branchId: number }) {
   const queryClient = useQueryClient()
   const { role } = getNormalizedSessionMeta(getSession())
   const isOwner = role === "Owner"
-  const [dashboardSection, setDashboardSection] = useState<DashboardSection>("myView")
+  const [dashboardSection, setDashboardSection] = useState<"myView" | "staffSchedules">("myView")
 
-  // Each useIsFetching must run every render — never combine hooks with `||` (short-circuits).
-  const staffSchedulesListFetching =
-    useIsFetching({ queryKey: ["reportStaffSchedules", branchId] }) > 0
-  const staffSchedulesStaffFetching =
-    useIsFetching({ queryKey: ["reportPocCollectionStaff", branchId] }) > 0
   const myViewPocsFetching = useIsFetching({ queryKey: ["reportPocs", branchId] }) > 0
   const myViewMembersFetching =
     useIsFetching({ queryKey: ["reportMembersByPocs", branchId] }) > 0
-  const staffSchedulesBgFetching =
-    staffSchedulesListFetching || staffSchedulesStaffFetching
+  const staffSchedulesFetching =
+    useIsFetching({ queryKey: ["reportStaffSchedules", branchId] }) > 0
   const myViewBgFetching = myViewPocsFetching || myViewMembersFetching
+  const refreshSpinning =
+    (dashboardSection === "myView" && myViewBgFetching) ||
+    (dashboardSection === "staffSchedules" && staffSchedulesFetching)
 
   const handleRefreshAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
     void queryClient.invalidateQueries({ queryKey: ["reportMembersByPocs", branchId] })
     void queryClient.invalidateQueries({ queryKey: ["reportStaffSchedules", branchId] })
-    void queryClient.invalidateQueries({ queryKey: ["reportPocCollectionStaff", branchId] })
   }, [queryClient, branchId])
-
-  const refreshSpinning =
-    (dashboardSection === "myView" && myViewBgFetching) ||
-    (dashboardSection === "staffSchedules" && staffSchedulesBgFetching)
 
   return (
     <div className="space-y-6">
@@ -937,6 +991,7 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
     </div>
   )
 }
+
 export default function DashboardPage() {
   const session = getSession()
   const mode = session?.mode === "ORG" || session?.mode === "BRANCH" ? session.mode : "ORG"
