@@ -46,6 +46,7 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader"
 import { formatDisplayDate } from "@/lib/date-time"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import { formatMemberRef } from "@/lib/members/format-member-ref"
 
 const inputClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
@@ -84,13 +85,6 @@ const EMPTY_FIELD_ERRORS: RecoveryPostingFieldErrorState = { rows: {} }
 
 function formatCurrency(n: number): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "INR" })
-}
-
-function formatMemberRef(memberId: number, memberCode: string | null | undefined): string {
-  const hasCode = Boolean(memberCode?.trim())
-  if (hasCode && memberId) return `${memberCode}/${memberId}`
-  if (hasCode) return memberCode!
-  return memberId ? String(memberId) : "—"
 }
 
 function isOverdueAllowed(scheduleDate: string): boolean {
@@ -642,7 +636,7 @@ function RecoveryPostingList() {
     () => [
       {
         id: "memberRef",
-        header: "Member Code/ID",
+        header: "Id",
         size: 140,
         accessorFn: (row) => formatMemberRef(row.memberId, row.memberCode),
         Cell: ({ row }) => (

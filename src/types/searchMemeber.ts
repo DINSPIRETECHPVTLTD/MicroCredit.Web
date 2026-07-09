@@ -1,5 +1,6 @@
 export interface SearchMemberResponse {
     id : number;
+    memberCode?: string | null;
     firstName: string;
     middleName?: string;
     lastName: string;

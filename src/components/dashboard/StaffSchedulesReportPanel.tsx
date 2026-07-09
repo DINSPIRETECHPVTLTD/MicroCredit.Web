@@ -30,6 +30,7 @@ import type {
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
+import { formatMemberRef } from "@/lib/members/format-member-ref"
 
 const BRANCH_SCHEDULE_WINDOW_DAYS = 7
 const MUI_DETAIL_PANEL_SX = { sx: { backgroundColor: "transparent" } } as const
@@ -112,13 +113,6 @@ function formatScheduleDateDisplay(scheduleIso: string | null): string {
   return formatDisplayDate(scheduleIso)
 }
 
-function formatMemberRef(memberId: number, memberCode: string | null): string {
-  const hasCode = Boolean(memberCode?.trim())
-  if (hasCode && memberId) return `${memberCode}/${memberId}`
-  if (hasCode) return memberCode!
-  return memberId ? String(memberId) : "—"
-}
-
 function toMemberDisplayRow(m: StaffReportMemberRow): MemberByPocReportRow {
   return {
     pocId: m.pocId,
@@ -185,10 +179,10 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
   {
     id: "memberRef",
     header: "Member Code/ID",
-    accessorFn: (row) => formatMemberRef(Number(row.memberId), row.memberCode),
+    accessorFn: (row) => formatMemberRef(row.memberId, row.memberCode),
     Cell: ({ row }) => (
       <span className="tabular-nums font-mono text-xs">
-        {formatMemberRef(Number(row.original.memberId), row.original.memberCode)}
+        {formatMemberRef(row.original.memberId, row.original.memberCode)}
       </span>
     ),
   },

@@ -41,6 +41,7 @@ import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
 import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
+import { formatMemberRef } from "@/lib/members/format-member-ref"
 import {
   formatDashboardClock,
   formatDisplayDate,
@@ -363,14 +364,6 @@ function OrgDashboardHome() {
       )}
     </div>
   )
-}
-
-function formatMemberRef(memberId: string, memberCode: string | null): string {
-  const hasCode = Boolean(memberCode?.trim())
-  const hasId = Boolean(memberId?.trim())
-  if (hasCode && hasId) return `${memberCode}/${memberId}`
-  if (hasCode) return memberCode!
-  return memberId || "—"
 }
 
 const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [

@@ -10,6 +10,7 @@ import { getBranch } from "@/services/auth.service"
 import { formatDisplayDate, formatDisplayDateFromDate } from "@/lib/date-time"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { HiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
+import { formatMemberRef } from "@/lib/members/format-member-ref"
 
 function buildDisplayName(row: MemberResponse): string {
   const primary =
@@ -22,17 +23,6 @@ function buildGuardianDisplayName(row: MemberResponse): string {
   const guardianFromParts = [row.guardianFirstName, row.guardianLastName].filter(Boolean).join(" ").trim()
   const guardian = guardianFromParts || row.guardianName?.trim() || ""
   return guardian || "—"
-}
-
-function formatMemberRef(row: MemberResponse): string {
-  const memberCode = row.memberCode?.trim() || null
-  const memberId = row.memberId ?? row.id
-  const hasCode = Boolean(memberCode)
-  const hasId = memberId != null && memberId > 0
-  if (hasCode && hasId) return `${memberCode}/${memberId}`
-  if (hasCode) return memberCode!
-  if (hasId) return String(memberId)
-  return "—"
 }
 
 type MemberGridProps = {
@@ -110,11 +100,13 @@ export default function MemberGrid({
     () => [
       {
         id: "memberRef",
-        header: "Member Code/ID",
+        header: "Id",
         size: 140,
-        accessorFn: (r) => formatMemberRef(r),
+        accessorFn: (r) => formatMemberRef(r.memberId ?? r.id, r.memberCode),
         Cell: ({ row }) => (
-          <span className="tabular-nums font-mono text-xs">{formatMemberRef(row.original)}</span>
+          <span className="tabular-nums font-mono text-xs">
+            {formatMemberRef(row.original.memberId ?? row.original.id, row.original.memberCode)}
+          </span>
         ),
       },
       {
