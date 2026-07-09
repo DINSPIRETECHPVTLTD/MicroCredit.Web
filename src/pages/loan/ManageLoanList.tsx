@@ -9,6 +9,7 @@ import { loanService } from "../../services/loan.service"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { useIsMobile } from "@/lib/responsive/useBreakpoint"
+import { formatMemberRef } from "@/lib/members/format-member-ref"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -32,13 +33,6 @@ function toNumber(value: unknown): number {
 function formatCurrency(value: unknown): string {
   const n = toNumber(value)
   return n.toLocaleString(undefined, { style: "currency", currency: "INR" })
-}
-
-function formatMemberRef(memberId: number, memberCode: string | null | undefined): string {
-  const hasCode = Boolean(memberCode?.trim())
-  if (hasCode && memberId) return `${memberCode}/${memberId}`
-  if (hasCode) return memberCode!
-  return memberId ? String(memberId) : "—"
 }
 
 function ManageLoanList() {
@@ -76,6 +70,17 @@ function ManageLoanList() {
   const columns = useMemo<MRT_ColumnDef<LoanResponse>[]>(
     () => [
       {
+        id: "memberRef",
+        header: "Id",
+        size: 140,
+        accessorFn: (row) => formatMemberRef(row.memberId, row.memberCode),
+        Cell: ({ row }) => (
+          <span className="tabular-nums font-mono text-xs">
+            {formatMemberRef(row.original.memberId, row.original.memberCode)}
+          </span>
+        ),
+      },
+      {
         accessorKey: "fullName",
         header: "Full Name",
       },
@@ -111,17 +116,6 @@ function ManageLoanList() {
       {
         accessorKey: "loanId",
         header: "Loan Id",
-      },
-      {
-        id: "memberRef",
-        header: "Member Code/ID",
-        size: 140,
-        accessorFn: (row) => formatMemberRef(row.memberId, row.memberCode),
-        Cell: ({ row }) => (
-          <span className="tabular-nums font-mono text-xs">
-            {formatMemberRef(row.original.memberId, row.original.memberCode)}
-          </span>
-        ),
       },
       {
         id: "actions",

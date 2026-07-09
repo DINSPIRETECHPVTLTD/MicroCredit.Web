@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { MemberPreviewFieldKey } from "@/components/members/member-preview-utils"
 import { formatDisplayDate } from "@/lib/date-time"
+import { formatMemberId } from "@/lib/members/format-member-id"
 
 export type MemberCreatePreviewData = {
   memberId?: string
@@ -238,7 +239,10 @@ export function MemberCreateConfirmationDialog({
           <p className="text-xs font-medium uppercase tracking-wide text-primary">Summary</p>
           {preview.memberId ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              Member ID: <span className="font-semibold text-foreground">{preview.memberId}</span>
+              Member ID:{" "}
+              <span className="font-semibold text-foreground">
+                {formatMemberId(preview.memberId)}
+              </span>
             </p>
           ) : null}
           <dl className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">

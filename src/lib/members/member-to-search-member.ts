@@ -14,6 +14,7 @@ export function memberToSearchMember(row: MemberResponse): SearchMemberResponse 
 
   return {
     id: row.id,
+    memberCode: row.memberCode ?? null,
     firstName: row.firstName ?? "",
     middleName: row.middleName ?? undefined,
     lastName: row.lastName ?? "",

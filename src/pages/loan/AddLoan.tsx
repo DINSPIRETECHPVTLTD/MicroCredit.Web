@@ -13,6 +13,7 @@ import AddLoanDialog from "./AddLoanDialog"
 import { getBranch } from "@/services/auth.service"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
+import { formatMemberRef } from "@/lib/members/format-member-ref"
 
 function AddLoan() {
     const [selectedMember, setSelectedMember] = useState<SearchMemberResponse | null>(null)
@@ -68,6 +69,17 @@ function AddLoan() {
 
     const columns = useMemo<MRT_ColumnDef<SearchMemberResponse>[]>(
         () => [
+            {
+              id: "memberRef",
+              header: "Id",
+              size: 140,
+              accessorFn: (row) => formatMemberRef(row.id, row.memberCode),
+              Cell: ({ row }) => (
+                <span className="tabular-nums font-mono text-xs">
+                  {formatMemberRef(row.original.id, row.original.memberCode)}
+                </span>
+              ),
+            },
             {
               accessorKey: "name",
               header: "Name",

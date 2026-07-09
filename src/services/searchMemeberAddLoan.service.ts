@@ -21,7 +21,12 @@ export const searchMemberService = {
                 (row as { primaryOpenLoanId?: unknown }).primaryOpenLoanId
             const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN
             const primaryOpenLoanId = Number.isFinite(n) && n > 0 ? n : null
-            return { ...row, primaryOpenLoanId }
+            const memberCodeRaw = r.memberCode ?? r.MemberCode
+            const memberCode =
+                typeof memberCodeRaw === "string" && memberCodeRaw.trim()
+                    ? memberCodeRaw.trim()
+                    : null
+            return { ...row, primaryOpenLoanId, memberCode }
         })
     },
 };
