@@ -116,6 +116,12 @@ function getStatusToneClass(status: string): string {
   return "border-border bg-background text-foreground"
 }
 
+/** Prefer Cash when available; otherwise first payment-mode lookup. */
+function getDefaultPaymentMode(lookups: MasterLookupResponse[]): string {
+  const cash = lookups.find((m) => m.lookupValue?.trim().toLowerCase() === "cash")
+  return (cash ?? lookups[0])?.lookupValue ?? ""
+}
+
 function todayDateKey(): string {
   const t = new Date()
   const y = t.getFullYear()
@@ -268,6 +274,10 @@ function RecoveryPostingList() {
     () => allLookups.filter((x) => x.lookupKey?.toLowerCase() === "paymentmode"),
     [allLookups]
   )
+  const defaultPaymentMode = useMemo(
+    () => getDefaultPaymentMode(paymentModeLookups),
+    [paymentModeLookups]
+  )
 
   const editableRows = useMemo<RecoveryPostingRow[]>(() => {
     return gridRows.map((row) => {
@@ -342,6 +352,19 @@ function RecoveryPostingList() {
               if (getAutoStatusForRow(row) === RECOVERY_STATUS.OVERDUE) {
                 nextDraft[rowKey] = ""
               }
+            }
+            return nextDraft
+          })
+          setPaymentModeDraft((prevDraft) => {
+            const nextDraft = { ...prevDraft }
+            for (const rowKey of newlySelected) {
+              const row = gridRows.find((r) => r.rowKey === rowKey)
+              if (!row) continue
+              if (getAutoStatusForRow(row) === RECOVERY_STATUS.OVERDUE) {
+                nextDraft[rowKey] = ""
+                continue
+              }
+              nextDraft[rowKey] = (row.paymentMode?.trim() || defaultPaymentMode)
             }
             return nextDraft
           })
@@ -430,7 +453,7 @@ function RecoveryPostingList() {
         return next
       })
     },
-    [gridRows]
+    [gridRows, defaultPaymentMode]
   )
 
   const selectedTotal = useMemo(() => {
@@ -793,7 +816,7 @@ function RecoveryPostingList() {
             isSelected
               ? (paymentModeDraft[key] ??
                 row.original.paymentMode ??
-                (paymentModeLookups[0]?.lookupValue ?? ""))
+                defaultPaymentMode)
               : ""
           return (
             <div>
@@ -945,7 +968,7 @@ function RecoveryPostingList() {
         size: 170,
       },
     ],
-    [paymentAmountDraft, paymentModeDraft, statusDraft, commentsDraft, paymentModeLookups, updatePaymentAmount, fieldErrors.rows, rowSelection]
+    [paymentAmountDraft, paymentModeDraft, statusDraft, commentsDraft, paymentModeLookups, defaultPaymentMode, updatePaymentAmount, fieldErrors.rows, rowSelection]
   )
 
   const { columnVisibility, enableExpanding, hiddenColumnIds } =
@@ -1024,7 +1047,11 @@ function RecoveryPostingList() {
                       "cursor-not-allowed border-dashed border-muted-foreground/40 bg-muted/70 text-muted-foreground opacity-80",
                     rowFieldErrors?.paymentMode && "border-destructive"
                   )}
-                  value={isOverdueSelected ? "" : (paymentModeDraft[key] ?? r.paymentMode ?? "")}
+                  value={
+                    isOverdueSelected
+                      ? ""
+                      : (paymentModeDraft[key] ?? r.paymentMode ?? defaultPaymentMode)
+                  }
                   disabled={isOverdueSelected}
                   onChange={(e) => {
                     if (isOverdueSelected) return
@@ -1064,6 +1091,7 @@ function RecoveryPostingList() {
       paymentModeDraft,
       commentsDraft,
       paymentModeLookups,
+      defaultPaymentMode,
     ]
   )
 

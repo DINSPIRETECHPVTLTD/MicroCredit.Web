@@ -95,9 +95,6 @@ function formatInr(amount: number): string {
   })
 }
 
-/** API returns schedules for today + next 6 days (7 calendar days). */
-const BRANCH_SCHEDULE_WINDOW_DAYS = 7
-
 /** Calendar day in local timezone YYYY-MM-DD */
 function localDateKey(d: Date): string {
   const y = d.getFullYear()
@@ -106,29 +103,8 @@ function localDateKey(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-function addDaysToDateKey(key: string, days: number): string {
-  const d = new Date(`${key}T12:00:00`)
-  d.setDate(d.getDate() + days)
-  return localDateKey(d)
-}
-
-function getScheduleWindowBounds() {
-  const today = new Date()
-  const todayKey = localDateKey(today)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowKey = localDateKey(tomorrow)
-  const maxKey = addDaysToDateKey(todayKey, BRANCH_SCHEDULE_WINDOW_DAYS - 1)
-  return { todayKey, tomorrowKey, minKey: todayKey, maxKey }
-}
-
-function clampScheduleDateKey(
-  key: string,
-  bounds: ReturnType<typeof getScheduleWindowBounds>
-): string {
-  if (key < bounds.minKey) return bounds.minKey
-  if (key > bounds.maxKey) return bounds.maxKey
-  return key
+function todayDateKey(): string {
+  return localDateKey(new Date())
 }
 
 function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
@@ -140,19 +116,16 @@ function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
   return localDateKey(d)
 }
 
-function formatScheduleDateShort(key: string): string {
-  return formatDisplayDate(key)
-}
-
-/** Label relative to local today / tomorrow, or date within the 7-day window. */
+/** Label relative to local today / tomorrow, otherwise the display date. */
 function emiDueDayLabel(scheduleIsoOrKey: string | null): string | null {
   const dueKey = scheduleDateKey(scheduleIsoOrKey)
   if (!dueKey) return null
-  const { todayKey, tomorrowKey, minKey, maxKey } = getScheduleWindowBounds()
+  const todayKey = todayDateKey()
   if (dueKey === todayKey) return "Today"
-  if (dueKey === tomorrowKey) return "Tomorrow"
-  if (dueKey >= minKey && dueKey <= maxKey) return formatScheduleDateShort(dueKey)
-  return null
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (dueKey === localDateKey(tomorrow)) return "Tomorrow"
+  return formatDisplayDate(dueKey)
 }
 
 function formatScheduleDateDisplay(scheduleIso: string | null): string {
@@ -521,8 +494,7 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
 })
 
 function MyViewBranchReportSection({ branchId }: { branchId: number }) {
-  const bounds = useMemo(() => getScheduleWindowBounds(), [])
-  const [selectedDateKey, setSelectedDateKey] = useState(bounds.todayKey)
+  const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey)
   const activeScheduleDateKey = selectedDateKey
 
   const {
@@ -817,60 +789,25 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
           <div>
             <h2 className="text-base font-semibold text-foreground">POC schedules</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Pick a date within the next {BRANCH_SCHEDULE_WINDOW_DAYS} days, then expand a row to
-              view member schedules.
+              Pick a date, then expand a row to view member schedules.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 self-start">
-            <div
-              className="inline-flex rounded-lg border border-border bg-muted p-1"
-              role="group"
-              aria-label="Schedule date"
-            >
-              <button
-                type="button"
-                onClick={() => setSelectedDateKey(bounds.todayKey)}
-                aria-pressed={selectedDateKey === bounds.todayKey}
-                className={cn(
-                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
-                  selectedDateKey === bounds.todayKey
-                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
-                    : "text-muted-foreground hover:bg-background hover:text-foreground"
-                )}
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedDateKey(bounds.tomorrowKey)}
-                aria-pressed={selectedDateKey === bounds.tomorrowKey}
-                className={cn(
-                  "min-w-24 rounded-md px-3 py-1.5 text-center text-xs font-semibold transition-colors",
-                  selectedDateKey === bounds.tomorrowKey
-                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
-                    : "text-muted-foreground hover:bg-background hover:text-foreground"
-                )}
-              >
-                Tomorrow
-              </button>
-            </div>
             <label className="inline-flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground">Date</span>
               <input
                 type="date"
-                min={bounds.minKey}
-                max={bounds.maxKey}
                 value={selectedDateKey}
                 onChange={(e) => {
                   if (e.target.value) {
-                    setSelectedDateKey(clampScheduleDateKey(e.target.value, bounds))
+                    setSelectedDateKey(e.target.value)
                   }
                 }}
                 className={cn(
                   "rounded-md border border-input bg-background px-2 py-1.5 text-xs font-medium text-foreground shadow-sm",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 )}
-                aria-label="Pick schedule date within the next seven days"
+                aria-label="Pick schedule date"
               />
             </label>
           </div>

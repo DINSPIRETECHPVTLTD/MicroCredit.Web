@@ -10,6 +10,7 @@ export interface LoanResponse {
     totalAmountPaid: number
     schedulerTotalAmount: number
     remainingBal: number
+    disbursementDate?: string | null
 }
 
 export interface AddLoanRequest {

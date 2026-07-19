@@ -35,14 +35,28 @@ function formatCurrency(value: unknown): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "INR" })
 }
 
+function disbursementTime(value: string | null | undefined): number {
+  if (!value) return 0
+  const t = Date.parse(value)
+  return Number.isFinite(t) ? t : 0
+}
+
 function ManageLoanList() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
-  const { data: loans = [], isLoading, isError, error } = useQuery({
+  const { data: loansRaw = [], isLoading, isError, error } = useQuery({
     queryKey: ["manageLoansAllStatuses"],
     queryFn: () => loanService.getActiveLoans(),
   })
+
+  const loans = useMemo(
+    () =>
+      [...loansRaw].sort(
+        (a, b) => disbursementTime(b.disbursementDate) - disbursementTime(a.disbursementDate)
+      ),
+    [loansRaw]
+  )
 
   const paidNoOfTermsLabel = useCallback((loan: LoanResponse): string => {
     const v = loan.noOfTerms?.trim()
