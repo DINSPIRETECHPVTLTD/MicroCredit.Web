@@ -73,6 +73,9 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     const syncFromIso = React.useCallback((nextIso: string) => {
       setIso(nextIso)
       setText(isoDateToDisplay(nextIso))
+      if (pickerRef.current) {
+        pickerRef.current.value = nextIso
+      }
     }, [])
 
     React.useEffect(() => {
@@ -108,9 +111,20 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       [ref, syncFromIso]
     )
 
+    const setHiddenValue = (nextIso: string) => {
+      const el = hiddenRef.current
+      if (!el) return
+      const proto = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )
+      if (proto?.set) proto.set.call(el, nextIso)
+      else el.value = nextIso
+    }
+
     const commitIso = (nextIso: string) => {
       syncFromIso(nextIso)
-      if (hiddenRef.current) hiddenRef.current.value = nextIso
+      setHiddenValue(nextIso)
       emitValueChange(onChange, name, nextIso)
     }
 
@@ -119,7 +133,8 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       const parsed = displayDateToIso(raw)
       if (parsed == null) return
       setIso(parsed)
-      if (hiddenRef.current) hiddenRef.current.value = parsed
+      setHiddenValue(parsed)
+      if (pickerRef.current) pickerRef.current.value = parsed
       emitValueChange(onChange, name, parsed)
     }
 
@@ -133,22 +148,19 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       onBlur?.(e)
     }
 
-    const openPicker = () => {
-      const el = pickerRef.current
-      if (!el || disabled || readOnly) return
-      // Keep picker value in sync before opening
-      el.value = iso || toIsoDateValue(new Date())
-      try {
-        el.showPicker?.()
-      } catch {
-        el.click()
-      }
+    const handlePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const next = e.target.value
+      if (!next) return
+      // Update without re-controlling the picker input value prop (keeps native close behavior)
+      setIso(next)
+      setText(isoDateToDisplay(next))
+      setHiddenValue(next)
+      emitValueChange(onChange, name, next)
+      // Force the native picker to dismiss after selection
+      e.currentTarget.blur()
     }
 
-    const {
-      "aria-label": ariaLabel,
-      ...inputRest
-    } = rest
+    const { "aria-label": ariaLabel, ...inputRest } = rest
 
     return (
       <div className="relative">
@@ -182,35 +194,35 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           aria-label={ariaLabel ?? `Date (${DATE_DISPLAY_FORMAT})`}
         />
 
-        <button
-          type="button"
-          tabIndex={-1}
-          disabled={disabled || readOnly}
-          className={cn(
-            "absolute inset-y-0 right-0 flex items-center px-2.5 text-muted-foreground",
-            "hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-          )}
-          aria-label="Open calendar"
-          onClick={openPicker}
-        >
-          <Calendar className="h-4 w-4" />
-        </button>
-
-        {/* Native picker only — never shown; value stays YYYY-MM-DD */}
-        <input
-          ref={pickerRef}
-          type="date"
-          min={min}
-          max={max}
-          tabIndex={-1}
-          aria-hidden
-          className="pointer-events-none absolute h-0 w-0 opacity-0"
-          value={iso || ""}
-          onChange={(e) => {
-            const next = e.target.value
-            if (next) commitIso(next)
-          }}
-        />
+        <div className="absolute inset-y-0 right-0 w-10">
+          <span
+            className={cn(
+              "pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground",
+              (disabled || readOnly) && "opacity-50"
+            )}
+            aria-hidden
+          >
+            <Calendar className="h-4 w-4" />
+          </span>
+          {/*
+            Overlay native date input on the calendar icon.
+            Uncontrolled (no React value prop) so selection auto-closes the picker.
+          */}
+          <input
+            ref={pickerRef}
+            type="date"
+            min={min}
+            max={max}
+            disabled={disabled || readOnly}
+            defaultValue={iso || undefined}
+            aria-label="Open calendar"
+            className={cn(
+              "absolute inset-0 h-full w-full cursor-pointer opacity-0",
+              (disabled || readOnly) && "pointer-events-none"
+            )}
+            onChange={handlePickerChange}
+          />
+        </div>
       </div>
     )
   }

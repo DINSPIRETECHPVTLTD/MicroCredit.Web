@@ -179,7 +179,7 @@ function normalizeLoan(x: ApiLoanLike): LoanResponse {
     const totalAmountPaid = getValueCaseInsensitive(x, ['totalAmountPaid'])
     const schedulerTotalAmount = getValueCaseInsensitive(x, ['schedulerTotalAmount', 'loanTotalAmount', 'totalAmount'])
     const remainingBal = getValueCaseInsensitive(x, ['remainingBal', 'remainingBalance'])
-    const disbursementDate = getValueCaseInsensitive(x, ['disbursementDate', 'DisbursementDate'])
+    const disbursementDate = getValueCaseInsensitive(x, ['disbursementDate', 'DisbursementDate', 'disbursedDate', 'DisbursedDate', 'loanDisbursementDate', 'paymentDate', 'PaymentDate'])
 
     return {
         loanId: toNumber(loanId),

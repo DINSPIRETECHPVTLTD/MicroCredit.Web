@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query"
 import type { LoanResponse } from "../../types/loan"
 import { loanService } from "../../services/loan.service"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { DateDisplay } from "@/components/date"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { useIsMobile } from "@/lib/responsive/useBreakpoint"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
@@ -37,8 +38,31 @@ function formatCurrency(value: unknown): string {
 
 function disbursementTime(value: string | null | undefined): number {
   if (!value) return 0
-  const t = Date.parse(value)
+  const s = value.trim()
+  // YYYY-MM-DD or ISO datetime
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
+  if (iso) {
+    const t = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).getTime()
+    return Number.isFinite(t) ? t : 0
+  }
+  // DD/MM/YYYY
+  const dmy = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s)
+  if (dmy) {
+    const t = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])).getTime()
+    return Number.isFinite(t) ? t : 0
+  }
+  const t = Date.parse(s)
   return Number.isFinite(t) ? t : 0
+}
+
+function isClosedLoan(status: string | null | undefined): boolean {
+  return String(status ?? "").trim().toLowerCase() === "closed"
+}
+
+/** Higher values sort first when MRT column sort is desc. Open loans get a large offset. */
+function disbursementSortValue(loan: LoanResponse): number {
+  const time = disbursementTime(loan.disbursementDate)
+  return isClosedLoan(loan.status) ? time : time + 1_000_000_000_000_000
 }
 
 function ManageLoanList() {
@@ -52,9 +76,17 @@ function ManageLoanList() {
 
   const loans = useMemo(
     () =>
-      [...loansRaw].sort(
-        (a, b) => disbursementTime(b.disbursementDate) - disbursementTime(a.disbursementDate)
-      ),
+      [...loansRaw].sort((a, b) => {
+        // Closed loans always at the bottom
+        const aClosed = isClosedLoan(a.status)
+        const bClosed = isClosedLoan(b.status)
+        if (aClosed !== bClosed) return aClosed ? 1 : -1
+
+        const byDate =
+          disbursementTime(b.disbursementDate) - disbursementTime(a.disbursementDate)
+        if (byDate !== 0) return byDate
+        return (b.loanId ?? 0) - (a.loanId ?? 0)
+      }),
     [loansRaw]
   )
 
@@ -109,6 +141,14 @@ function ManageLoanList() {
         header: "Status",
         enableHiding: false,
         Cell: ({ cell }) => cell.getValue<string>() || "-",
+      },
+      {
+        id: "disbursementDate",
+        accessorFn: (row) => disbursementSortValue(row),
+        header: "Disbursement Date",
+        Cell: ({ row }) => (
+          <DateDisplay value={row.original.disbursementDate} empty="-" />
+        ),
       },
       {
         accessorKey: "loanTotalAmount",
@@ -173,6 +213,9 @@ function ManageLoanList() {
           columns={columns}
           data={loans}
           state={{ isLoading, ...tableOptions.state }}
+          initialState={{
+            sorting: [{ id: "disbursementDate", desc: true }],
+          }}
           enableSorting
           enableColumnFilters
           enableGrouping
