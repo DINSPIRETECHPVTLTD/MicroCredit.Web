@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { dialogShellMdClass } from "@/lib/responsive/dialogClasses"
 import { Button } from "@/components/ui/button"
 import { getTodayDateInputValue } from "@/lib/date-time"
+import { DateInput } from "@/components/date"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { CreateInvestmentRequest } from "@/types/investment"
@@ -157,10 +158,9 @@ export default function AddInvestmentDialog({ open, onClose, onSuccess, users }:
 
         <div>
           <label className="text-sm font-medium mb-1 block">Investment Date</label>
-          <input
-            type="date"
+          <DateInput
             {...form.register("investmentDate")}
-            className={cn(inputClass, form.formState.errors.investmentDate && "border-destructive")}
+            className={cn(form.formState.errors.investmentDate && "border-destructive")}
           />
           {form.formState.errors.investmentDate && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.investmentDate.message}</p>
@@ -169,10 +169,9 @@ export default function AddInvestmentDialog({ open, onClose, onSuccess, users }:
 
         <div>
           <label className="text-sm font-medium mb-1 block">Created Date</label>
-          <input
-            type="date"
+          <DateInput
             {...form.register("createdDate")}
-            className={cn(inputClass, form.formState.errors.createdDate && "border-destructive")}
+            className={cn(form.formState.errors.createdDate && "border-destructive")}
           />
           {form.formState.errors.createdDate && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.createdDate.message}</p>

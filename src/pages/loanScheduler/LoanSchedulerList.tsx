@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
-import { formatDisplayDate } from "@/lib/date-time"
+import { DateDisplay } from "@/components/date"
 import { fetchLoanSchedulerList } from "@/services/loanScheduler.service"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
@@ -112,14 +112,16 @@ export default function LoanSchedulerList() {
       {
         accessorKey: "ScheduleDate",
         header: "Schedule Date",
-        Cell: ({ cell }) =>
-          formatDisplayDate(cell.getValue<string | Date | null | undefined>(), { empty: "-" }),
+        Cell: ({ cell }) => (
+          <DateDisplay value={cell.getValue<string | Date | null | undefined>()} empty="-" />
+        ),
       },
       {
         accessorKey: "PaymentDate",
         header: "Payment Date",
-        Cell: ({ cell }) =>
-          formatDisplayDate(cell.getValue<string | Date | null | undefined>(), { empty: "-" }),
+        Cell: ({ cell }) => (
+          <DateDisplay value={cell.getValue<string | Date | null | undefined>()} empty="-" />
+        ),
       },
       {
         accessorKey: "Status",

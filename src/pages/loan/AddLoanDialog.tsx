@@ -17,6 +17,7 @@ import toast from "react-hot-toast"
 import type { AddLoanRequest } from "@/types/loan"
 import { loanService } from "@/services/loan.service"
 import { DEFAULT_API_ERROR_MESSAGE, getApiErrorDetails } from "@/lib/apiErrorHandler"
+import { DateInput } from "@/components/date"
 
 interface AddLoanDialogProps {
   open: boolean
@@ -436,10 +437,9 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member }: AddL
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-sm font-medium mb-1 block">Disbursement Date</label>
-                  <input
-                    type="date"
+                  <DateInput
                     {...form.register("disbursementDate")}
-                    className={cn(inputClass, form.formState.errors.disbursementDate && "border-destructive")}
+                    className={cn(form.formState.errors.disbursementDate && "border-destructive")}
                   />
                   {form.formState.errors.disbursementDate && (
                     <p className="text-xs text-destructive mt-1">{form.formState.errors.disbursementDate.message}</p>
@@ -447,10 +447,9 @@ export default function AddLoanDialog({ open, onClose, onSuccess, member }: AddL
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">Collection Start Date</label>
-                  <input
-                    type="date"
+                  <DateInput
                     {...form.register("collectionStartDate")}
-                    className={cn(inputClass, (form.formState.errors.collectionStartDate || collectionDayError) && "border-destructive")}
+                    className={cn((form.formState.errors.collectionStartDate || collectionDayError) && "border-destructive")}
                   />
                   {form.formState.errors.collectionStartDate && (
                     <p className="text-xs text-destructive mt-1">{form.formState.errors.collectionStartDate.message}</p>

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { dialogShellMdClass } from "@/lib/responsive/dialogClasses"
 import { Button } from "@/components/ui/button"
 import { getTodayDateInputValue } from "@/lib/date-time"
+import { DateInput } from "@/components/date"
 import { cn } from "@/lib/utils"
 import toast from "react-hot-toast"
 import type { CreateFundTransferRequest } from "@/types/ledgerBalance"
@@ -188,10 +189,9 @@ export default function FundTransferDialog({ open, onClose, onSuccess, users }: 
 
         <div>
           <label className="text-sm font-medium mb-1 block">Investment Date</label>
-          <input
-            type="date"
+          <DateInput
             {...form.register("paymentDate")}
-            className={cn(inputClass, form.formState.errors.paymentDate && "border-destructive")}
+            className={cn(form.formState.errors.paymentDate && "border-destructive")}
           />
           {form.formState.errors.paymentDate && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.paymentDate.message}</p>
@@ -200,10 +200,9 @@ export default function FundTransferDialog({ open, onClose, onSuccess, users }: 
 
         <div>
           <label className="text-sm font-medium mb-1 block">Created Date</label>
-          <input
-            type="date"
+          <DateInput
             {...form.register("createdDate")}
-            className={cn(inputClass, form.formState.errors.createdDate && "border-destructive")}
+            className={cn(form.formState.errors.createdDate && "border-destructive")}
           />
           {form.formState.errors.createdDate && (
             <p className="text-xs text-destructive mt-1">{form.formState.errors.createdDate.message}</p>

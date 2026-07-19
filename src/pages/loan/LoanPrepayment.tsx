@@ -27,7 +27,7 @@ import {
 } from "./prepaymentCalculations"
 import { postPrepaymentRecoveries } from "@/services/prepayment.service"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { formatDisplayDate } from "@/lib/date-time"
+import { DateDisplay } from "@/components/date"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 
 type LoanSchedulerApiRow = {
@@ -764,14 +764,16 @@ export default function LoanPrepayment() {
       {
         accessorKey: "scheduleDate",
         header: "Collection Date",
-        Cell: ({ cell }) =>
-          formatDisplayDate(cell.getValue<string | Date | null>(), { empty: "-" }),
+        Cell: ({ cell }) => (
+          <DateDisplay value={cell.getValue<string | Date | null>()} empty="-" />
+        ),
       },
       {
         accessorKey: "paymentDate",
         header: "Paid Date",
-        Cell: ({ cell }) =>
-          formatDisplayDate(cell.getValue<string | Date | null>(), { empty: "-" }),
+        Cell: ({ cell }) => (
+          <DateDisplay value={cell.getValue<string | Date | null>()} empty="-" />
+        ),
       },
       {
         accessorKey: "status",
@@ -944,7 +946,7 @@ export default function LoanPrepayment() {
             {hiddenColumnIds.includes("paymentDate") ? (
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Paid Date</dt>
-                <dd className="mt-0.5 text-sm">{formatDisplayDate(r.paymentDate, { empty: "-" })}</dd>
+                <dd className="mt-0.5 text-sm"><DateDisplay value={r.paymentDate} empty="-" /></dd>
               </div>
             ) : null}
             {hiddenColumnIds.includes("principalAmount") ? (

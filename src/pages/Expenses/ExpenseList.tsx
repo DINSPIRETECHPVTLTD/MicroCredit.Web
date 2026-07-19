@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import { Plus } from "lucide-react"
 import type { UserResponse } from "@/types/user"
-import { formatDisplayDate } from "@/lib/date-time"
+import { DateDisplay } from "@/components/date"
 import AddExpenseDialog from "./AddExpenseDialog"
 
 
@@ -59,7 +59,7 @@ function ExpenseList() {
             {
                 accessorKey: "paymentDate",
                 header: "Payment Date",
-                Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>())
+                Cell: ({ cell }) => <DateDisplay value={cell.getValue<string>()} />
             },
             {
                 id: "createdByName",
@@ -69,7 +69,7 @@ function ExpenseList() {
             {
                 accessorKey: "createdDate",
                 header: "Created Date",
-                Cell: ({ cell }) => formatDisplayDate(cell.getValue<string>()),
+                Cell: ({ cell }) => <DateDisplay value={cell.getValue<string>()} />,
             },
             {
                 accessorKey: "comments",

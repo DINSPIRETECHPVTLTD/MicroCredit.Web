@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { MemberPreviewFieldKey } from "@/components/members/member-preview-utils"
-import { formatDisplayDate } from "@/lib/date-time"
+import { DateDisplay } from "@/components/date"
 import { formatMemberId } from "@/lib/members/format-member-id"
 
 export type MemberCreatePreviewData = {
@@ -49,8 +49,8 @@ type MemberCreateConfirmationDialogProps = {
   onConfirm: () => void
 }
 
-function formatPreviewDate(value: string | undefined): string {
-  return formatDisplayDate(value)
+function formatPreviewDate(value: string | undefined): ReactNode {
+  return <DateDisplay value={value} />
 }
 
 function displayValue(value: string | undefined | null): string {
@@ -71,7 +71,7 @@ function PreviewField({
 }: {
   fieldKey: MemberPreviewFieldKey
   label: string
-  value: string
+  value: ReactNode
   highlight?: boolean
   changed?: boolean
   mode: "create" | "edit"

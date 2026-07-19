@@ -19,6 +19,7 @@ import { IndianRupee, UserCheck, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { formatDisplayDate } from "@/lib/date-time"
+import { DateInput } from "@/components/date"
 import { reportService } from "@/services/report.service"
 import type {
   MemberByPocReportRow,
@@ -589,8 +590,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
             </div>
             <label className="inline-flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground">Date</span>
-              <input
-                type="date"
+              <DateInput
                 min={bounds.minKey}
                 max={bounds.maxKey}
                 value={selectedDateKey}
@@ -599,10 +599,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
                     setSelectedDateKey(clampScheduleDateKey(e.target.value, bounds))
                   }
                 }}
-                className={cn(
-                  "rounded-md border border-input bg-background px-2 py-1.5 text-xs font-medium text-foreground shadow-sm",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                )}
+                className="w-auto px-2 py-1.5 text-xs font-medium shadow-sm"
                 aria-label="Pick schedule date within the next seven days"
               />
             </label>

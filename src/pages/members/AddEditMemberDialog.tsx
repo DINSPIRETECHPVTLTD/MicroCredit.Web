@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import axios from "axios"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import { DateInput } from "@/components/date"
 import { cn } from "@/lib/utils"
 import type { MemberResponse } from "@/types/member"
 import { memberService, type MemberSaveRequest } from "@/services/member.service"
@@ -900,10 +901,9 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Date of Birth <span className="text-destructive">*</span></label>
-                <input
-                  type="date"
+                <DateInput
                   {...form.register("dob")}
-                  className={cn(inputClass, form.formState.errors.dob && "border-destructive")}
+                  className={cn(form.formState.errors.dob && "border-destructive")}
                 />
                 {form.formState.errors.dob && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.dob.message}</p>
@@ -1094,11 +1094,10 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">Paid Date <span className="text-destructive">*</span></label>
-                  <input
-                    type="date"
+                  <DateInput
                     {...form.register("paidDate")}
                     max={getTodayDateInputValue()}
-                    className={cn(inputClass, form.formState.errors.paidDate && "border-destructive")}
+                    className={cn(form.formState.errors.paidDate && "border-destructive")}
                   />
                   {form.formState.errors.paidDate && (
                     <p className="text-xs text-destructive mt-1">{form.formState.errors.paidDate.message}</p>
@@ -1217,10 +1216,9 @@ export function AddEditMemberDialog({ value, onClose, onSuccess }: Props) {
               )}
               <div>
                 <label className="text-sm font-medium mb-1 block">DOB <span className="text-destructive">*</span></label>
-                <input
-                  type="date"
+                <DateInput
                   {...form.register("guardianDOB")}
-                  className={cn(inputClass, form.formState.errors.guardianDOB && "border-destructive")}
+                  className={cn(form.formState.errors.guardianDOB && "border-destructive")}
                 />
                 {form.formState.errors.guardianDOB && (
                   <p className="text-xs text-destructive mt-1">{form.formState.errors.guardianDOB.message}</p>

@@ -44,7 +44,7 @@ import {
   validateRecoveryPostRows,
 } from "./recoveryPostingCalculations"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { formatDisplayDate } from "@/lib/date-time"
+import { DateDisplay, DateInput } from "@/components/date"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
 
@@ -1117,7 +1117,7 @@ function RecoveryPostingList() {
         actions={
           <div className="rounded-lg border border-border bg-muted/40 px-4 py-2 text-right">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Schedule date</p>
-            <p className="text-base font-semibold tabular-nums text-foreground">{formatDisplayDate(dateKey)}</p>
+            <p className="text-base font-semibold text-foreground"><DateDisplay value={dateKey} /></p>
           </div>
         }
       />
@@ -1131,10 +1131,9 @@ function RecoveryPostingList() {
               <label htmlFor="recovery-date" className="mb-1 block text-sm font-medium text-foreground">
                 Schedule date
               </label>
-              <input
+              <DateInput
                 id="recovery-date"
-                type="date"
-                className={cn(inputClass, "w-full max-w-full")}
+                className="w-full max-w-full"
                 value={dateKey}
                 onChange={(e) => {
                   setDateKey(e.target.value)

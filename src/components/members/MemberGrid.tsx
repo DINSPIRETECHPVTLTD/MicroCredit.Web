@@ -8,6 +8,7 @@ import { buildPromissoryNoteHtml } from "@/templates/promissoryNoteTemplate"
 import { buildMembershipFormHtml } from "@/templates/membershipFormTemplate"
 import { getBranch } from "@/services/auth.service"
 import { formatDisplayDate, formatDisplayDateFromDate } from "@/lib/date-time"
+import { DateDisplay } from "@/components/date"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { HiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
@@ -219,15 +220,25 @@ function formatDobDisplay(row: MemberResponse): ReactNode {
   const memberAge = calculateAge(row.dob)
   const guardianAge = calculateAge(row.guardianDOB)
 
-  const memberDisplay = memberDob ? `${memberDob} ${memberAge ?? "—"}` : "—"
-  const guardianDisplay = guardianDob ? `${guardianDob} ${guardianAge ?? "—"}` : "—"
-
   if (!memberDob && !guardianDob) return "—"
   return (
     <span className="whitespace-nowrap">
-      {`${memberDisplay} /`}
+      {memberDob ? (
+        <>
+          <DateDisplay value={row.dob} empty="" /> {memberAge ?? "—"}
+        </>
+      ) : (
+        "—"
+      )}
+      {" /"}
       <br />
-      {guardianDisplay}
+      {guardianDob ? (
+        <>
+          <DateDisplay value={row.guardianDOB} empty="" /> {guardianAge ?? "—"}
+        </>
+      ) : (
+        "—"
+      )}
     </span>
   )
 }

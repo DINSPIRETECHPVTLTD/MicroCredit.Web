@@ -25,6 +25,9 @@ export function getTodayDateInputValue(timeZone = getBrowserTimeZone()): string 
   return formatDateParts(new Date(), timeZone)
 }
 
+/** Canonical UI date format for display and date textboxes. */
+export const DATE_DISPLAY_FORMAT = "DD/MM/YYYY"
+
 export type FormatDisplayDateOptions = {
   /** Shown when the value is empty or invalid. Default: "—" */
   empty?: string
@@ -42,9 +45,79 @@ export function formatDisplayDateFromDate(
   return `${day}/${month}/${year}`
 }
 
+/** Convert YYYY-MM-DD (or ISO) to DD/MM/YYYY for the date textbox. */
+export function isoDateToDisplay(value: string | null | undefined): string {
+  if (value == null) return ""
+  const trimmed = String(value).trim()
+  if (!trimmed) return ""
+  const formatted = formatDisplayDate(trimmed, { empty: "" })
+  return formatted
+}
+
+/**
+ * Parse DD/MM/YYYY (also accepts D/M/YYYY) into YYYY-MM-DD.
+ * Returns "" for empty input, null when invalid.
+ */
+export function displayDateToIso(value: string | null | undefined): string | null {
+  if (value == null) return null
+  const trimmed = String(value).trim()
+  if (!trimmed) return ""
+
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed)
+  if (!match) return null
+
+  const day = Number(match[1])
+  const month = Number(match[2])
+  const year = Number(match[3])
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+
+  const d = new Date(year, month - 1, day)
+  if (
+    Number.isNaN(d.getTime()) ||
+    d.getFullYear() !== year ||
+    d.getMonth() !== month - 1 ||
+    d.getDate() !== day
+  ) {
+    return null
+  }
+
+  const mm = String(month).padStart(2, "0")
+  const dd = String(day).padStart(2, "0")
+  return `${year}-${mm}-${dd}`
+}
+
+/** Normalize any supported date string to YYYY-MM-DD for form/API values. */
+export function toIsoDateValue(value: string | Date | null | undefined): string {
+  if (value == null || value === "") return ""
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return ""
+    const y = value.getFullYear()
+    const m = String(value.getMonth() + 1).padStart(2, "0")
+    const d = String(value.getDate()).padStart(2, "0")
+    return `${y}-${m}-${d}`
+  }
+
+  const trimmed = String(value).trim()
+  if (!trimmed) return ""
+
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed)
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+
+  const fromDisplay = displayDateToIso(trimmed)
+  if (fromDisplay != null) return fromDisplay
+
+  const d = new Date(trimmed)
+  if (Number.isNaN(d.getTime())) return ""
+  return toIsoDateValue(d)
+}
+
 /**
  * Format ISO strings, YYYY-MM-DD keys, and Date values as DD/MM/YYYY for UI display.
  * Does not alter API payloads or form input values.
+ *
+ * Prefer `<DateDisplay />` from `@/components/date` in React UI.
+ * Prefer `<DateInput />` from `@/components/date` for date textboxes/pickers.
+ * Change the format here to update display everywhere.
  */
 export function formatDisplayDate(
   value: string | Date | null | undefined,
