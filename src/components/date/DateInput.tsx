@@ -69,12 +69,16 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     const initialIso = toIsoDateValue(value ?? defaultValue ?? "")
     const [text, setText] = React.useState(() => isoDateToDisplay(initialIso))
     const [iso, setIso] = React.useState(initialIso)
+    const lastSyncedIsoRef = React.useRef(initialIso)
 
     const syncFromIso = React.useCallback((nextIso: string) => {
-      setIso(nextIso)
-      setText(isoDateToDisplay(nextIso))
-      if (pickerRef.current) {
-        pickerRef.current.value = nextIso
+      const normalized = toIsoDateValue(nextIso)
+      if (lastSyncedIsoRef.current === normalized) return
+      lastSyncedIsoRef.current = normalized
+      setIso(normalized)
+      setText(isoDateToDisplay(normalized))
+      if (pickerRef.current && pickerRef.current.value !== normalized) {
+        pickerRef.current.value = normalized
       }
     }, [])
 
@@ -86,7 +90,9 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
     const assignHiddenRef = React.useCallback(
       (node: HTMLInputElement | null) => {
         hiddenRef.current = node
-        if (node) {
+        if (node && !(node as HTMLInputElement & { __dateInputPatched?: boolean }).__dateInputPatched) {
+          const patched = node as HTMLInputElement & { __dateInputPatched?: boolean }
+          patched.__dateInputPatched = true
           const proto = Object.getOwnPropertyDescriptor(
             HTMLInputElement.prototype,
             "value"
@@ -132,9 +138,8 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       setText(raw)
       const parsed = displayDateToIso(raw)
       if (parsed == null) return
-      setIso(parsed)
+      syncFromIso(parsed)
       setHiddenValue(parsed)
-      if (pickerRef.current) pickerRef.current.value = parsed
       emitValueChange(onChange, name, parsed)
     }
 
@@ -150,14 +155,34 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
 
     const handlePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const next = e.target.value
-      if (!next) return
+      if (!next || next === iso) return
       // Update without re-controlling the picker input value prop (keeps native close behavior)
+      lastSyncedIsoRef.current = next
       setIso(next)
       setText(isoDateToDisplay(next))
       setHiddenValue(next)
       emitValueChange(onChange, name, next)
       // Force the native picker to dismiss after selection
       e.currentTarget.blur()
+    }
+
+    const openPicker = React.useCallback(() => {
+      const el = pickerRef.current
+      if (!el || disabled || readOnly) return
+      if (typeof el.showPicker === "function") {
+        try {
+          el.showPicker()
+          return
+        } catch {
+          // Unsupported or blocked — fall back to native click.
+        }
+      }
+      el.click()
+    }, [disabled, readOnly])
+
+    const handleFieldClick = () => {
+      if (disabled || readOnly) return
+      openPicker()
     }
 
     const { "aria-label": ariaLabel, ...inputRest } = rest
@@ -187,10 +212,16 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           disabled={disabled}
           readOnly={readOnly}
           placeholder={placeholder}
-          className={cn(dateInputClass, "pr-10", className)}
+          className={cn(
+            dateInputClass,
+            "pr-10",
+            !disabled && !readOnly && "cursor-pointer",
+            className
+          )}
           value={text}
           onChange={(e) => handleTextChange(e.target.value)}
           onBlur={handleTextBlur}
+          onClick={handleFieldClick}
           aria-label={ariaLabel ?? `Date (${DATE_DISPLAY_FORMAT})`}
         />
 
@@ -216,6 +247,7 @@ export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
             disabled={disabled || readOnly}
             defaultValue={iso || undefined}
             aria-label="Open calendar"
+            tabIndex={-1}
             className={cn(
               "absolute inset-0 h-full w-full cursor-pointer opacity-0",
               (disabled || readOnly) && "pointer-events-none"
