@@ -6,7 +6,7 @@ import {
   useState,
   type MouseEvent,
 } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -15,9 +15,10 @@ import {
   type MRT_TableInstance,
 } from "material-react-table"
 import toast from "react-hot-toast"
-import { IndianRupee, UserCheck, Users } from "lucide-react"
+import { IndianRupee, UserCheck, Users, AlertCircle, HandCoins } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatDisplayDate } from "@/lib/date-time"
+import { sumEmiByStatusGroups } from "@/lib/dashboard/report-status-totals"
 import { DateInput } from "@/components/date"
 import { reportService } from "@/services/report.service"
 import type {
@@ -106,7 +107,8 @@ function toMemberDisplayRow(m: StaffReportMemberRow): MemberByPocReportRow {
 
 function buildStaffTableRows(
   staffNodes: StaffSchedulesReport["staff"],
-  activeScheduleDateKey: string
+  activeScheduleDateKey: string,
+  isFetching = false
 ): StaffSchedulesStaffTableRow[] {
   const rows: StaffSchedulesStaffTableRow[] = []
 
@@ -116,9 +118,11 @@ function buildStaffTableRows(
     let totalAmount = 0
 
     for (const poc of staffNode.pocs) {
-      const membersForDay = poc.members.filter(
-        (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
-      )
+      const membersForDay = isFetching
+        ? poc.members
+        : poc.members.filter(
+            (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
+          )
       if (membersForDay.length === 0) continue
 
       const pocTotal = membersForDay.reduce((sum, m) => sum + m.actualEmiAmount, 0)
@@ -213,8 +217,10 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
     Cell: ({ cell }) => {
       const status = String(cell.getValue() ?? "")
       const colorMap: Record<string, string> = {
+        Paid: "bg-green-500/15 text-green-800 dark:text-green-200",
         "Not Paid": "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
         NotPaid: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
+        "Partial Paid": "bg-blue-500/15 text-blue-800 dark:text-blue-200",
         Partial: "bg-blue-500/15 text-blue-800 dark:text-blue-200",
         Overdue: "bg-red-500/15 text-red-800 dark:text-red-200",
         Claimed: "bg-purple-500/15 text-purple-800 dark:text-purple-200",
@@ -377,6 +383,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
   const {
     data: reportRaw,
     isLoading,
+    isFetching,
     isError,
     error,
     refetch,
@@ -384,6 +391,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     queryKey: ["reportStaffSchedules", branchId, selectedDateKey],
     queryFn: () => reportService.getStaffSchedulesReport(branchId, selectedDateKey),
     enabled: branchId > 0,
+    placeholderData: keepPreviousData,
     staleTime: 0,
     refetchOnMount: "always",
   })
@@ -391,14 +399,30 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
   const staffNodes = reportRaw?.staff ?? []
 
   const staffRows = useMemo(
-    () => buildStaffTableRows(staffNodes, activeScheduleDateKey),
-    [staffNodes, activeScheduleDateKey]
+    () => buildStaffTableRows(staffNodes, activeScheduleDateKey, isFetching),
+    [staffNodes, activeScheduleDateKey, isFetching]
   )
 
   const totalCollectingStaff = staffNodes.length
   const totalStaffWithSchedules = staffRows.length
   const totalSchedules = staffRows.reduce((s, r) => s + r.scheduleCount, 0)
   const totalAmount = staffRows.reduce((s, r) => s + r.totalAmount, 0)
+
+  const statusTotals = useMemo(() => {
+    const lines: Array<{ loanSchedulerStatus: string; amount: number }> = []
+    for (const staff of staffRows) {
+      for (const poc of staff.pocsForDay) {
+        for (const member of poc.membersForDay) {
+          lines.push({
+            loanSchedulerStatus: member.loanSchedulerStatus,
+            amount: member.actualEmiAmount,
+          })
+        }
+      }
+    }
+    return sumEmiByStatusGroups(lines)
+  }, [staffRows])
+
   const hasWindowData = staffNodes.some((s) =>
     s.pocs.some((p) => p.members.length > 0)
   )
@@ -480,6 +504,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     getRowId: (r) => String(r.userId),
     state: {
       isLoading,
+      showProgressBars: isFetching,
       columnVisibility: staffTableResponsive.columnVisibility,
     },
     enableGlobalFilter: true,
@@ -499,7 +524,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
 
   return (
     <div className="space-y-6 [caret-color:transparent]">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <SummaryMetricCard
           title="Collecting staff (branch)"
           value={String(totalCollectingStaff)}
@@ -516,6 +541,18 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
           title="Total schedule amount"
           value={formatInr(totalAmount)}
           icon={IndianRupee}
+          loading={isLoading}
+        />
+        <SummaryMetricCard
+          title="Total Pending Amount"
+          value={formatInr(statusTotals.outstandingTotal)}
+          icon={AlertCircle}
+          loading={isLoading}
+        />
+        <SummaryMetricCard
+          title="Total Collected Amount"
+          value={formatInr(statusTotals.collectedTotal)}
+          icon={HandCoins}
           loading={isLoading}
         />
       </div>

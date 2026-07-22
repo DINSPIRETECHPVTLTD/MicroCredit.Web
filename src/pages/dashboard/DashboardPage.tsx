@@ -7,7 +7,7 @@ import {
   type MouseEvent,
 } from "react"
 import { Link } from "react-router-dom"
-import { useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useIsFetching, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -25,6 +25,7 @@ import {
   TrendingUp,
   HandCoins,
   Landmark,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -48,6 +49,7 @@ import {
   formatDisplayDate,
   formatOrgModeDateHighlight,
 } from "@/lib/date-time"
+import { sumEmiByStatusGroups } from "@/lib/dashboard/report-status-totals"
 
 /** POC row with counts/amounts derived from members-by-poc (POC API often omits memberCount/totalAmount). */
 type PocTableRow = PocBranchReportRow & {
@@ -414,7 +416,10 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
     Cell: ({ cell }) => {
       const status = String(cell.getValue() ?? "")
       const colorMap: Record<string, string> = {
+        Paid: "bg-green-500/15 text-green-800 dark:text-green-200",
+        "Not Paid": "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
         NotPaid: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
+        "Partial Paid": "bg-blue-500/15 text-blue-800 dark:text-blue-200",
         Partial: "bg-blue-500/15 text-blue-800 dark:text-blue-200",
         Overdue: "bg-red-500/15 text-red-800 dark:text-red-200",
         Claimed: "bg-purple-500/15 text-purple-800 dark:text-purple-200",
@@ -532,6 +537,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     queryKey: ["reportMembersByPocs", branchId, pocIds.join(","), selectedDateKey],
     enabled: pocIds.length > 0,
     queryFn: () => reportService.getMembersByPocs(branchId, pocIds, selectedDateKey),
+    placeholderData: keepPreviousData,
     /** Fetch fresh rows when expanding/refreshing the dashboard. */
     staleTime: 0,
     refetchOnMount: "always",
@@ -539,8 +545,10 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
 
   const members = membersRaw ?? EMPTY_MEMBERS
   const filteredMembers = useMemo(() => {
+    // API returns the selected day only; while refetching keep prior rows visible (no table teardown).
+    if (membersIsFetching) return members
     return members.filter((m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey)
-  }, [members, activeScheduleDateKey])
+  }, [members, activeScheduleDateKey, membersIsFetching])
 
   const membersByPoc = useMemo(() => {
     const map = new Map<number, MemberByPocReportRow[]>()
@@ -558,6 +566,19 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   const totalAmountInBranch = membersIsError
     ? pocs.reduce((sum, poc) => sum + (poc.totalAmount ?? 0), 0)
     : sumMemberEmi(filteredMembers)
+
+  const statusTotals = useMemo(
+    () =>
+      membersIsError
+        ? { outstandingTotal: 0, collectedTotal: 0 }
+        : sumEmiByStatusGroups(
+            filteredMembers.map((m) => ({
+              loanSchedulerStatus: m.loanSchedulerStatus,
+              amount: m.amountPaid,
+            }))
+          ),
+    [filteredMembers, membersIsError]
+  )
 
   const pocTableRows: PocTableRow[] = useMemo(() => {
     return pocs.map((poc) => {
@@ -587,8 +608,8 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   }, [pocs, membersByPoc, membersIsError, membersIsLoading, membersRaw])
 
   const visiblePocTableRows = useMemo(() => {
-    // Avoid "show then hide" flicker: wait for member query to settle before rendering filtered rows.
-    if (membersIsLoading || membersIsFetching || membersRaw === undefined) {
+    // Initial load only — avoid clearing the grid while refetching another date.
+    if (membersIsLoading && membersRaw === undefined) {
       return []
     }
     // If members API fails, keep POC fallback rows visible.
@@ -597,7 +618,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     }
     // On successful member result, only show POCs that have members in the selected window.
     return pocTableRows.filter((row) => (row.resolvedMemberCount ?? 0) > 0)
-  }, [pocTableRows, membersIsLoading, membersIsFetching, membersIsError, membersRaw])
+  }, [pocTableRows, membersIsLoading, membersIsError, membersRaw])
 
   const totalPocs = visiblePocTableRows.length
 
@@ -716,7 +737,8 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     data: visiblePocTableRows,
     getRowId: (row) => String(row.pocId),
     state: {
-      isLoading: isLoading || membersIsLoading || membersIsFetching,
+      isLoading: isLoading || (membersIsLoading && membersRaw === undefined),
+      showProgressBars: membersIsFetching,
       columnVisibility: pocTableResponsive.columnVisibility,
     },
     enableGlobalFilter: true,
@@ -764,7 +786,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <SummaryMetricCard
           title="Total POCs"
           value={String(totalPocs)}
@@ -778,9 +800,21 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
           loading={isLoading || membersIsLoading || membersIsFetching}
         />
         <SummaryMetricCard
-          title="Total Amount Collected"
+          title="Total schedule amount"
           value={formatInr(totalAmountInBranch)}
           icon={IndianRupee}
+          loading={isLoading || membersIsLoading || membersIsFetching}
+        />
+        <SummaryMetricCard
+          title="Total Pending Amount"
+          value={formatInr(statusTotals.outstandingTotal)}
+          icon={AlertCircle}
+          loading={isLoading || membersIsLoading || membersIsFetching}
+        />
+        <SummaryMetricCard
+          title="Total Collected Amount"
+          value={formatInr(statusTotals.collectedTotal)}
+          icon={HandCoins}
           loading={isLoading || membersIsLoading || membersIsFetching}
         />
       </div>
@@ -809,7 +843,10 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
             </label>
           </div>
         </div>
-        {visiblePocTableRows.length === 0 && !isLoading && !membersIsLoading && !membersIsFetching ? (
+        {visiblePocTableRows.length === 0 &&
+        !isLoading &&
+        !membersIsLoading &&
+        membersRaw !== undefined ? (
           <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
             No schedules are available for the selected date.
           </div>
