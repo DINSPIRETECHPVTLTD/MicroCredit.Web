@@ -58,7 +58,10 @@ function AddLoan() {
       (member: SearchMemberResponse) => {
         const knownLoanId = member.primaryOpenLoanId
         if (knownLoanId != null && knownLoanId > 0) {
-          navigate(`/loans/${knownLoanId}/scheduler`)
+          const memberName = member.name?.trim() || undefined
+          navigate(`/loans/${knownLoanId}/scheduler`, {
+            state: { memberName },
+          })
           return
         }
         setSelectedMember(member)

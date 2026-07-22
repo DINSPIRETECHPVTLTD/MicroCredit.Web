@@ -381,8 +381,8 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     error,
     refetch,
   } = useQuery({
-    queryKey: ["reportStaffSchedules", branchId],
-    queryFn: () => reportService.getStaffSchedulesReport(branchId),
+    queryKey: ["reportStaffSchedules", branchId, selectedDateKey],
+    queryFn: () => reportService.getStaffSchedulesReport(branchId, selectedDateKey),
     enabled: branchId > 0,
     staleTime: 0,
     refetchOnMount: "always",

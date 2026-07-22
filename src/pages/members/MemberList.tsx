@@ -85,7 +85,12 @@ function MemberList() {
           onMemberLoanAction={(row) => {
             const loanId = row.primaryOpenLoanId
             if (loanId != null && loanId > 0) {
-              navigate(`/loans/${loanId}/scheduler`)
+              const memberName =
+                row.name?.trim() ||
+                [row.firstName, row.middleName, row.lastName].filter(Boolean).join(" ").trim()
+              navigate(`/loans/${loanId}/scheduler`, {
+                state: { memberName: memberName || undefined },
+              })
               return
             }
             setAddLoanMember(memberToSearchMember(row))

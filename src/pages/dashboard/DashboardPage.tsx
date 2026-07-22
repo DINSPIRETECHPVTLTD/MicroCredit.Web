@@ -529,9 +529,9 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     isError: membersIsError,
     error: membersError,
   } = useQuery({
-    queryKey: ["reportMembersByPocs", branchId, pocIds.join(",")],
+    queryKey: ["reportMembersByPocs", branchId, pocIds.join(","), selectedDateKey],
     enabled: pocIds.length > 0,
-    queryFn: () => reportService.getMembersByPocs(branchId, pocIds),
+    queryFn: () => reportService.getMembersByPocs(branchId, pocIds, selectedDateKey),
     /** Fetch fresh rows when expanding/refreshing the dashboard. */
     staleTime: 0,
     refetchOnMount: "always",
