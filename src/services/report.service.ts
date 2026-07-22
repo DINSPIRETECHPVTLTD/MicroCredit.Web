@@ -413,16 +413,26 @@ export const reportService = {
       .filter((r): r is PocBranchReportRow => r !== null)
   },
 
-  async getMembersByPoc(branchId: number, pocId: number): Promise<MemberByPocReportRow[]> {
-    const { data } = await apiClient.get<unknown>(api.report.membersByPoc(branchId, pocId))
+  async getMembersByPoc(
+    branchId: number,
+    pocId: number,
+    scheduleDateKey?: string
+  ): Promise<MemberByPocReportRow[]> {
+    const { data } = await apiClient.get<unknown>(
+      api.report.membersByPoc(branchId, pocId, scheduleDateKey)
+    )
     return asObjectArray(data)
       .map(normalizeMemberRow)
       .filter((r): r is MemberByPocReportRow => r !== null)
   },
 
-  async getMembersByPocs(branchId: number, pocIds: number[]): Promise<MemberByPocReportRow[]> {
+  async getMembersByPocs(
+    branchId: number,
+    pocIds: number[],
+    scheduleDateKey?: string
+  ): Promise<MemberByPocReportRow[]> {
     const { data } = await apiClient.post<unknown>(
-      api.report.membersByPocs(branchId),
+      api.report.membersByPocs(branchId, scheduleDateKey),
       pocIds
     )
     return asObjectArray(data)
@@ -430,9 +440,14 @@ export const reportService = {
       .filter((r): r is MemberByPocReportRow => r !== null)
   },
 
-  async getStaffSchedulesReport(branchId: number): Promise<StaffSchedulesReport> {
+  async getStaffSchedulesReport(
+    branchId: number,
+    scheduleDateKey?: string
+  ): Promise<StaffSchedulesReport> {
     try {
-      const { data } = await apiClient.get<unknown>(api.report.staffSchedulesReport(branchId))
+      const { data } = await apiClient.get<unknown>(
+        api.report.staffSchedulesReport(branchId, scheduleDateKey)
+      )
       return normalizeStaffSchedulesReport(data)
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status

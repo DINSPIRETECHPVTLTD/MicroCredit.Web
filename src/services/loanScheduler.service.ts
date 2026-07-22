@@ -10,7 +10,11 @@ export async function fetchLoanSchedulerList(loanId: number): Promise<LoanSchedu
   return (data ?? []).map((x) => {
     const row = x as Record<string, unknown>
     return {
-      LoanschedulerId: row?.LoanschedulerId ?? row?.loanSchedulerId ?? row?.loanSchedulerID,
+      LoanschedulerId:
+        row?.LoanschedulerId ??
+        row?.loanschedulerId ??
+        row?.loanSchedulerId ??
+        row?.loanSchedulerID,
       LoanID: row?.LoanID ?? row?.loanId ?? row?.loanID,
       InstallmentNo: row?.InstallmentNo ?? row?.installmentNo,
       ScheduleDate: row?.ScheduleDate ?? row?.scheduleDate,

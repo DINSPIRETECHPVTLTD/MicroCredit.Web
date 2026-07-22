@@ -198,13 +198,25 @@ export const api = {
     summary: () => `${getApiBase()}/report/summary`,
     pocsByBranch: (branchId: number) =>
       `${getApiBase()}/Report/pocs-by-branch/${branchId}`,
-    membersByPoc: (branchId: number, pocId: number) =>
-      `${getApiBase()}/Report/members-by-poc/${branchId}/${pocId}`,
-    membersByPocs: (branchId: number) =>
-      `${getApiBase()}/Report/members-by-pocs/${branchId}`,
+    membersByPoc: (branchId: number, pocId: number, scheduleDateKey?: string) => {
+      const base = `${getApiBase()}/Report/members-by-poc/${branchId}/${pocId}`
+      return scheduleDateKey
+        ? `${base}?scheduleDate=${encodeURIComponent(`${scheduleDateKey}T00:00:00`)}`
+        : base
+    },
+    membersByPocs: (branchId: number, scheduleDateKey?: string) => {
+      const base = `${getApiBase()}/Report/members-by-pocs/${branchId}`
+      return scheduleDateKey
+        ? `${base}?scheduleDate=${encodeURIComponent(`${scheduleDateKey}T00:00:00`)}`
+        : base
+    },
     memberWiseCollectionReport: () => `${getApiBase()}/Report/MemberWiseCollectionSheet`,
-    staffSchedulesReport: (branchId: number) =>
-      `${getApiBase()}/Report/staff-schedules-report/${branchId}`,
+    staffSchedulesReport: (branchId: number, scheduleDateKey?: string) => {
+      const base = `${getApiBase()}/Report/staff-schedules-report/${branchId}`
+      return scheduleDateKey
+        ? `${base}?scheduleDate=${encodeURIComponent(`${scheduleDateKey}T00:00:00`)}`
+        : base
+    },
     /** Legacy flat endpoints — used as fallback when staff-schedules-report is not deployed. */
     staffSchedulesByBranch: (branchId: number) =>
       `${getApiBase()}/Report/staff-schedules-by-branch/${branchId}`,

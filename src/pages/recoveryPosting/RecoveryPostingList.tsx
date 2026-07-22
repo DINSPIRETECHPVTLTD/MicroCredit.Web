@@ -1266,7 +1266,7 @@ function RecoveryPostingList() {
             state={{ rowSelection, isLoading, columnVisibility }}
             initialState={{ pagination: { pageSize: 20, pageIndex: 0 } }}
             enableSorting
-            enableColumnFilters={false}
+            enableColumnFilters
             enableGrouping={false}
             enableExpanding={enableExpanding}
             renderDetailPanel={enableExpanding ? renderDetailPanel : undefined}
