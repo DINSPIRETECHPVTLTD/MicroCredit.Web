@@ -222,5 +222,11 @@ export const api = {
       `${getApiBase()}/Report/staff-schedules-by-branch/${branchId}`,
     pocCollectionStaffByBranch: (branchId: number) =>
       `${getApiBase()}/Report/poc-collection-staff-by-branch/${branchId}`,
+    userLedgerDashboard: (paymentDateKey?: string) => {
+      const base = `${getApiBase()}/Report/user-ledger-dashboard`
+      return paymentDateKey
+        ? `${base}?paymentDate=${encodeURIComponent(`${paymentDateKey}T00:00:00`)}`
+        : base
+    },
   },
 }

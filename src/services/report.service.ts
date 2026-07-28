@@ -8,6 +8,8 @@ import type {
   StaffSchedulesPocNode,
   StaffSchedulesReport,
   StaffSchedulesStaffNode,
+  UserLedgerDashboardReport,
+  UserLedgerTransactionRow,
 } from "@/types/report"
 
 function pickNum(v: unknown): number {
@@ -405,6 +407,66 @@ function normalizeStaffSchedulesReport(data: unknown): StaffSchedulesReport {
   return { staff: [] }
 }
 
+function normalizeUserLedgerTransactionRow(
+  raw: Record<string, unknown>
+): UserLedgerTransactionRow | null {
+  const id = pickId(raw.id ?? raw.Id)
+  if (!id) return null
+
+  const paidFromUserIdRaw = raw.paidFromUserId ?? raw.PaidFromUserId
+  const paidToUserIdRaw = raw.paidToUserId ?? raw.PaidToUserId
+
+  return {
+    id,
+    paidFromUserId:
+      paidFromUserIdRaw == null ? null : pickId(paidFromUserIdRaw),
+    paidToUserId: paidToUserIdRaw == null ? null : pickId(paidToUserIdRaw),
+    paidFromUserName: pickStr(raw.paidFromUserName ?? raw.PaidFromUserName) || null,
+    paidToUserName: pickStr(raw.paidToUserName ?? raw.PaidToUserName) || null,
+    amount: pickNum(raw.amount ?? raw.Amount),
+    paymentDate: pickStr(raw.paymentDate ?? raw.PaymentDate),
+    createdDate: pickStr(raw.createdDate ?? raw.CreatedDate),
+    transactionType: pickStr(raw.transactionType ?? raw.TransactionType) || "—",
+    comments: pickStr(raw.comments ?? raw.Comments) || null,
+    direction: pickStr(raw.direction ?? raw.Direction) || "—",
+  }
+}
+
+function normalizeUserLedgerDashboardReport(data: unknown): UserLedgerDashboardReport {
+  if (!data || typeof data !== "object") {
+    return {
+      userId: 0,
+      userFullName: "",
+      currentBalance: 0,
+      summary: { totalCredits: 0, totalDebits: 0, transactionCount: 0 },
+      transactions: [],
+    }
+  }
+
+  const obj = data as Record<string, unknown>
+  const summaryRaw = (obj.summary ?? obj.Summary) as Record<string, unknown> | undefined
+  const txRaw = obj.transactions ?? obj.Transactions
+
+  const transactions = Array.isArray(txRaw)
+    ? txRaw
+        .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object")
+        .map(normalizeUserLedgerTransactionRow)
+        .filter((r): r is UserLedgerTransactionRow => r !== null)
+    : []
+
+  return {
+    userId: pickId(obj.userId ?? obj.UserId),
+    userFullName: pickStr(obj.userFullName ?? obj.UserFullName) || "—",
+    currentBalance: pickNum(obj.currentBalance ?? obj.CurrentBalance),
+    summary: {
+      totalCredits: pickNum(summaryRaw?.totalCredits ?? summaryRaw?.TotalCredits),
+      totalDebits: pickNum(summaryRaw?.totalDebits ?? summaryRaw?.TotalDebits),
+      transactionCount: pickNum(summaryRaw?.transactionCount ?? summaryRaw?.TransactionCount),
+    },
+    transactions,
+  }
+}
+
 export const reportService = {
   async getPocsByBranch(branchId: number): Promise<PocBranchReportRow[]> {
     const { data } = await apiClient.get<unknown>(api.report.pocsByBranch(branchId))
@@ -456,6 +518,15 @@ export const reportService = {
       }
       throw err
     }
+  },
+
+  async getUserLedgerDashboard(
+    paymentDateKey?: string
+  ): Promise<UserLedgerDashboardReport> {
+    const { data } = await apiClient.get<unknown>(
+      api.report.userLedgerDashboard(paymentDateKey)
+    )
+    return normalizeUserLedgerDashboardReport(data)
   },
 
   async getMemeberWiseCollectionReport() {
