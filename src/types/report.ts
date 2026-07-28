@@ -80,3 +80,32 @@ export type StaffSchedulesStaffTableRow = {
   totalAmount: number
   pocsForDay: StaffSchedulesPocTableRow[]
 }
+
+/** GET /Report/user-ledger-dashboard — logged-in user's ledger report. */
+export interface UserLedgerTransactionRow {
+  id: number
+  paidFromUserId: number | null
+  paidToUserId: number | null
+  paidFromUserName: string | null
+  paidToUserName: string | null
+  amount: number
+  paymentDate: string
+  createdDate: string
+  transactionType: string
+  comments: string | null
+  direction: "Credit" | "Debit" | string
+}
+
+export interface UserLedgerDashboardSummary {
+  totalCredits: number
+  totalDebits: number
+  transactionCount: number
+}
+
+export interface UserLedgerDashboardReport {
+  userId: number
+  userFullName: string
+  currentBalance: number
+  summary: UserLedgerDashboardSummary
+  transactions: UserLedgerTransactionRow[]
+}

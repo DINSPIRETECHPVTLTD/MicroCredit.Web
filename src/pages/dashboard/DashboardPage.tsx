@@ -38,8 +38,9 @@ import type { DashboardChartItem } from "@/types/dashboard"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
 import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
-import { SegmentedToggle } from "@/components/dashboard/SegmentedToggle"
+import { SegmentedToggle, type SegmentedToggleOption } from "@/components/dashboard/SegmentedToggle"
 import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
+import { UserLedgerDashboardPanel } from "@/components/dashboard/UserLedgerDashboardPanel"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
@@ -887,6 +888,9 @@ function BranchReportDashboard() {
   return <BranchReportDashboardContent branchId={branchId} />
 }
 
+/** Branch dashboard section — My Ledger sits beside Staff Schedules for Owner in branch mode. */
+type BranchDashboardSection = "myView" | "staffSchedules" | "myLedger"
+
 /**
  * All dashboard hooks live here with a guaranteed numeric branchId.
  */
@@ -894,45 +898,71 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
   const queryClient = useQueryClient()
   const { role } = getNormalizedSessionMeta(getSession())
   const isOwner = role === "Owner"
-  const [dashboardSection, setDashboardSection] = useState<"myView" | "staffSchedules">("myView")
+  const [dashboardSection, setDashboardSection] = useState<BranchDashboardSection>("myView")
 
   const myViewPocsFetching = useIsFetching({ queryKey: ["reportPocs", branchId] }) > 0
   const myViewMembersFetching =
     useIsFetching({ queryKey: ["reportMembersByPocs", branchId] }) > 0
   const staffSchedulesFetching =
     useIsFetching({ queryKey: ["reportStaffSchedules", branchId] }) > 0
+  const userLedgerFetching =
+    useIsFetching({ queryKey: ["reportUserLedgerDashboard"] }) > 0
   const myViewBgFetching = myViewPocsFetching || myViewMembersFetching
   const refreshSpinning =
     (dashboardSection === "myView" && myViewBgFetching) ||
-    (dashboardSection === "staffSchedules" && staffSchedulesFetching)
+    (dashboardSection === "staffSchedules" && staffSchedulesFetching) ||
+    (dashboardSection === "myLedger" && userLedgerFetching)
 
   const handleRefreshAll = useCallback(() => {
+    if (dashboardSection === "myLedger") {
+      void queryClient.invalidateQueries({ queryKey: ["reportUserLedgerDashboard"] })
+      return
+    }
+    if (dashboardSection === "staffSchedules") {
+      void queryClient.invalidateQueries({ queryKey: ["reportStaffSchedules", branchId] })
+      return
+    }
     void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
     void queryClient.invalidateQueries({ queryKey: ["reportMembersByPocs", branchId] })
-    void queryClient.invalidateQueries({ queryKey: ["reportStaffSchedules", branchId] })
-  }, [queryClient, branchId])
+  }, [queryClient, branchId, dashboardSection])
+
+  const dashboardTitle = useMemo(() => {
+    if (dashboardSection === "myLedger") return "My Ledger Dashboard"
+    if (!isOwner) return "My View Dashboard"
+    return "Dashboard"
+  }, [dashboardSection, isOwner])
+
+  const branchDashboardToggleOptions = useMemo((): SegmentedToggleOption<BranchDashboardSection>[] => {
+    if (isOwner) {
+      return [
+        { value: "myView", label: "My View" },
+        { value: "staffSchedules", label: "Staff Schedules" },
+        { value: "myLedger", label: "My Ledger" },
+      ]
+    }
+    return [
+      { value: "myView", label: "Collection Schedules" },
+      { value: "myLedger", label: "My Ledger" },
+    ]
+  }, [isOwner])
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {isOwner ? "Dashboard" : "My View Dashboard"}
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{dashboardTitle}</h1>
           <DashboardClock />
-          {isOwner && (
-            <SegmentedToggle
-              value={dashboardSection}
-              onChange={setDashboardSection}
-              ariaLabel="Dashboard section"
-              className="mt-3 max-w-full flex-wrap"
-              buttonClassName="sm:min-w-28"
-              options={[
-                { value: "myView", label: "My View" },
-                { value: "staffSchedules", label: "Staff Schedules" },
-              ]}
-            />
-          )}
+          <SegmentedToggle
+            value={dashboardSection}
+            onChange={(section) => {
+              if (!isOwner && section === "staffSchedules") return
+              setDashboardSection(section)
+            }}
+            ariaLabel="Dashboard section"
+            className="mt-3 max-w-full flex-wrap"
+            buttonClassName="sm:min-w-28"
+            options={branchDashboardToggleOptions}
+          />
         </div>
         <Button
           type="button"
@@ -947,8 +977,10 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
         </Button>
       </div>
 
-      {isOwner && dashboardSection === "staffSchedules" ? (
+      {dashboardSection === "staffSchedules" && isOwner ? (
         <StaffSchedulesReportPanel branchId={branchId} />
+      ) : dashboardSection === "myLedger" ? (
+        <UserLedgerDashboardPanel />
       ) : (
         <MyViewBranchReportSection branchId={branchId} />
       )}

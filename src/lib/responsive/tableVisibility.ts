@@ -23,6 +23,7 @@ export type TableVisibilityKey =
   | "staffScheduleStaff"
   | "staffSchedulePoc"
   | "staffScheduleMemberLines"
+  | "userLedgerDashboard"
 
 type VisibilityMap = Record<string, boolean>
 
@@ -215,6 +216,11 @@ const TABLE_VISIBILITY: Record<
   staffScheduleMemberLines: {
     mobile: { memberId: false, scheduleDate: false },
     tablet: { memberId: false },
+    desktop: {},
+  },
+  userLedgerDashboard: {
+    mobile: { comments: false, transactionType: false },
+    tablet: { comments: false },
     desktop: {},
   },
 }
