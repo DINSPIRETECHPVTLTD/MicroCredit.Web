@@ -47,6 +47,12 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { DateDisplay, DateInput } from "@/components/date"
 import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
+import {
+  compareInstallmentOrder,
+  isInstallmentBefore,
+  resolveInstallmentLabel,
+  resolveSubInstallmentSequence,
+} from "@/lib/installmentLabel"
 
 const inputClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
@@ -509,43 +515,62 @@ function RecoveryPostingList() {
           return { loanId, data }
         })
       )
-      const loanSchedulesByLoanId = new Map<number, Array<{ loanSchedulerId: number; installmentNo: number; status: string }>>()
+      const loanSchedulesByLoanId = new Map<
+        number,
+        Array<{
+          loanSchedulerId: number
+          installmentNo: number
+          subInstallmentSequence: number
+          installmentLabel: string
+          status: string
+        }>
+      >()
       for (const { loanId, data } of schedulerResponses) {
         const rawRows = Array.isArray(data) ? data : []
         const mapped = rawRows
-          .map((raw) => ({
-            loanSchedulerId: Number(
-              raw.LoanSchedulerId ?? raw.loanSchedulerId ?? raw.loanSchedulerID ?? raw.loanschedulerId ?? 0
-            ),
-            installmentNo: Number(raw.InstallmentNo ?? raw.installmentNo ?? 0),
-            status: normalizeStatusValue(String(raw.Status ?? raw.status ?? "")),
-          }))
+          .map((raw) => {
+            const installmentNo = Number(raw.InstallmentNo ?? raw.installmentNo ?? 0)
+            const subInstallmentSequence = resolveSubInstallmentSequence(raw)
+            return {
+              loanSchedulerId: Number(
+                raw.LoanSchedulerId ?? raw.loanSchedulerId ?? raw.loanSchedulerID ?? raw.loanschedulerId ?? 0
+              ),
+              installmentNo,
+              subInstallmentSequence,
+              installmentLabel: resolveInstallmentLabel({
+                installmentLabel: raw.installmentLabel as string | undefined,
+                InstallmentLabel: raw.InstallmentLabel as string | undefined,
+                installmentNo,
+                subInstallmentSequence,
+              }),
+              status: normalizeStatusValue(String(raw.Status ?? raw.status ?? "")),
+            }
+          })
           .filter((r) => r.loanSchedulerId > 0 && r.installmentNo > 0)
+          .sort(compareInstallmentOrder)
         loanSchedulesByLoanId.set(loanId, mapped)
       }
 
       const sequentialBlockingErrors: RecoveryPostingFieldErrorState["rows"] = {}
       for (const row of selectedRowsWithDrafts) {
-        const currentInstallmentNo = row.installmentNo || 0
-        if (currentInstallmentNo <= 1) continue
         const scheduleRows = loanSchedulesByLoanId.get(row.loanId) ?? []
         const blockingRows = scheduleRows
-          .filter((candidate) => candidate.installmentNo < currentInstallmentNo)
+          .filter((candidate) => isInstallmentBefore(candidate, row))
           .filter((candidate) => {
             const effectiveStatus =
               selectedFinalStatusBySchedulerId.get(candidate.loanSchedulerId) ?? candidate.status
             return effectiveStatus === RECOVERY_STATUS.NOT_PAID || effectiveStatus === RECOVERY_STATUS.OVERDUE
           })
-          .sort((a, b) => a.installmentNo - b.installmentNo)
+          .sort(compareInstallmentOrder)
         if (blockingRows.length > 0) {
-          const firstBlockingInstallment = blockingRows[0].installmentNo
+          const firstBlockingInstallment = blockingRows[0].installmentLabel
           const totalBlocking = blockingRows.length
           sequentialBlockingErrors[row.rowKey] = {
             ...(sequentialBlockingErrors[row.rowKey] ?? {}),
             general:
               totalBlocking === 1
-                ? `EMI ${firstBlockingInstallment} is pending. Clear EMI ${firstBlockingInstallment} before EMI ${row.installmentNo}.`
-                : `EMI ${firstBlockingInstallment} is the first pending installment (${totalBlocking} pending before EMI ${row.installmentNo}). Clear from EMI ${firstBlockingInstallment} onward.`,
+                ? `EMI ${firstBlockingInstallment} is pending. Clear EMI ${firstBlockingInstallment} before EMI ${row.installmentLabel}.`
+                : `EMI ${firstBlockingInstallment} is the first pending installment (${totalBlocking} pending before EMI ${row.installmentLabel}). Clear from EMI ${firstBlockingInstallment} onward.`,
           }
         }
       }
@@ -679,7 +704,7 @@ function RecoveryPostingList() {
         size: 88,
       },
       {
-        accessorKey: "installmentNo",
+        accessorKey: "installmentLabel",
         header: "Installment",
         size: 100,
       },
@@ -996,10 +1021,10 @@ function RecoveryPostingList() {
                 <dd className="mt-0.5 text-sm tabular-nums">{r.loanId}</dd>
               </div>
             ) : null}
-            {hiddenColumnIds.includes("installmentNo") ? (
+            {hiddenColumnIds.includes("installmentLabel") ? (
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Installment</dt>
-                <dd className="mt-0.5 text-sm tabular-nums">{r.installmentNo}</dd>
+                <dd className="mt-0.5 text-sm tabular-nums">{r.installmentLabel}</dd>
               </div>
             ) : null}
             {hiddenColumnIds.includes("actualPrincipal") ? (

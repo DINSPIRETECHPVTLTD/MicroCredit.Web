@@ -12,6 +12,7 @@ import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
 import { DateDisplay } from "@/components/date"
 import { fetchLoanSchedulerList } from "@/services/loanScheduler.service"
+import { compareInstallmentOrder } from "@/lib/installmentLabel"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -38,6 +39,8 @@ export default function LoanSchedulerList() {
     enabled: Number.isFinite(loanId),
   })
 
+  const sortedRows = useMemo(() => [...rows].sort(compareInstallmentOrder), [rows])
+
   const totals = useMemo(() => {
     let totalAmount = 0
     let totalPaidAmount = 0
@@ -47,7 +50,7 @@ export default function LoanSchedulerList() {
       return Number.isFinite(n) ? n : 0
     }
 
-    for (const r of rows) {
+    for (const r of sortedRows) {
       const emiNum = parseMoney(r.ActualEmiAmount)
       const paidNum = parseMoney(r.PaymentAmount)
 
@@ -58,7 +61,7 @@ export default function LoanSchedulerList() {
     const remainingBalance = Math.max(0, totalAmount - totalPaidAmount)
 
     return { totalAmount, remainingBalance, totalPaidAmount }
-  }, [rows])
+  }, [sortedRows])
 
   const formatCurrency = (value: number) =>
     value.toLocaleString(undefined, { style: "currency", currency: "INR" })
@@ -105,7 +108,7 @@ export default function LoanSchedulerList() {
         size: 100,
       },
       {
-        accessorKey: "InstallmentNo",
+        accessorKey: "InstallmentLabel",
         header: "Week Number",
         size: 50,
       },
@@ -234,7 +237,7 @@ export default function LoanSchedulerList() {
       ) : (
         <MaterialReactTable
           columns={columns}
-          data={rows}
+          data={sortedRows}
           state={{ isLoading, ...tableOptions.state }}
           enableSorting
           enableColumnFilters

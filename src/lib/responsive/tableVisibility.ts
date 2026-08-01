@@ -176,7 +176,7 @@ const TABLE_VISIBILITY: Record<
   recoveryPosting: {
     mobile: {
       loanId: false,
-      installmentNo: false,
+      installmentLabel: false,
       actualPrincipal: false,
       actualInterest: false,
       principalAmt: false,

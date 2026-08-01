@@ -4,6 +4,11 @@
 import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import { deriveStatusFromAmounts } from "./recoveryPostingCalculations"
+import {
+  compareInstallmentOrder,
+  formatInstallmentLabel,
+  resolveSubInstallmentSequence,
+} from "@/lib/installmentLabel"
 
 export type RecoveryPostingRow = {
   rowKey: string
@@ -13,6 +18,8 @@ export type RecoveryPostingRow = {
   memberId: number
   memberCode: string | null
   installmentNo: number
+  subInstallmentSequence: number
+  installmentLabel: string
   scheduleDate: string
   actualEmiAmount: number
   actualPrincipalAmount: number | null
@@ -57,6 +64,10 @@ type RecoveryPostingApiRow = {
   SchedulerLoanId?: number
   installmentNo?: number
   InstallmentNo?: number
+  subInstallmentSequence?: number
+  SubInstallmentSequence?: number
+  installmentLabel?: string
+  InstallmentLabel?: string
   scheduleDate?: string
   ScheduleDate?: string
   paymentDate?: string | null
@@ -149,6 +160,14 @@ function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
       ? Number(getField(raw, ["interestPercentage"]))
       : undefined
 
+  const installmentNo = toNum(getField(raw, ["installmentNo"]))
+  const subInstallmentSequence = resolveSubInstallmentSequence(raw as Record<string, unknown>)
+  const installmentLabelRaw = getField(raw, ["installmentLabel"])
+  const installmentLabel =
+    installmentLabelRaw != null && String(installmentLabelRaw).trim() !== ""
+      ? String(installmentLabelRaw)
+      : formatInstallmentLabel(installmentNo, subInstallmentSequence)
+
   const base: RecoveryPostingRow = {
     rowKey,
     memberName: String(getField(raw, ["memberName"]) ?? ""),
@@ -156,7 +175,9 @@ function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
     loanSchedulerId,
     memberId: toNum(getField(raw, ["memberId"])),
     memberCode: toText(getField(raw, ["memberCode"])) || null,
-    installmentNo: toNum(getField(raw, ["installmentNo"])),
+    installmentNo,
+    subInstallmentSequence,
+    installmentLabel,
     scheduleDate: String(getField(raw, ["scheduleDate"]) ?? ""),
     actualEmiAmount,
     actualPrincipalAmount,
@@ -203,7 +224,7 @@ export async function fetchRecoveryPostingSchedulers(
     },
   })
   const list = Array.isArray(data) ? data : []
-  return list.map((row) => mapApiRow(row))
+  return list.map((row) => mapApiRow(row)).sort(compareInstallmentOrder)
 }
 
 export type RecoveryPostingPostLine = {
