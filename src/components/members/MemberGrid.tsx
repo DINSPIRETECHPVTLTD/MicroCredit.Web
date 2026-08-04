@@ -121,6 +121,20 @@ export default function MemberGrid({
         accessorFn: (r) => formatPhone(r),
       },
       {
+        accessorKey: "aadhaar",
+        header: "Aadhaar",
+        size: 140,
+        filterVariant: "text",
+        Cell: ({ cell }) => {
+          const v = cell.getValue<string | null | undefined>()?.trim()
+          return v ? (
+            <span className="tabular-nums font-mono text-xs">{v}</span>
+          ) : (
+            "—"
+          )
+        },
+      },
+      {
         id: "dob",
         header: "DOB / Age",
         accessorFn: (r) => formatDobForSort(r),

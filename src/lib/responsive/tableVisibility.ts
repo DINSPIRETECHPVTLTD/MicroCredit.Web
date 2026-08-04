@@ -35,6 +35,7 @@ const TABLE_VISIBILITY: Record<
   members: {
     mobile: {
       phone: false,
+      aadhaar: false,
       dob: false,
       center: false,
       fullAddress: false,
