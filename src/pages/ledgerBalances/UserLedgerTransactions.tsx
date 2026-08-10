@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   type MRT_ColumnDef,
@@ -14,14 +14,27 @@ import { useParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { DateDisplay } from "@/components/date"
+import { DateDisplay, DateInput } from "@/components/date"
 import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
+import { getTodayDateInputValue, toIsoDateValue } from "@/lib/date-time"
 
-
+function isPaymentDateInRange(
+  paymentDate: LedgerTransactionResponse["paymentDate"],
+  fromDate: string,
+  toDate: string
+): boolean {
+  const key = toIsoDateValue(paymentDate)
+  if (!key) return false
+  if (fromDate && key < fromDate) return false
+  if (toDate && key > toDate) return false
+  return true
+}
 
 export default function UserLedgerTransactions() {
-
   const { userId } = useParams()
+  const today = getTodayDateInputValue()
+  const [fromDate, setFromDate] = useState(today)
+  const [toDate, setToDate] = useState(today)
 
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
@@ -35,12 +48,16 @@ export default function UserLedgerTransactions() {
   }, [users])
 
   const numericUserId = Number(userId)
+  const rangeFrom = fromDate && toDate && fromDate > toDate ? toDate : fromDate
+  const rangeTo = fromDate && toDate && fromDate > toDate ? fromDate : toDate
 
   const { data = [], isLoading } = useQuery({
-    queryKey: ["ledgerTransactions", numericUserId],
+    queryKey: ["ledgerTransactions", numericUserId, rangeFrom, rangeTo],
     queryFn: () =>
       ledgerTransactionService.getTransactions({
         userId: numericUserId,
+        fromDate: rangeFrom || undefined,
+        toDate: rangeTo || undefined,
       }),
     enabled: !!userId,
   })
@@ -49,7 +66,11 @@ export default function UserLedgerTransactions() {
     window.history.back()
   }
 
-  const rows = data as LedgerTransactionResponse[]
+  const rows = useMemo(() => {
+    const all = data as LedgerTransactionResponse[]
+    if (!rangeFrom && !rangeTo) return all
+    return all.filter((tx) => isPaymentDateInRange(tx.paymentDate, rangeFrom, rangeTo))
+  }, [data, rangeFrom, rangeTo])
 
   const columns = useMemo<MRT_ColumnDef<LedgerTransactionResponse>[]>(
     () => [
@@ -110,11 +131,49 @@ export default function UserLedgerTransactions() {
             Back to Ledgers
           </Button>
         }
+        toolbar={
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="grid gap-1">
+              <span className="text-xs font-medium text-muted-foreground">From Date</span>
+              <DateInput
+                value={fromDate}
+                max={toDate || undefined}
+                onChange={(e) => {
+                  const next = e.target.value
+                  if (!next) return
+                  setFromDate(next)
+                  if (toDate && next > toDate) setToDate(next)
+                }}
+                className="w-[10.5rem]"
+                aria-label="From date"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs font-medium text-muted-foreground">To Date</span>
+              <DateInput
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={(e) => {
+                  const next = e.target.value
+                  if (!next) return
+                  setToDate(next)
+                  if (fromDate && next < fromDate) setFromDate(next)
+                }}
+                className="w-[10.5rem]"
+                aria-label="To date"
+              />
+            </label>
+          </div>
+        }
       />
 
-      <MaterialReactTable table={table} />
+      {!isLoading && rows.length === 0 ? (
+        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+          <p>No transactions found for the selected date range.</p>
+        </div>
+      ) : (
+        <MaterialReactTable table={table} />
+      )}
     </div>
-
   )
 }
-

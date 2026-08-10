@@ -10,12 +10,19 @@ export const ledgerTransactionService = {
 
   async getTransactions(params: {
     userId: number
+    fromDate?: string
+    toDate?: string
   }): Promise<LedgerTransactionResponse[]> {
-    const { data } = await apiClient.get<LedgerTransactionResponse[]>(api.ledgerTransactions.transactions(params.userId), {
-      params: {
-        userId: params.userId,
-      },
-    })
+    const { data } = await apiClient.get<LedgerTransactionResponse[]>(
+      api.ledgerTransactions.transactions(params.userId),
+      {
+        params: {
+          userId: params.userId,
+          ...(params.fromDate ? { fromDate: params.fromDate } : {}),
+          ...(params.toDate ? { toDate: params.toDate } : {}),
+        },
+      }
+    )
     return data
   },
 
