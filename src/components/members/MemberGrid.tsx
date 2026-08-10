@@ -9,7 +9,10 @@ import { buildMembershipFormHtml } from "@/templates/membershipFormTemplate"
 import { getBranch } from "@/services/auth.service"
 import { formatDisplayDate, formatDisplayDateFromDate } from "@/lib/date-time"
 import { DateDisplay } from "@/components/date"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 import { HiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
 
@@ -211,7 +214,8 @@ export default function MemberGrid({
       enableExpanding={enableExpanding}
       renderDetailPanel={enableExpanding ? renderDetailPanel : undefined}
       enableColumnPinning
-      muiTableContainerProps={{ sx: { overflowX: "auto" } }}
+      enableStickyHeader
+      muiTableContainerProps={STANDARD_TABLE_CONTAINER_PROPS}
     />
   )
 }

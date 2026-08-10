@@ -12,6 +12,7 @@ import { useStandardTableOptions } from "@/lib/responsive/useResponsiveTable"
 import type { LoanSchedulerResponse } from "@/types/loanScheduler"
 import { DateDisplay } from "@/components/date"
 import { fetchLoanSchedulerList } from "@/services/loanScheduler.service"
+import { compareInstallmentOrder, resolveInstallmentLabel } from "@/lib/installmentLabel"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -34,28 +35,56 @@ export default function LoanSchedulerList() {
 
   const { data: rows = [], isLoading, isError, error } = useQuery<LoanSchedulerResponse[]>({
     queryKey: ["loanSchedulers", loanId],
-    queryFn: () => fetchLoanSchedulerList(loanId),
+    queryFn: async () => {
+      const list = await fetchLoanSchedulerList(loanId)
+      return [...list].sort((a, b) =>
+        compareInstallmentOrder(
+          {
+            installmentNo: a.InstallmentNo,
+            subInstallmentSequence: a.SubInstallmentSequence,
+          },
+          {
+            installmentNo: b.InstallmentNo,
+            subInstallmentSequence: b.SubInstallmentSequence,
+          }
+        )
+      )
+    },
     enabled: Number.isFinite(loanId),
   })
 
   const totals = useMemo(() => {
     let totalAmount = 0
     let totalPaidAmount = 0
+    let remainingBalance = 0
 
     const parseMoney = (raw: unknown): number => {
       const n = typeof raw === "string" ? Number(raw) : Number(raw ?? 0)
       return Number.isFinite(n) ? n : 0
     }
 
+    const isBase = (r: LoanSchedulerResponse) =>
+      (r.ParentLoanSchedulerId == null || Number.isNaN(Number(r.ParentLoanSchedulerId))) &&
+      (r.SubInstallmentSequence ?? 0) === 0
+
     for (const r of rows) {
-      const emiNum = parseMoney(r.ActualEmiAmount)
+      const status = String(r.Status ?? "")
+        .trim()
+        .toLowerCase()
       const paidNum = parseMoney(r.PaymentAmount)
+      const emiNum = parseMoney(r.ActualEmiAmount)
 
-      totalAmount += emiNum
-      totalPaidAmount += paidNum
+      if (paidNum > 0 && (status === "paid" || status === "partial" || status === "partial paid")) {
+        totalPaidAmount += paidNum
+      }
+
+      if (isBase(r)) {
+        totalAmount += emiNum
+        if (status === "not paid" || status === "notpaid") {
+          remainingBalance += emiNum
+        }
+      }
     }
-
-    const remainingBalance = Math.max(0, totalAmount - totalPaidAmount)
 
     return { totalAmount, remainingBalance, totalPaidAmount }
   }, [rows])
@@ -107,7 +136,8 @@ export default function LoanSchedulerList() {
       {
         accessorKey: "InstallmentNo",
         header: "Week Number",
-        size: 50,
+        size: 100,
+        Cell: ({ row }) => resolveInstallmentLabel(row.original),
       },
       {
         accessorKey: "ScheduleDate",
@@ -240,6 +270,7 @@ export default function LoanSchedulerList() {
           enableColumnFilters
           enableGrouping
           enableColumnPinning
+          enableStickyHeader={tableOptions.enableStickyHeader}
           enableExpanding={tableOptions.enableExpanding}
           renderDetailPanel={tableOptions.renderDetailPanel}
           muiTableContainerProps={tableOptions.muiTableContainerProps}

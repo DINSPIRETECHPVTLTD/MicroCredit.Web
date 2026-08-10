@@ -118,6 +118,7 @@ function UserList() {
     enableExpanding: tableOptions.enableExpanding,
     renderDetailPanel: tableOptions.renderDetailPanel,
     enableColumnPinning: true,
+    enableStickyHeader: tableOptions.enableStickyHeader,
     muiTableContainerProps: tableOptions.muiTableContainerProps,
   })
 

@@ -41,7 +41,10 @@ import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
 import { SegmentedToggle, type SegmentedToggleOption } from "@/components/dashboard/SegmentedToggle"
 import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { UserLedgerDashboardPanel } from "@/components/dashboard/UserLedgerDashboardPanel"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
 import { DateInput } from "@/components/date"
@@ -466,11 +469,12 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
     enableColumnFilters: true,
     enableTopToolbar: true,
     enableFullScreenToggle: false,
+    enableStickyHeader: true,
     enableExpanding: memberTableResponsive.enableExpanding,
     renderDetailPanel: memberTableResponsive.enableExpanding
       ? renderHiddenColumnsDetailPanel(memberReportColumns, memberTableResponsive.hiddenColumnIds)
       : undefined,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     muiTableBodyCellProps: () => ({
       sx: {
         userSelect: "none",
@@ -749,7 +753,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     enableStickyHeader: true,
     enableKeyboardShortcuts: false,
     enableExpandAll: false,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     muiTableBodyCellProps: () => ({
       sx: {
         userSelect: "none",

@@ -145,6 +145,7 @@ function AddLoan() {
         enableExpanding: tableOptions.enableExpanding,
         renderDetailPanel: tableOptions.renderDetailPanel,
         enableColumnPinning: true,
+        enableStickyHeader: tableOptions.enableStickyHeader,
         muiTableContainerProps: tableOptions.muiTableContainerProps,
         renderTopToolbarCustomActions: () => (
         <span className="text-base font-semibold self-center">{firstName || lastName || middleName ? "Members" : "Recent Memebers"}</span>

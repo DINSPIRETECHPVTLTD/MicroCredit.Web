@@ -156,3 +156,56 @@ export function validateRecoveryPostRows(
 
   return issues
 }
+
+export type SequentialScheduleCandidate = {
+  loanSchedulerId: number
+  installmentNo: number
+  status: string
+  paymentDate?: string | Date | null
+  actualEmiAmount?: number
+  parentLoanSchedulerId?: number | null
+  subInstallmentSequence?: number
+}
+
+function isBaseScheduleRow(row: Pick<SequentialScheduleCandidate, "parentLoanSchedulerId" | "subInstallmentSequence">): boolean {
+  const parent = row.parentLoanSchedulerId
+  const seq = row.subInstallmentSequence ?? 0
+  return (parent == null || Number(parent) === 0 || Number.isNaN(Number(parent))) && seq === 0
+}
+
+/**
+ * Earlier EMI blocks a later post when it still has Not Paid outstanding, or Overdue that
+ * has not been carried. Committed Overdue rows set PaymentDate in the same transaction as
+ * carry-forward, so Overdue + PaymentDate + a later base must not block.
+ */
+export function isEarlierInstallmentBlocking(options: {
+  candidate: SequentialScheduleCandidate
+  currentInstallmentNo: number
+  allBases: SequentialScheduleCandidate[]
+  /** Status chosen for this post (same-batch overdue will carry before later lines). */
+  effectiveStatus: string
+  postingAsOverdueInSameBatch?: boolean
+}): boolean {
+  const { candidate, currentInstallmentNo, allBases, effectiveStatus, postingAsOverdueInSameBatch } =
+    options
+  if (!isBaseScheduleRow(candidate)) return false
+  if (candidate.installmentNo <= 0 || candidate.installmentNo >= currentInstallmentNo) return false
+
+  if (effectiveStatus === RECOVERY_STATUS.NOT_PAID) {
+    const actual = candidate.actualEmiAmount
+    return actual == null || Number.isNaN(Number(actual)) ? true : Number(actual) > 0
+  }
+
+  if (effectiveStatus !== RECOVERY_STATUS.OVERDUE) return false
+
+  // Same request will ApplyOverdue + carry before later installments are processed.
+  if (postingAsOverdueInSameBatch) return false
+
+  const hasPaymentDate =
+    candidate.paymentDate != null && String(candidate.paymentDate).trim() !== ""
+  const hasLaterBase = allBases.some(
+    (row) => isBaseScheduleRow(row) && row.installmentNo > candidate.installmentNo
+  )
+  // Untransferred overdue: missing PaymentDate or no carry destination.
+  return !hasPaymentDate || !hasLaterBase
+}

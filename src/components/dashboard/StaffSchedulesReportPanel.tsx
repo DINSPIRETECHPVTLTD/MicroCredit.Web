@@ -29,7 +29,10 @@ import type {
   StaffSchedulesStaffTableRow,
 } from "@/types/report"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
 
@@ -254,11 +257,12 @@ const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
     enableColumnFilters: true,
     enableTopToolbar: true,
     enableFullScreenToggle: false,
+    enableStickyHeader: true,
     enableExpanding: memberTableResponsive.enableExpanding,
     renderDetailPanel: memberTableResponsive.enableExpanding
       ? renderHiddenColumnsDetailPanel(memberReportColumns, memberTableResponsive.hiddenColumnIds)
       : undefined,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
     muiSearchTextFieldProps: { placeholder: "Search members…" },
   })
@@ -348,12 +352,13 @@ const StaffPocDetailPanel = memo(function StaffPocDetailPanel({
     enableGlobalFilter: true,
     enablePagination: true,
     enableSorting: true,
+    enableStickyHeader: true,
     enableExpandAll: false,
     enableKeyboardShortcuts: false,
     renderDetailPanel: renderPocDetail,
     muiTableBodyRowProps: getPocBodyRowProps,
     muiDetailPanelProps: MUI_DETAIL_PANEL_SX,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
     muiSearchTextFieldProps: { placeholder: "Search POCs…" },
   })
@@ -515,7 +520,7 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
     enableKeyboardShortcuts: false,
     enableExpandAll: false,
     renderDetailPanel: renderStaffDetail,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     muiTableBodyRowProps: getStaffBodyRowProps,
     muiDetailPanelProps: MUI_DETAIL_PANEL_SX,
     initialState: { pagination: { pageSize: 10, pageIndex: 0 } },

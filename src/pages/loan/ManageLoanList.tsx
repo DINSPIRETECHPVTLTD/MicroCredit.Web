@@ -222,6 +222,7 @@ function ManageLoanList() {
           enableExpanding={tableOptions.enableExpanding}
           renderDetailPanel={tableOptions.renderDetailPanel}
           enableColumnPinning
+          enableStickyHeader={tableOptions.enableStickyHeader}
           muiTableContainerProps={tableOptions.muiTableContainerProps}
         />
       )}

@@ -92,6 +92,7 @@ export default function UserLedgerTransactions() {
     enableExpanding: tableOptions.enableExpanding,
     renderDetailPanel: tableOptions.renderDetailPanel,
     enableColumnPinning: true,
+    enableStickyHeader: tableOptions.enableStickyHeader,
     muiTableContainerProps: tableOptions.muiTableContainerProps,
     initialState: {
       sorting: [{ id: "createdDate", desc: true }],

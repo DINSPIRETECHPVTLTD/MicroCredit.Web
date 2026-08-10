@@ -82,3 +82,21 @@ export function calculatePrepaymentSplit(row: {
   const interestAmount = round2(payment - principalAmount)
   return { principalAmount, interestAmount }
 }
+
+/**
+ * Earlier Overdue blocks only when untransferred: missing PaymentDate or no later installment.
+ * Committed overdue posts set PaymentDate and carry in the same transaction.
+ */
+export function isUntransferredOverdueBlocking(options: {
+  status: string
+  paymentDate?: string | Date | null
+  installmentNo: number
+  laterInstallmentExists: boolean
+}): boolean {
+  if (normalizePrepaymentStatus(options.status) !== PREPAYMENT_STATUS.OVERDUE) return false
+  const hasPaymentDate =
+    options.paymentDate != null && String(options.paymentDate).trim() !== ""
+  if (!hasPaymentDate) return true
+  return !options.laterInstallmentExists
+}
+
