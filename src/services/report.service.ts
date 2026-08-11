@@ -557,7 +557,7 @@ function normalizeMyCollectionSchedulesPocNode(
       centerName: centerName || "—",
       memberCount,
       totalAmount,
-      statusRaw: raw.status ?? raw.Status ?? null,
+      statusRaw: (raw.status ?? raw.Status ?? null) as string | boolean | null | undefined,
     },
     members: members.map((m) => ({ ...m, pocId })),
   }
