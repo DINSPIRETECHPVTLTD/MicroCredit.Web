@@ -63,6 +63,14 @@ export interface StaffSchedulesReport {
   staff: StaffSchedulesStaffNode[]
 }
 
+/** GET /Report/my-collection-schedules/{branchId} — logged-in collector's POC EMI schedules. */
+export interface MyCollectionSchedulesReport {
+  userId: number
+  userFullName: string
+  pocs: PocBranchReportRow[]
+  members: MemberByPocReportRow[]
+}
+
 /** POC row with counts for the selected schedule day. */
 export type StaffSchedulesPocTableRow = StaffSchedulesPocNode & {
   resolvedMemberCount: number

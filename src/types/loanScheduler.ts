@@ -10,10 +10,12 @@ export type LoanSchedulerResponse = {
     Comments: string; //reasons
     PaymentMode: string; //payment mode
     InstallmentNo: number; //week number
+    SubInstallmentSequence?: number;
+    ParentLoanSchedulerId?: number | null;
+    InstallmentLabel?: string;
     PaymentAmount: number; //paid amount
     PrincipalAmount: number;
     InterestAmount: number;
-
 };
 
 

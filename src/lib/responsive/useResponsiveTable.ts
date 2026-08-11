@@ -80,9 +80,20 @@ export function getColumnDisplayValue<T extends MRT_RowData>(
   return "—"
 }
 
-const TABLE_CONTAINER_PROPS = { sx: { overflowX: "auto" as const } }
+/**
+ * Contained table body scroll + sticky header support.
+ * Wheel over the grid moves rows instead of the whole page.
+ */
+export const STANDARD_TABLE_CONTAINER_PROPS = {
+  sx: {
+    maxHeight: "min(70vh, 720px)",
+    overflowY: "auto" as const,
+    overflowX: "auto" as const,
+    overscrollBehavior: "contain" as const,
+  },
+}
 
-/** Standard MRT props for list pages: visibility, expand panel, horizontal scroll fallback. */
+/** Standard MRT props for list pages: visibility, expand panel, contained scroll. */
 export function useStandardTableOptions<T extends MRT_RowData>(
   tableKey: TableVisibilityKey,
   columns: MRT_ColumnDef<T>[],
@@ -102,7 +113,8 @@ export function useStandardTableOptions<T extends MRT_RowData>(
     ...responsive,
     state: { columnVisibility: responsive.columnVisibility },
     enableExpanding: responsive.enableExpanding,
+    enableStickyHeader: true as const,
     renderDetailPanel,
-    muiTableContainerProps: TABLE_CONTAINER_PROPS,
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
   }
 }

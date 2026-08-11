@@ -41,7 +41,10 @@ import { SummaryDataTable } from "@/components/dashboard/SummaryDataTable"
 import { SegmentedToggle, type SegmentedToggleOption } from "@/components/dashboard/SegmentedToggle"
 import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { UserLedgerDashboardPanel } from "@/components/dashboard/UserLedgerDashboardPanel"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
 import { DateInput } from "@/components/date"
@@ -466,11 +469,12 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
     enableColumnFilters: true,
     enableTopToolbar: true,
     enableFullScreenToggle: false,
+    enableStickyHeader: true,
     enableExpanding: memberTableResponsive.enableExpanding,
     renderDetailPanel: memberTableResponsive.enableExpanding
       ? renderHiddenColumnsDetailPanel(memberReportColumns, memberTableResponsive.hiddenColumnIds)
       : undefined,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     muiTableBodyCellProps: () => ({
       sx: {
         userSelect: "none",
@@ -503,53 +507,31 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
 function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey)
   const activeScheduleDateKey = selectedDateKey
+  const sessionUserId = getSession()?.userId ?? 0
 
   const {
-    data: pocsRaw,
+    data: collectionReport,
     isLoading,
+    isFetching,
     isError,
     error,
     refetch,
   } = useQuery({
-    queryKey: ["reportPocs", branchId],
-    queryFn: () => reportService.getPocsByBranch(branchId),
-  })
-
-  const pocErrorMessage = useMemo(
-    () => (isError && error ? getApiErrorMessage(error, "") : ""),
-    [isError, error]
-  )
-  const noPocInBranchError = pocErrorMessage.toLowerCase().includes("no poc in current branch")
-
-  const pocs = pocsRaw ?? EMPTY_POCS
-
-  const pocIds = useMemo(() => {
-    const ids = pocs.map((p) => p.pocId).filter((id) => Number.isFinite(id))
-    return ids.slice().sort((a, b) => a - b)
-  }, [pocs])
-
-  const {
-    data: membersRaw,
-    isLoading: membersIsLoading,
-    isFetching: membersIsFetching,
-    isError: membersIsError,
-    error: membersError,
-  } = useQuery({
-    queryKey: ["reportMembersByPocs", branchId, pocIds.join(","), selectedDateKey],
-    enabled: pocIds.length > 0,
-    queryFn: () => reportService.getMembersByPocs(branchId, pocIds, selectedDateKey),
+    queryKey: ["reportMyCollectionSchedules", branchId, sessionUserId, selectedDateKey],
+    queryFn: () => reportService.getMyCollectionSchedules(branchId, selectedDateKey),
+    enabled: sessionUserId > 0,
     placeholderData: keepPreviousData,
-    /** Fetch fresh rows when expanding/refreshing the dashboard. */
     staleTime: 0,
     refetchOnMount: "always",
   })
 
-  const members = membersRaw ?? EMPTY_MEMBERS
+  const pocs = collectionReport?.pocs ?? EMPTY_POCS
+  const members = collectionReport?.members ?? EMPTY_MEMBERS
+
   const filteredMembers = useMemo(() => {
-    // API returns the selected day only; while refetching keep prior rows visible (no table teardown).
-    if (membersIsFetching) return members
+    if (isFetching) return members
     return members.filter((m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey)
-  }, [members, activeScheduleDateKey, membersIsFetching])
+  }, [members, activeScheduleDateKey, isFetching])
 
   const membersByPoc = useMemo(() => {
     const map = new Map<number, MemberByPocReportRow[]>()
@@ -561,41 +543,23 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     return map
   }, [filteredMembers])
 
-  const totalMembersInBranch = membersIsError
-    ? pocs.reduce((sum, poc) => sum + (poc.memberCount ?? 0), 0)
-    : countDistinctMemberIds(filteredMembers)
-  const totalAmountInBranch = membersIsError
-    ? pocs.reduce((sum, poc) => sum + (poc.totalAmount ?? 0), 0)
-    : sumMemberEmi(filteredMembers)
+  const totalMembersInBranch = countDistinctMemberIds(filteredMembers)
+  const totalAmountInBranch = sumMemberEmi(filteredMembers)
 
   const statusTotals = useMemo(
     () =>
-      membersIsError
-        ? { outstandingTotal: 0, collectedTotal: 0 }
-        : sumEmiByStatusGroups(
-            filteredMembers.map((m) => ({
-              loanSchedulerStatus: m.loanSchedulerStatus,
-              amount: m.amountPaid,
-            }))
-          ),
-    [filteredMembers, membersIsError]
+      sumEmiByStatusGroups(
+        filteredMembers.map((m) => ({
+          loanSchedulerStatus: m.loanSchedulerStatus,
+          amount: m.amountPaid,
+        }))
+      ),
+    [filteredMembers]
   )
 
   const pocTableRows: PocTableRow[] = useMemo(() => {
     return pocs.map((poc) => {
-      if (membersIsLoading) {
-        return { ...poc, resolvedMemberCount: null, resolvedTotalAmount: null }
-      }
-
-      if (membersIsError) {
-        return {
-          ...poc,
-          resolvedMemberCount: poc.memberCount,
-          resolvedTotalAmount: poc.totalAmount,
-        }
-      }
-
-      if (membersRaw === undefined) {
+      if (isLoading && collectionReport === undefined) {
         return { ...poc, resolvedMemberCount: null, resolvedTotalAmount: null }
       }
 
@@ -606,46 +570,33 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
         resolvedTotalAmount: sumMemberEmi(pocMembers),
       }
     })
-  }, [pocs, membersByPoc, membersIsError, membersIsLoading, membersRaw])
+  }, [pocs, membersByPoc, isLoading, collectionReport])
 
   const visiblePocTableRows = useMemo(() => {
-    // Initial load only — avoid clearing the grid while refetching another date.
-    if (membersIsLoading && membersRaw === undefined) {
+    if (isLoading && collectionReport === undefined) {
       return []
     }
-    // If members API fails, keep POC fallback rows visible.
-    if (membersIsError) {
-      return pocTableRows
-    }
-    // On successful member result, only show POCs that have members in the selected window.
     return pocTableRows.filter((row) => (row.resolvedMemberCount ?? 0) > 0)
-  }, [pocTableRows, membersIsLoading, membersIsError, membersRaw])
+  }, [pocTableRows, isLoading, collectionReport])
 
   const totalPocs = visiblePocTableRows.length
 
   useEffect(() => {
-    if (membersIsError && membersError) {
-      toast.error(getApiErrorMessage(membersError, "Failed to load POC members"))
-    }
-  }, [membersIsError, membersError])
-
-  useEffect(() => {
     if (isError && error) {
-      if (noPocInBranchError) return
-      toast.error(getApiErrorMessage(error, "Failed to load POC report"))
+      toast.error(getApiErrorMessage(error, "Failed to load your collection schedules"))
     }
-  }, [isError, error, noPocInBranchError])
+  }, [isError, error])
 
   const renderPocDetailPanel = useCallback(
     ({ row }: { row: MRT_Row<PocTableRow> }) => (
       <PocMemberDetailPanel
         members={membersByPoc.get(row.original.pocId) ?? EMPTY_MEMBERS}
-        isLoading={membersIsLoading || membersIsFetching}
-        isError={membersIsError}
+        isLoading={isLoading || isFetching}
+        isError={isError}
         activeScheduleDateKey={activeScheduleDateKey}
       />
     ),
-    [membersByPoc, membersIsError, membersIsFetching, membersIsLoading, activeScheduleDateKey]
+    [membersByPoc, isError, isFetching, isLoading, activeScheduleDateKey]
   )
 
   const getPocTableBodyRowProps = useCallback(
@@ -738,8 +689,8 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     data: visiblePocTableRows,
     getRowId: (row) => String(row.pocId),
     state: {
-      isLoading: isLoading || (membersIsLoading && membersRaw === undefined),
-      showProgressBars: membersIsFetching,
+      isLoading: isLoading && collectionReport === undefined,
+      showProgressBars: isFetching,
       columnVisibility: pocTableResponsive.columnVisibility,
     },
     enableGlobalFilter: true,
@@ -749,7 +700,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     enableStickyHeader: true,
     enableKeyboardShortcuts: false,
     enableExpandAll: false,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     muiTableBodyCellProps: () => ({
       sx: {
         userSelect: "none",
@@ -766,18 +717,22 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     },
   })
 
-  if (isLoading && pocs.length === 0) {
+  if (sessionUserId <= 0) {
+    return (
+      <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+        Could not determine the logged-in user. Sign in again to view your schedules.
+      </div>
+    )
+  }
+
+  if (isLoading && collectionReport === undefined) {
     return <DashboardSkeleton />
   }
 
   if (isError) {
-    return noPocInBranchError ? (
-      <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-        No POCs
-      </div>
-    ) : (
+    return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
-        <p className="font-medium text-destructive">Could not load dashboard data.</p>
+        <p className="font-medium text-destructive">Could not load your collection schedules.</p>
         <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
           Try again
         </Button>
@@ -792,39 +747,41 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
           title="Total POCs"
           value={String(totalPocs)}
           icon={UserCheck}
-          loading={isLoading || membersIsLoading || membersIsFetching}
+          loading={isLoading || isFetching}
         />
         <SummaryMetricCard
           title="Total Members"
           value={String(totalMembersInBranch)}
           icon={Users}
-          loading={isLoading || membersIsLoading || membersIsFetching}
+          loading={isLoading || isFetching}
         />
         <SummaryMetricCard
           title="Total schedule amount"
           value={formatInr(totalAmountInBranch)}
           icon={IndianRupee}
-          loading={isLoading || membersIsLoading || membersIsFetching}
+          loading={isLoading || isFetching}
         />
         <SummaryMetricCard
           title="Total Pending Amount"
           value={formatInr(statusTotals.outstandingTotal)}
           icon={AlertCircle}
-          loading={isLoading || membersIsLoading || membersIsFetching}
+          loading={isLoading || isFetching}
         />
         <SummaryMetricCard
           title="Total Collected Amount"
           value={formatInr(statusTotals.collectedTotal)}
           icon={HandCoins}
-          loading={isLoading || membersIsLoading || membersIsFetching}
+          loading={isLoading || isFetching}
         />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 [caret-color:transparent]">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-foreground">POC schedules</h2>
+            <h2 className="text-base font-semibold text-foreground">My collection schedules</h2>
             <p className="mt-1 text-xs text-muted-foreground">
+              POCs assigned to you for collection
+              {collectionReport?.userFullName ? ` (${collectionReport.userFullName})` : ""}.
               Pick a date, then expand a row to view member schedules.
             </p>
           </div>
@@ -844,12 +801,9 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
             </label>
           </div>
         </div>
-        {visiblePocTableRows.length === 0 &&
-        !isLoading &&
-        !membersIsLoading &&
-        membersRaw !== undefined ? (
+        {visiblePocTableRows.length === 0 && !isLoading && collectionReport !== undefined ? (
           <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-            No schedules are available for the selected date.
+            No schedules are assigned to you for the selected date.
           </div>
         ) : (
           <div className="[caret-color:transparent]">
@@ -900,16 +854,14 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
   const isOwner = role === "Owner"
   const [dashboardSection, setDashboardSection] = useState<BranchDashboardSection>("myView")
 
-  const myViewPocsFetching = useIsFetching({ queryKey: ["reportPocs", branchId] }) > 0
-  const myViewMembersFetching =
-    useIsFetching({ queryKey: ["reportMembersByPocs", branchId] }) > 0
+  const myViewFetching =
+    useIsFetching({ queryKey: ["reportMyCollectionSchedules", branchId] }) > 0
   const staffSchedulesFetching =
     useIsFetching({ queryKey: ["reportStaffSchedules", branchId] }) > 0
   const userLedgerFetching =
     useIsFetching({ queryKey: ["reportUserLedgerDashboard"] }) > 0
-  const myViewBgFetching = myViewPocsFetching || myViewMembersFetching
   const refreshSpinning =
-    (dashboardSection === "myView" && myViewBgFetching) ||
+    (dashboardSection === "myView" && myViewFetching) ||
     (dashboardSection === "staffSchedules" && staffSchedulesFetching) ||
     (dashboardSection === "myLedger" && userLedgerFetching)
 
@@ -922,8 +874,7 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
       void queryClient.invalidateQueries({ queryKey: ["reportStaffSchedules", branchId] })
       return
     }
-    void queryClient.invalidateQueries({ queryKey: ["reportPocs", branchId] })
-    void queryClient.invalidateQueries({ queryKey: ["reportMembersByPocs", branchId] })
+    void queryClient.invalidateQueries({ queryKey: ["reportMyCollectionSchedules", branchId] })
   }, [queryClient, branchId, dashboardSection])
 
   const dashboardTitle = useMemo(() => {

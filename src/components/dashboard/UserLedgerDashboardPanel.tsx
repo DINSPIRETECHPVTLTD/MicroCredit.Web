@@ -15,7 +15,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { DateInput, DateDisplay } from "@/components/date"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { reportService } from "@/services/report.service"
 import type { UserLedgerTransactionRow } from "@/types/report"
@@ -150,7 +153,7 @@ export function UserLedgerDashboardPanel() {
     renderDetailPanel: tableResponsive.enableExpanding
       ? renderHiddenColumnsDetailPanel(columns, tableResponsive.hiddenColumnIds)
       : undefined,
-    muiTableContainerProps: { sx: { overflowX: "auto" } },
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
     muiTableBodyCellProps: () => ({
       sx: {
         userSelect: "none",

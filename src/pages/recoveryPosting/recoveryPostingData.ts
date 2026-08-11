@@ -4,6 +4,7 @@
 import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import { deriveStatusFromAmounts } from "./recoveryPostingCalculations"
+import { resolveInstallmentLabel } from "@/lib/installmentLabel"
 
 export type RecoveryPostingRow = {
   rowKey: string
@@ -13,6 +14,10 @@ export type RecoveryPostingRow = {
   memberId: number
   memberCode: string | null
   installmentNo: number
+  /** Display label e.g. 10 or 10_1 when API provides parent/child tracking. */
+  installmentLabel?: string
+  subInstallmentSequence?: number
+  parentLoanSchedulerId?: number | null
   scheduleDate: string
   actualEmiAmount: number
   actualPrincipalAmount: number | null
@@ -57,6 +62,12 @@ type RecoveryPostingApiRow = {
   SchedulerLoanId?: number
   installmentNo?: number
   InstallmentNo?: number
+  installmentLabel?: string
+  InstallmentLabel?: string
+  subInstallmentSequence?: number
+  SubInstallmentSequence?: number
+  parentLoanSchedulerId?: number | null
+  ParentLoanSchedulerId?: number | null
   scheduleDate?: string
   ScheduleDate?: string
   paymentDate?: string | null
@@ -157,6 +168,16 @@ function mapApiRow(raw: RecoveryPostingApiRow): RecoveryPostingRow {
     memberId: toNum(getField(raw, ["memberId"])),
     memberCode: toText(getField(raw, ["memberCode"])) || null,
     installmentNo: toNum(getField(raw, ["installmentNo"])),
+    installmentLabel: resolveInstallmentLabel({
+      installmentNo: toNum(getField(raw, ["installmentNo"])),
+      subInstallmentSequence: toNum(getField(raw, ["subInstallmentSequence"])),
+      installmentLabel: toText(getField(raw, ["installmentLabel"])) || null,
+    }),
+    subInstallmentSequence: toNum(getField(raw, ["subInstallmentSequence"])),
+    parentLoanSchedulerId: (() => {
+      const v = getField(raw, ["parentLoanSchedulerId"])
+      return v == null || v === "" ? null : toNum(v)
+    })(),
     scheduleDate: String(getField(raw, ["scheduleDate"]) ?? ""),
     actualEmiAmount,
     actualPrincipalAmount,
@@ -217,8 +238,10 @@ export type RecoveryPostingPostLine = {
 }
 
 export type RecoveryPostingPostPayload = {
+  clientRequestId: string
   collectedBy: number
   items: RecoveryPostingPostLine[]
+  skipLedgerTransaction?: boolean
 }
 
 export async function postRecoveryPosting(
@@ -226,7 +249,12 @@ export async function postRecoveryPosting(
 ): Promise<{ postedCount: number; message?: string }> {
   const { data } = await apiClient.post<{ postedCount: number; message?: string }>(
     api.recoveryPosting.post,
-    payload
+    {
+      clientRequestId: payload.clientRequestId,
+      collectedBy: payload.collectedBy,
+      items: payload.items,
+      ...(payload.skipLedgerTransaction ? { skipLedgerTransaction: true } : {}),
+    }
   )
   return data
 }

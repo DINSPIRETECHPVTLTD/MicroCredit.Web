@@ -1,8 +1,11 @@
 import { apiClient } from '@/lib/auth/api-client'
 import { api } from "@/lib/api"
 import { getTodayDateInputValue } from "@/lib/date-time"
+import { getSession } from "@/services/auth.service"
+import { pocService } from "@/services/poc.service"
 import type {
   MemberByPocReportRow,
+  MyCollectionSchedulesReport,
   PocBranchReportRow,
   StaffReportMemberRow,
   StaffSchedulesPocNode,
@@ -467,6 +470,275 @@ function normalizeUserLedgerDashboardReport(data: unknown): UserLedgerDashboardR
   }
 }
 
+function staffReportMemberToMemberByPocRow(m: StaffReportMemberRow): MemberByPocReportRow {
+  return {
+    pocId: m.pocId,
+    memberId: String(m.memberId),
+    memberCode: m.memberCode,
+    memberName: m.memberFullName,
+    due: m.actualEmiAmount,
+    actualEmi: m.actualEmiAmount,
+    amountPaid: m.actualEmiAmount,
+    scheduleDate: m.scheduleDate,
+    statusRaw: null,
+    loanSchedulerStatus: m.loanSchedulerStatus,
+  }
+}
+
+function emptyMyCollectionSchedulesReport(userId: number, userFullName = "—"): MyCollectionSchedulesReport {
+  return { userId, userFullName, pocs: [], members: [] }
+}
+
+function buildMyCollectionFromStaffNode(
+  staffNode: StaffSchedulesStaffNode
+): MyCollectionSchedulesReport {
+  const members: MemberByPocReportRow[] = []
+  const pocs: PocBranchReportRow[] = []
+
+  for (const poc of staffNode.pocs) {
+    const pocMembers = poc.members.map(staffReportMemberToMemberByPocRow)
+    members.push(...pocMembers)
+
+    pocs.push({
+      pocId: poc.pocId,
+      pocName: poc.pocFullName,
+      centerName: "—",
+      memberCount: new Set(poc.members.map((m) => m.memberId)).size,
+      totalAmount: poc.members.reduce((sum, m) => sum + m.actualEmiAmount, 0),
+      statusRaw: null,
+    })
+  }
+
+  return {
+    userId: staffNode.userId,
+    userFullName: staffNode.userFullName,
+    pocs,
+    members,
+  }
+}
+
+function normalizeMyCollectionSchedulesPocNode(
+  raw: Record<string, unknown>
+): { poc: PocBranchReportRow; members: MemberByPocReportRow[] } | null {
+  const pocId = pickId(raw.pocId ?? raw.PocId)
+  if (!pocId) return null
+
+  const pocName = pickStr(
+    raw.pocFullName ??
+      raw.PocFullName ??
+      raw.pocName ??
+      raw.PocName ??
+      raw.name ??
+      raw.Name
+  )
+  const centerName = pickStr(raw.centerName ?? raw.CenterName ?? raw.center ?? raw.Center)
+
+  const membersRaw = raw.members ?? raw.Members
+  const members = Array.isArray(membersRaw)
+    ? membersRaw
+        .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object")
+        .map((row) => {
+          const staffMember = normalizeStaffReportMember(row)
+          if (staffMember) return staffReportMemberToMemberByPocRow(staffMember)
+          return normalizeMemberRow(row)
+        })
+        .filter((r): r is MemberByPocReportRow => r !== null)
+    : []
+
+  const memberCount = pickNum(raw.memberCount ?? raw.MemberCount) || members.length
+  const totalAmount =
+    pickNum(raw.totalAmount ?? raw.TotalAmount) ||
+    members.reduce((sum, m) => sum + m.amountPaid, 0)
+
+  return {
+    poc: {
+      pocId,
+      pocName: pocName || "—",
+      centerName: centerName || "—",
+      memberCount,
+      totalAmount,
+      statusRaw: raw.status ?? raw.Status ?? null,
+    },
+    members: members.map((m) => ({ ...m, pocId })),
+  }
+}
+
+function normalizeMyCollectionSchedulesReport(
+  data: unknown,
+  fallbackUserId: number
+): MyCollectionSchedulesReport {
+  if (!data || typeof data !== "object") {
+    return emptyMyCollectionSchedulesReport(fallbackUserId)
+  }
+
+  const obj = data as Record<string, unknown>
+  const userId = pickId(obj.userId ?? obj.UserId) || fallbackUserId
+  const userFullName = pickStr(obj.userFullName ?? obj.UserFullName) || "—"
+
+  const pocsRaw = obj.pocs ?? obj.Pocs
+  if (Array.isArray(pocsRaw)) {
+    const pocs: PocBranchReportRow[] = []
+    const members: MemberByPocReportRow[] = []
+    for (const raw of pocsRaw) {
+      if (!raw || typeof raw !== "object") continue
+      const parsed = normalizeMyCollectionSchedulesPocNode(raw as Record<string, unknown>)
+      if (!parsed) continue
+      pocs.push(parsed.poc)
+      members.push(...parsed.members)
+    }
+    return { userId, userFullName, pocs, members }
+  }
+
+  const flatMembersRaw = obj.members ?? obj.Members
+  if (Array.isArray(flatMembersRaw)) {
+    const members = flatMembersRaw
+      .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object")
+      .map((row) => {
+        const staffMember = normalizeStaffReportMember(row)
+        if (staffMember) return staffReportMemberToMemberByPocRow(staffMember)
+        return normalizeMemberRow(row)
+      })
+      .filter((r): r is MemberByPocReportRow => r !== null)
+
+    const pocsFromApi = asObjectArray(obj.pocRows ?? obj.PocRows ?? obj.pocs ?? obj.Pocs)
+    const pocs = pocsFromApi
+      .map(normalizePocRow)
+      .filter((r): r is PocBranchReportRow => r !== null)
+
+    if (pocs.length > 0) {
+      return { userId, userFullName, pocs, members }
+    }
+
+    const pocMap = new Map<number, PocBranchReportRow>()
+    for (const member of members) {
+      if (!pocMap.has(member.pocId)) {
+        pocMap.set(member.pocId, {
+          pocId: member.pocId,
+          pocName: "—",
+          centerName: "—",
+          memberCount: 0,
+          totalAmount: 0,
+          statusRaw: null,
+        })
+      }
+    }
+    for (const [pocId, poc] of pocMap) {
+      const pocMembers = members.filter((m) => m.pocId === pocId)
+      poc.memberCount = new Set(pocMembers.map((m) => m.memberId)).size
+      poc.totalAmount = pocMembers.reduce((sum, m) => sum + m.amountPaid, 0)
+    }
+
+    return { userId, userFullName, pocs: Array.from(pocMap.values()), members }
+  }
+
+  return emptyMyCollectionSchedulesReport(userId, userFullName)
+}
+
+function sessionUserDisplayName(): string {
+  const session = getSession()
+  if (!session) return "—"
+  const name = [session.firstName, session.lastName].filter(Boolean).join(" ").trim()
+  return name || session.email || "—"
+}
+
+async function fetchStaffSchedulesReport(
+  branchId: number,
+  scheduleDateKey?: string
+): Promise<StaffSchedulesReport> {
+  try {
+    const { data } = await apiClient.get<unknown>(
+      api.report.staffSchedulesReport(branchId, scheduleDateKey)
+    )
+    return normalizeStaffSchedulesReport(data)
+  } catch (err) {
+    const status = (err as { response?: { status?: number } })?.response?.status
+    if (status === 404) {
+      return getStaffSchedulesReportFromLegacyEndpoints(branchId)
+    }
+    throw err
+  }
+}
+
+async function getMyCollectionSchedulesFromStaffReport(
+  branchId: number,
+  userId: number,
+  scheduleDateKey?: string
+): Promise<MyCollectionSchedulesReport | null> {
+  const staffReport = await fetchStaffSchedulesReport(branchId, scheduleDateKey)
+  const staffNode = staffReport.staff.find((s) => s.userId === userId)
+  if (!staffNode) return null
+  return buildMyCollectionFromStaffNode(staffNode)
+}
+
+async function fetchMembersByPocs(
+  branchId: number,
+  pocIds: number[],
+  scheduleDateKey?: string
+): Promise<MemberByPocReportRow[]> {
+  const { data } = await apiClient.post<unknown>(
+    api.report.membersByPocs(branchId, scheduleDateKey),
+    pocIds
+  )
+  return asObjectArray(data)
+    .map(normalizeMemberRow)
+    .filter((r): r is MemberByPocReportRow => r !== null)
+}
+
+async function getMyCollectionSchedulesFromPocMaster(
+  branchId: number,
+  userId: number,
+  scheduleDateKey?: string
+): Promise<MyCollectionSchedulesReport> {
+  const { pocs: branchPocs } = await pocService.getByBranch(branchId)
+  const assignedPocs = branchPocs.filter((p) => p.collectionBy === userId)
+  if (assignedPocs.length === 0) {
+    return emptyMyCollectionSchedulesReport(userId, sessionUserDisplayName())
+  }
+
+  const pocIds = assignedPocs.map((p) => p.id)
+  const members = await fetchMembersByPocs(branchId, pocIds, scheduleDateKey)
+
+  const pocs: PocBranchReportRow[] = assignedPocs.map((p) => {
+    const pocMembers = members.filter((m) => m.pocId === p.id)
+    return {
+      pocId: p.id,
+      pocName: p.name || "—",
+      centerName: p.centerName || "—",
+      memberCount: new Set(pocMembers.map((m) => m.memberId)).size,
+      totalAmount: pocMembers.reduce((sum, m) => sum + m.amountPaid, 0),
+      statusRaw: null,
+    }
+  })
+
+  return {
+    userId,
+    userFullName: sessionUserDisplayName(),
+    pocs,
+    members,
+  }
+}
+
+async function getMyCollectionSchedulesFallback(
+  branchId: number,
+  userId: number,
+  scheduleDateKey?: string
+): Promise<MyCollectionSchedulesReport> {
+  if (!userId) {
+    return emptyMyCollectionSchedulesReport(0)
+  }
+
+  try {
+    const fromStaff = await getMyCollectionSchedulesFromStaffReport(branchId, userId, scheduleDateKey)
+    if (fromStaff && (fromStaff.pocs.length > 0 || fromStaff.members.length > 0)) {
+      return fromStaff
+    }
+  } catch {
+    // Fall through to POC master filter.
+  }
+
+  return getMyCollectionSchedulesFromPocMaster(branchId, userId, scheduleDateKey)
+}
+
 export const reportService = {
   async getPocsByBranch(branchId: number): Promise<PocBranchReportRow[]> {
     const { data } = await apiClient.get<unknown>(api.report.pocsByBranch(branchId))
@@ -493,31 +765,37 @@ export const reportService = {
     pocIds: number[],
     scheduleDateKey?: string
   ): Promise<MemberByPocReportRow[]> {
-    const { data } = await apiClient.post<unknown>(
-      api.report.membersByPocs(branchId, scheduleDateKey),
-      pocIds
-    )
-    return asObjectArray(data)
-      .map(normalizeMemberRow)
-      .filter((r): r is MemberByPocReportRow => r !== null)
+    return fetchMembersByPocs(branchId, pocIds, scheduleDateKey)
+  },
+
+  async getMyCollectionSchedules(
+    branchId: number,
+    scheduleDateKey?: string
+  ): Promise<MyCollectionSchedulesReport> {
+    const userId = getSession()?.userId ?? 0
+    if (!userId) {
+      return emptyMyCollectionSchedulesReport(0)
+    }
+
+    try {
+      const { data } = await apiClient.get<unknown>(
+        api.report.myCollectionSchedules(branchId, scheduleDateKey)
+      )
+      return normalizeMyCollectionSchedulesReport(data, userId)
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 404 || status === 501) {
+        return getMyCollectionSchedulesFallback(branchId, userId, scheduleDateKey)
+      }
+      throw err
+    }
   },
 
   async getStaffSchedulesReport(
     branchId: number,
     scheduleDateKey?: string
   ): Promise<StaffSchedulesReport> {
-    try {
-      const { data } = await apiClient.get<unknown>(
-        api.report.staffSchedulesReport(branchId, scheduleDateKey)
-      )
-      return normalizeStaffSchedulesReport(data)
-    } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status
-      if (status === 404) {
-        return getStaffSchedulesReportFromLegacyEndpoints(branchId)
-      }
-      throw err
-    }
+    return fetchStaffSchedulesReport(branchId, scheduleDateKey)
   },
 
   async getUserLedgerDashboard(

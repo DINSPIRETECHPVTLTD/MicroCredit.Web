@@ -21,14 +21,19 @@ import type { MasterLookupResponse } from "@/types/masterLookup"
 import {
   calculatePrepaymentSplit,
   derivePrepaymentStatus,
+  isUntransferredOverdueBlocking,
   normalizePrepaymentStatus,
   PREPAYMENT_STATUS,
   round2,
 } from "./prepaymentCalculations"
+import { compareInstallmentOrder, resolveInstallmentLabel } from "@/lib/installmentLabel"
 import { postPrepaymentRecoveries } from "@/services/prepayment.service"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { DateDisplay } from "@/components/date"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 
 type LoanSchedulerApiRow = {
   loanSchedulerId?: number
@@ -39,6 +44,12 @@ type LoanSchedulerApiRow = {
   LoanID?: number
   installmentNo?: number
   InstallmentNo?: number
+  subInstallmentSequence?: number | null
+  SubInstallmentSequence?: number | null
+  parentLoanSchedulerId?: number | null
+  ParentLoanSchedulerId?: number | null
+  installmentLabel?: string | null
+  InstallmentLabel?: string | null
   scheduleDate?: string | Date | null
   ScheduleDate?: string | Date | null
   paymentDate?: string | Date | null
@@ -72,6 +83,9 @@ type PrepaymentRow = {
   loanSchedulerId: number
   loanId: number
   installmentNo: number
+  subInstallmentSequence: number
+  parentLoanSchedulerId: number | null
+  installmentLabel: string
   scheduleDate: string | Date | null
   paymentDate: string | Date | null
   actualEmiAmount: number
@@ -196,6 +210,18 @@ function mapSchedulerRow(raw: LoanSchedulerApiRow): PrepaymentRow {
     loanSchedulerId,
     loanId,
     installmentNo: toNumber(raw.InstallmentNo ?? raw.installmentNo),
+    subInstallmentSequence: toNumber(raw.SubInstallmentSequence ?? raw.subInstallmentSequence),
+    parentLoanSchedulerId: (() => {
+      const v = raw.ParentLoanSchedulerId ?? raw.parentLoanSchedulerId
+      if (v == null || v === "") return null
+      const n = toNumber(v)
+      return n > 0 ? n : null
+    })(),
+    installmentLabel: resolveInstallmentLabel({
+      installmentNo: toNumber(raw.InstallmentNo ?? raw.installmentNo),
+      subInstallmentSequence: toNumber(raw.SubInstallmentSequence ?? raw.subInstallmentSequence),
+      installmentLabel: raw.InstallmentLabel ?? raw.installmentLabel ?? null,
+    }),
     scheduleDate: raw.ScheduleDate ?? raw.scheduleDate ?? null,
     paymentDate: raw.PaymentDate ?? raw.paymentDate ?? null,
     actualEmiAmount,
@@ -242,7 +268,9 @@ export default function LoanPrepayment() {
     queryKey: ["loan-prepayment-schedulers", loanId],
     queryFn: async () => {
       const { data } = await apiClient.get<LoanSchedulerApiRow[]>(api.loanScheduler.list(loanId))
-      return (Array.isArray(data) ? data : []).map(mapSchedulerRow)
+      return (Array.isArray(data) ? data : [])
+        .map(mapSchedulerRow)
+        .sort(compareInstallmentOrder)
     },
     enabled: Number.isFinite(loanId) && loanId > 0,
   })
@@ -516,7 +544,7 @@ export default function LoanPrepayment() {
       return
     }
 
-    const rowsByInstallment = [...rows].sort((a, b) => (a.installmentNo || 0) - (b.installmentNo || 0))
+    const rowsByInstallment = [...rows].sort(compareInstallmentOrder)
     for (const row of selectedRows) {
       const status = normalizePrepaymentStatus(row.status)
       const amount = round2(row.paymentAmount || 0)
@@ -528,10 +556,17 @@ export default function LoanPrepayment() {
           const currentNo = row.installmentNo || 0
           if (candidateNo <= 0 || candidateNo >= currentNo) return false
           const candidateStatus = normalizePrepaymentStatus(candidate.status)
-          return (
-            candidateStatus === PREPAYMENT_STATUS.NOT_PAID ||
-            candidateStatus === PREPAYMENT_STATUS.OVERDUE
+          if (candidateStatus === PREPAYMENT_STATUS.NOT_PAID) return true
+          if (candidateStatus !== PREPAYMENT_STATUS.OVERDUE) return false
+          const laterInstallmentExists = rowsByInstallment.some(
+            (later) => (later.installmentNo || 0) > candidateNo
           )
+          return isUntransferredOverdueBlocking({
+            status: candidate.status,
+            paymentDate: candidate.paymentDate,
+            installmentNo: candidateNo,
+            laterInstallmentExists,
+          })
         })
         .sort((a, b) => (a.installmentNo || 0) - (b.installmentNo || 0))
       if (previousBlockingRows.length > 0) {
@@ -539,18 +574,18 @@ export default function LoanPrepayment() {
         const previousStatus = normalizePrepaymentStatus(firstBlockingRow.status)
         if (previousStatus === PREPAYMENT_STATUS.OVERDUE) {
           toast.error(
-            `Posting is not allowed. EMI ${firstBlockingRow.installmentNo} is overdue. Please clear the overdue EMI first through the Recovery Posting page.`
+            `Posting is not allowed. EMI ${firstBlockingRow.installmentLabel} is overdue. Please clear the overdue EMI first through the Recovery Posting page.`
           )
           return
         }
         const totalBlocking = previousBlockingRows.length
         if (totalBlocking === 1) {
           toast.error(
-            `EMI ${firstBlockingRow.installmentNo} is pending. Please clear EMI ${firstBlockingRow.installmentNo} before proceeding with EMI ${row.installmentNo}.`
+            `EMI ${firstBlockingRow.installmentLabel} is pending. Please clear EMI ${firstBlockingRow.installmentLabel} before proceeding with EMI ${row.installmentLabel}.`
           )
         } else {
           toast.error(
-            `EMI ${firstBlockingRow.installmentNo} is the first pending installment (${totalBlocking} pending before EMI ${row.installmentNo}). Clear from EMI ${firstBlockingRow.installmentNo} onward.`
+            `EMI ${firstBlockingRow.installmentLabel} is the first pending installment (${totalBlocking} pending before EMI ${row.installmentLabel}). Clear from EMI ${firstBlockingRow.installmentLabel} onward.`
           )
         }
         return
@@ -577,7 +612,7 @@ export default function LoanPrepayment() {
         return
       }
       if (amount <= 0) {
-        toast.error(`Week ${row.installmentNo}: payment amount must be greater than zero.`)
+        toast.error(`Week ${row.installmentLabel}: payment amount must be greater than zero.`)
         return
       }
       if (status === PREPAYMENT_STATUS.OVERDUE) {
@@ -587,20 +622,18 @@ export default function LoanPrepayment() {
         return
       }
       if (emi > 0 && amount > emi) {
-        toast.error(`Week ${row.installmentNo}: payment amount cannot exceed weekly due.`)
+        toast.error(`Week ${row.installmentLabel}: payment amount cannot exceed weekly due.`)
         return
       }
       if (!String(row.paymentMode || "").trim()) {
-        toast.error(`Week ${row.installmentNo}: select payment mode.`)
+        toast.error(`Week ${row.installmentLabel}: select payment mode.`)
         return
       }
     }
 
     // Business rule: if an earlier EMI in the current selection is partial,
     // a later EMI in the same selection must not be fully paid.
-    const sortedByInstallment = [...selectedRows].sort(
-      (a, b) => (a.installmentNo || 0) - (b.installmentNo || 0)
-    )
+    const sortedByInstallment = [...selectedRows].sort(compareInstallmentOrder)
     let hasPreviousPartial = false
     for (const row of sortedByInstallment) {
       const st = normalizePrepaymentStatus(row.status)
@@ -666,6 +699,7 @@ export default function LoanPrepayment() {
       if (selectedRows.length > 0 && isFullClosureSelection) {
         const receivedAmount = items.reduce((sum, item) => sum + Number(item.paymentAmount || 0), 0)
         await postPrepaymentRecoveries({
+          clientRequestId: crypto.randomUUID(),
           collectedBy: sessionUserId,
           items,
           skipLedgerTransaction: true,
@@ -696,6 +730,7 @@ export default function LoanPrepayment() {
         }
       } else if (selectedRows.length > 0) {
         const result = await postPrepaymentRecoveries({
+          clientRequestId: crypto.randomUUID(),
           collectedBy: sessionUserId,
           items,
         })
@@ -760,7 +795,9 @@ export default function LoanPrepayment() {
 
   const columns = useMemo<MRT_ColumnDef<PrepaymentRow>[]>(
     () => [
-      { accessorKey: "installmentNo", header: "Week No", size: 70 },
+      { accessorKey: "installmentNo", header: "Week No", size: 90,
+        Cell: ({ row }) => row.original.installmentLabel || String(row.original.installmentNo),
+      },
       {
         accessorKey: "scheduleDate",
         header: "Collection Date",
@@ -1125,7 +1162,8 @@ export default function LoanPrepayment() {
             enableExpanding={enableExpanding}
             renderDetailPanel={enableExpanding ? renderDetailPanel : undefined}
             enableColumnPinning
-            muiTableContainerProps={{ sx: { overflowX: "auto" } }}
+            enableStickyHeader
+            muiTableContainerProps={STANDARD_TABLE_CONTAINER_PROPS}
           />
         )}
       </section>

@@ -38,14 +38,19 @@ import {
 import {
   calculatePaymentSplitFromSchedule,
   deriveStatusFromAmounts,
+  isEarlierInstallmentBlocking,
   normalizeStatusValue,
   round2,
   RECOVERY_STATUS,
   validateRecoveryPostRows,
+  type SequentialScheduleCandidate,
 } from "./recoveryPostingCalculations"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { DateDisplay, DateInput } from "@/components/date"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
 
 const inputClass =
@@ -509,17 +514,26 @@ function RecoveryPostingList() {
           return { loanId, data }
         })
       )
-      const loanSchedulesByLoanId = new Map<number, Array<{ loanSchedulerId: number; installmentNo: number; status: string }>>()
+      const loanSchedulesByLoanId = new Map<number, SequentialScheduleCandidate[]>()
       for (const { loanId, data } of schedulerResponses) {
         const rawRows = Array.isArray(data) ? data : []
         const mapped = rawRows
-          .map((raw) => ({
-            loanSchedulerId: Number(
-              raw.LoanSchedulerId ?? raw.loanSchedulerId ?? raw.loanSchedulerID ?? raw.loanschedulerId ?? 0
-            ),
-            installmentNo: Number(raw.InstallmentNo ?? raw.installmentNo ?? 0),
-            status: normalizeStatusValue(String(raw.Status ?? raw.status ?? "")),
-          }))
+          .map((raw) => {
+            const parentRaw = raw.ParentLoanSchedulerId ?? raw.parentLoanSchedulerId
+            const parentNum = parentRaw == null || parentRaw === "" ? null : Number(parentRaw)
+            return {
+              loanSchedulerId: Number(
+                raw.LoanSchedulerId ?? raw.loanSchedulerId ?? raw.loanSchedulerID ?? raw.loanschedulerId ?? 0
+              ),
+              installmentNo: Number(raw.InstallmentNo ?? raw.installmentNo ?? 0),
+              status: normalizeStatusValue(String(raw.Status ?? raw.status ?? "")),
+              paymentDate: (raw.PaymentDate ?? raw.paymentDate ?? null) as string | Date | null,
+              actualEmiAmount: Number(raw.ActualEmiAmount ?? raw.actualEmiAmount ?? NaN),
+              parentLoanSchedulerId:
+                parentNum != null && !Number.isNaN(parentNum) && parentNum !== 0 ? parentNum : null,
+              subInstallmentSequence: Number(raw.SubInstallmentSequence ?? raw.subInstallmentSequence ?? 0),
+            } satisfies SequentialScheduleCandidate
+          })
           .filter((r) => r.loanSchedulerId > 0 && r.installmentNo > 0)
         loanSchedulesByLoanId.set(loanId, mapped)
       }
@@ -530,11 +544,17 @@ function RecoveryPostingList() {
         if (currentInstallmentNo <= 1) continue
         const scheduleRows = loanSchedulesByLoanId.get(row.loanId) ?? []
         const blockingRows = scheduleRows
-          .filter((candidate) => candidate.installmentNo < currentInstallmentNo)
           .filter((candidate) => {
             const effectiveStatus =
               selectedFinalStatusBySchedulerId.get(candidate.loanSchedulerId) ?? candidate.status
-            return effectiveStatus === RECOVERY_STATUS.NOT_PAID || effectiveStatus === RECOVERY_STATUS.OVERDUE
+            return isEarlierInstallmentBlocking({
+              candidate,
+              currentInstallmentNo,
+              allBases: scheduleRows,
+              effectiveStatus,
+              postingAsOverdueInSameBatch:
+                selectedFinalStatusBySchedulerId.get(candidate.loanSchedulerId) === RECOVERY_STATUS.OVERDUE,
+            })
           })
           .sort((a, b) => a.installmentNo - b.installmentNo)
         if (blockingRows.length > 0) {
@@ -611,6 +631,7 @@ function RecoveryPostingList() {
       }
 
       const result = await postRecoveryPosting({
+        clientRequestId: crypto.randomUUID(),
         collectedBy: effectiveCollectedById,
         items: rowsToPost.map((r) => ({
           ...(normalizeStatusValue(r.status) === RECOVERY_STATUS.OVERDUE
@@ -682,6 +703,8 @@ function RecoveryPostingList() {
         accessorKey: "installmentNo",
         header: "Installment",
         size: 100,
+        Cell: ({ row }) =>
+          row.original.installmentLabel ?? String(row.original.installmentNo),
       },
       {
         accessorKey: "actualEmiAmount",
@@ -999,7 +1022,9 @@ function RecoveryPostingList() {
             {hiddenColumnIds.includes("installmentNo") ? (
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Installment</dt>
-                <dd className="mt-0.5 text-sm tabular-nums">{r.installmentNo}</dd>
+                <dd className="mt-0.5 text-sm tabular-nums">
+                  {r.installmentLabel ?? r.installmentNo}
+                </dd>
               </div>
             ) : null}
             {hiddenColumnIds.includes("actualPrincipal") ? (
@@ -1271,6 +1296,7 @@ function RecoveryPostingList() {
             enableExpanding={enableExpanding}
             renderDetailPanel={enableExpanding ? renderDetailPanel : undefined}
             enableColumnPinning
+            enableStickyHeader
             enableFullScreenToggle={false}
             muiTablePaperProps={{
               elevation: 0,
@@ -1312,13 +1338,11 @@ function RecoveryPostingList() {
                 },
               },
             })}
-            muiTableContainerProps={{
-              sx: {
-                maxHeight: hasTableRows || isLoading ? "min(65vh, 680px)" : "none",
-                overflowY: hasTableRows || isLoading ? "auto" : "visible",
-                overflowX: "auto",
-              },
-            }}
+            muiTableContainerProps={
+              hasTableRows || isLoading
+                ? STANDARD_TABLE_CONTAINER_PROPS
+                : { sx: { overflowX: "auto" } }
+            }
           />
         </section>
       )}
