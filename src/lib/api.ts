@@ -217,6 +217,12 @@ export const api = {
         ? `${base}?scheduleDate=${encodeURIComponent(`${scheduleDateKey}T00:00:00`)}`
         : base
     },
+    myCollectionSchedules: (branchId: number, scheduleDateKey?: string) => {
+      const base = `${getApiBase()}/Report/my-collection-schedules/${branchId}`
+      return scheduleDateKey
+        ? `${base}?scheduleDate=${encodeURIComponent(`${scheduleDateKey}T00:00:00`)}`
+        : base
+    },
     /** Legacy flat endpoints — used as fallback when staff-schedules-report is not deployed. */
     staffSchedulesByBranch: (branchId: number) =>
       `${getApiBase()}/Report/staff-schedules-by-branch/${branchId}`,
