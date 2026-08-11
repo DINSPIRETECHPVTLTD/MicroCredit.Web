@@ -212,7 +212,7 @@ function mapSchedulerRow(raw: LoanSchedulerApiRow): PrepaymentRow {
     installmentNo: toNumber(raw.InstallmentNo ?? raw.installmentNo),
     subInstallmentSequence: toNumber(raw.SubInstallmentSequence ?? raw.subInstallmentSequence),
     parentLoanSchedulerId: (() => {
-      const v = raw.ParentLoanSchedulerId ?? raw.parentLoanSchedulerId
+      const v: unknown = raw.ParentLoanSchedulerId ?? raw.parentLoanSchedulerId
       if (v == null || v === "") return null
       const n = toNumber(v)
       return n > 0 ? n : null
