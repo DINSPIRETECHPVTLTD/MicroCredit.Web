@@ -26,6 +26,8 @@ export interface MemberByPocReportRow {
   amountPaid: number
   /** Schedule due datetime / key from API (ISO string or `YYYY-MM-DD`). */
   scheduleDate: string | null
+  /** Collected/paid datetime / key from API when the EMI has been posted. */
+  paymentDate: string | null
   statusRaw: string | boolean | null | undefined
   /** Loan scheduler status (e.g. NotPaid, Partial, Overdue, Claimed). */
   loanSchedulerStatus: string
@@ -41,6 +43,7 @@ export interface StaffReportMemberRow {
   loanStatus: string
   loanSchedulerId: number
   scheduleDate: string | null
+  paymentDate: string | null
   actualEmiAmount: number
   loanSchedulerStatus: string
 }

@@ -155,6 +155,10 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
     pickScheduleDateKey(raw.scheduleDate ?? raw.ScheduleDate) ??
     pickScheduleDateKey(raw.scheduleDateIso ?? raw.ScheduleDateIso)
 
+  const paymentDate =
+    pickScheduleDateKey(raw.paymentDate ?? raw.PaymentDate) ??
+    pickScheduleDateKey(raw.paymentDateIso ?? raw.PaymentDateIso)
+
   const loanSchedulerStatus = pickStr(
     raw.loanSchedulerStatus ?? raw.LoanSchedulerStatus ?? ""
   )
@@ -170,6 +174,7 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
     actualEmi,
     amountPaid: actualEmi,
     scheduleDate,
+    paymentDate,
     statusRaw,
     loanSchedulerStatus: loanSchedulerStatus || "NotPaid",
   }
@@ -202,6 +207,10 @@ function normalizeStaffReportMember(raw: Record<string, unknown>): StaffReportMe
     pickScheduleDateKey(raw.scheduleDate ?? raw.ScheduleDate) ??
     pickScheduleDateKey(raw.scheduleDateIso ?? raw.ScheduleDateIso)
 
+  const paymentDate =
+    pickScheduleDateKey(raw.paymentDate ?? raw.PaymentDate) ??
+    pickScheduleDateKey(raw.paymentDateIso ?? raw.PaymentDateIso)
+
   const loanSchedulerStatus = pickStr(raw.loanSchedulerStatus ?? raw.LoanSchedulerStatus)
 
   return {
@@ -219,6 +228,7 @@ function normalizeStaffReportMember(raw: Record<string, unknown>): StaffReportMe
     loanStatus: pickStr(raw.loanStatus ?? raw.LoanStatus) || "—",
     loanSchedulerId,
     scheduleDate,
+    paymentDate,
     actualEmiAmount: pickNum(raw.actualEmiAmount ?? raw.ActualEmiAmount),
     loanSchedulerStatus: loanSchedulerStatus || "NotPaid",
   }
@@ -480,6 +490,7 @@ function staffReportMemberToMemberByPocRow(m: StaffReportMemberRow): MemberByPoc
     actualEmi: m.actualEmiAmount,
     amountPaid: m.actualEmiAmount,
     scheduleDate: m.scheduleDate,
+    paymentDate: m.paymentDate,
     statusRaw: null,
     loanSchedulerStatus: m.loanSchedulerStatus,
   }

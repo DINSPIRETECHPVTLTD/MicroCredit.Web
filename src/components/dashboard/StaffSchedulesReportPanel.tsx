@@ -103,6 +103,7 @@ function toMemberDisplayRow(m: StaffReportMemberRow): MemberByPocReportRow {
     actualEmi: m.actualEmiAmount,
     amountPaid: m.actualEmiAmount,
     scheduleDate: m.scheduleDate,
+    paymentDate: m.paymentDate,
     statusRaw: null,
     loanSchedulerStatus: m.loanSchedulerStatus,
   }
@@ -124,7 +125,9 @@ function buildStaffTableRows(
       const membersForDay = isFetching
         ? poc.members
         : poc.members.filter(
-            (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
+            (m) =>
+              scheduleDateKey(m.scheduleDate) === activeScheduleDateKey ||
+              scheduleDateKey(m.paymentDate) === activeScheduleDateKey
           )
       if (membersForDay.length === 0) continue
 
@@ -210,6 +213,23 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
     ),
   },
   {
+    accessorKey: "paymentDate",
+    header: "Payment date",
+    Cell: ({ row }) => (
+      <span className="tabular-nums text-muted-foreground">
+        {formatScheduleDateDisplay(row.original.paymentDate)}
+      </span>
+    ),
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.paymentDate
+      const b = rowB.original.paymentDate
+      if (!a && !b) return 0
+      if (!a) return 1
+      if (!b) return -1
+      return new Date(a).getTime() - new Date(b).getTime()
+    },
+  },
+  {
     accessorKey: "amountPaid",
     header: "Actual EMI",
     Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
@@ -249,7 +269,7 @@ const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
   const table = useMaterialReactTable({
     columns: memberReportColumns,
     data: displayRows,
-    getRowId: (r) => `${r.memberId}-${r.scheduleDate ?? ""}`,
+    getRowId: (r) => `${r.memberId}-${r.scheduleDate ?? ""}-${r.paymentDate ?? ""}`,
     state: { columnVisibility: memberTableResponsive.columnVisibility },
     enableGlobalFilter: true,
     enablePagination: true,

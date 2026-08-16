@@ -215,7 +215,7 @@ const TABLE_VISIBILITY: Record<
     desktop: {},
   },
   staffScheduleMemberLines: {
-    mobile: { memberId: false, scheduleDate: false },
+    mobile: { memberId: false, scheduleDate: false, paymentDate: false },
     tablet: { memberId: false },
     desktop: {},
   },
