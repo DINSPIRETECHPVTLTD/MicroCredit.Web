@@ -200,7 +200,7 @@ const TABLE_VISIBILITY: Record<
     desktop: {},
   },
   dashboardMemberDetail: {
-    mobile: { memberId: false, scheduleDate: false },
+    mobile: { memberId: false, scheduleDate: false, paymentDate: false },
     tablet: { memberId: false },
     desktop: {},
   },

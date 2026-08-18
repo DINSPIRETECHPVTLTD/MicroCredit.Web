@@ -410,6 +410,23 @@ const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
     },
   },
   {
+    accessorKey: "paymentDate",
+    header: "Payment date",
+    Cell: ({ row }) => (
+      <span className="tabular-nums text-muted-foreground">
+        {formatScheduleDateDisplay(row.original.paymentDate)}
+      </span>
+    ),
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.paymentDate
+      const b = rowB.original.paymentDate
+      if (!a && !b) return 0
+      if (!a) return 1
+      if (!b) return -1
+      return new Date(a).getTime() - new Date(b).getTime()
+    },
+  },
+  {
     accessorKey: "amountPaid",
     header: "Actual EMI",
     Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
@@ -452,8 +469,9 @@ const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
 }) {
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
-      const key = scheduleDateKey(m.scheduleDate)
-      return key === activeScheduleDateKey
+      const scheduleKey = scheduleDateKey(m.scheduleDate)
+      const paymentKey = scheduleDateKey(m.paymentDate)
+      return scheduleKey === activeScheduleDateKey || paymentKey === activeScheduleDateKey
     })
   }, [members, activeScheduleDateKey])
 
@@ -530,7 +548,11 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
 
   const filteredMembers = useMemo(() => {
     if (isFetching) return members
-    return members.filter((m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey)
+    return members.filter(
+      (m) =>
+        scheduleDateKey(m.scheduleDate) === activeScheduleDateKey ||
+        scheduleDateKey(m.paymentDate) === activeScheduleDateKey
+    )
   }, [members, activeScheduleDateKey, isFetching])
 
   const membersByPoc = useMemo(() => {
