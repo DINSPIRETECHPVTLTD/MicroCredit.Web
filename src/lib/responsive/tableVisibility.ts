@@ -210,7 +210,7 @@ const TABLE_VISIBILITY: Record<
     desktop: {},
   },
   staffSchedulePoc: {
-    mobile: {},
+    mobile: { centerName: false },
     tablet: {},
     desktop: {},
   },

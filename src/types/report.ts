@@ -52,6 +52,7 @@ export interface StaffSchedulesPocNode {
   pocId: number
   pocFullName: string
   centerId: number
+  centerName: string
   members: StaffReportMemberRow[]
 }
 

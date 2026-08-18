@@ -249,7 +249,7 @@ function normalizePocCollectionStaffRow(
 function buildStaffSchedulesFromLegacyFlatRows(
   staffRows: Pick<StaffSchedulesStaffNode, "userId" | "userFullName" | "userRole">[],
   scheduleRows: StaffReportMemberRow[],
-  pocMeta: Map<number, { pocFullName: string; centerId: number; userId: number; userFullName: string; userRole: string }>
+  pocMeta: Map<number, { pocFullName: string; centerId: number; centerName: string; userId: number; userFullName: string; userRole: string }>
 ): StaffSchedulesReport {
   const staffById = new Map<number, StaffSchedulesStaffNode>()
   for (const staff of staffRows) {
@@ -283,6 +283,7 @@ function buildStaffSchedulesFromLegacyFlatRows(
         pocId: member.pocId,
         pocFullName: meta.pocFullName,
         centerId: meta.centerId,
+        centerName: meta.centerName,
         members: [],
       })
     }
@@ -308,7 +309,7 @@ function buildStaffSchedulesFromLegacyFlatRows(
 
 function normalizeLegacyStaffScheduleFlatRow(
   raw: Record<string, unknown>
-): { member: StaffReportMemberRow; pocMeta: { pocFullName: string; centerId: number; userId: number; userFullName: string; userRole: string } } | null {
+): { member: StaffReportMemberRow; pocMeta: { pocFullName: string; centerId: number; centerName: string; userId: number; userFullName: string; userRole: string } } | null {
   const member = normalizeStaffReportMember(raw)
   if (!member) return null
 
@@ -320,6 +321,7 @@ function normalizeLegacyStaffScheduleFlatRow(
     pocMeta: {
       pocFullName: pickStr(raw.pocFullName ?? raw.PocFullName) || "—",
       centerId: pickId(raw.centerId ?? raw.CenterId),
+      centerName: pickStr(raw.centerName ?? raw.CenterName ?? raw.center ?? raw.Center) || "—",
       userId,
       userFullName: pickStr(raw.userFullName ?? raw.UserFullName) || "—",
       userRole: pickStr(raw.userRole ?? raw.UserRole) || "—",
@@ -341,7 +343,7 @@ async function getStaffSchedulesReportFromLegacyEndpoints(
 
   const pocMeta = new Map<
     number,
-    { pocFullName: string; centerId: number; userId: number; userFullName: string; userRole: string }
+    { pocFullName: string; centerId: number; centerName: string; userId: number; userFullName: string; userRole: string }
   >()
   const scheduleRows: StaffReportMemberRow[] = []
 
@@ -353,6 +355,7 @@ async function getStaffSchedulesReportFromLegacyEndpoints(
       pocMeta.set(parsed.member.pocId, {
         pocFullName: parsed.pocMeta.pocFullName,
         centerId: parsed.pocMeta.centerId,
+        centerName: parsed.pocMeta.centerName,
         userId: parsed.pocMeta.userId,
         userFullName: parsed.pocMeta.userFullName,
         userRole: parsed.pocMeta.userRole,
@@ -379,6 +382,7 @@ function normalizeStaffSchedulesPocNode(raw: Record<string, unknown>): StaffSche
     pocId,
     pocFullName: pickStr(raw.pocFullName ?? raw.PocFullName) || "—",
     centerId: pickId(raw.centerId ?? raw.CenterId),
+    centerName: pickStr(raw.centerName ?? raw.CenterName ?? raw.center ?? raw.Center) || "—",
     members,
   }
 }
@@ -513,7 +517,7 @@ function buildMyCollectionFromStaffNode(
     pocs.push({
       pocId: poc.pocId,
       pocName: poc.pocFullName,
-      centerName: "—",
+      centerName: poc.centerName || "—",
       memberCount: new Set(poc.members.map((m) => m.memberId)).size,
       totalAmount: poc.members.reduce((sum, m) => sum + m.actualEmiAmount, 0),
       statusRaw: null,

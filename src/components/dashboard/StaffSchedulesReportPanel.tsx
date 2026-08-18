@@ -305,6 +305,7 @@ const StaffPocMemberDetailPanel = memo(function StaffPocMemberDetailPanel({
 
 const pocColumns: MRT_ColumnDef<StaffSchedulesPocTableRow>[] = [
   { accessorKey: "pocFullName", header: "POC Name" },
+  { accessorKey: "centerName", header: "Center Name" },
   {
     accessorKey: "resolvedMemberCount",
     header: "Members",
