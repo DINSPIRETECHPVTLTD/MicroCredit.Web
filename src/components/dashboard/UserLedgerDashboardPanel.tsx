@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import {
   MaterialReactTable,
@@ -13,7 +13,7 @@ import {
   Wallet,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { DateInput, DateDisplay } from "@/components/date"
+import { DateDisplay } from "@/components/date"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import {
   STANDARD_TABLE_CONTAINER_PROPS,
@@ -22,7 +22,7 @@ import {
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import { reportService } from "@/services/report.service"
 import type { UserLedgerTransactionRow } from "@/types/report"
-import { formatDisplayDate, getTodayDateInputValue } from "@/lib/date-time"
+import { formatDisplayDate } from "@/lib/date-time"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -43,10 +43,11 @@ function formatInr(amount: number): string {
   })
 }
 
-const ALL_DATES_KEY = ""
-
-export function UserLedgerDashboardPanel() {
-  const [selectedDateKey, setSelectedDateKey] = useState(() => getTodayDateInputValue())
+export function UserLedgerDashboardPanel({
+  selectedDateKey,
+}: {
+  selectedDateKey: string
+}) {
   const paymentDateKey = selectedDateKey || undefined
 
   const {
@@ -211,32 +212,6 @@ export function UserLedgerDashboardPanel() {
                 ? ` on ${formatDisplayDate(selectedDateKey)}.`
                 : "."}
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 self-start">
-            <label className="inline-flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Payment date</span>
-              <DateInput
-                value={selectedDateKey}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedDateKey(e.target.value)
-                  }
-                }}
-                className="w-auto px-2 py-1.5 text-xs font-medium shadow-sm"
-                aria-label="Filter by payment date"
-              />
-            </label>
-            {selectedDateKey ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-xs"
-                onClick={() => setSelectedDateKey(ALL_DATES_KEY)}
-              >
-                Show all dates
-              </Button>
-            ) : null}
           </div>
         </div>
 

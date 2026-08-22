@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import toast from "react-hot-toast"
 import { AlertCircle, HandCoins } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { DateInput } from "@/components/date"
 import { reportService } from "@/services/report.service"
 import type { StaffSchedulesReport } from "@/types/report"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
@@ -37,10 +36,6 @@ function localDateKey(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0")
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}`
-}
-
-function todayDateKey(): string {
-  return localDateKey(new Date())
 }
 
 function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
@@ -93,10 +88,13 @@ function flattenStaffScheduleLines(
 
 type StaffSchedulesReportPanelProps = {
   branchId: number
+  selectedDateKey: string
 }
 
-export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPanelProps) {
-  const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey)
+export function StaffSchedulesReportPanel({
+  branchId,
+  selectedDateKey,
+}: StaffSchedulesReportPanelProps) {
   const activeScheduleDateKey = selectedDateKey
 
   const {
@@ -151,19 +149,6 @@ export function StaffSchedulesReportPanel({ branchId }: StaffSchedulesReportPane
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="inline-flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Date</span>
-          <DateInput
-            value={selectedDateKey}
-            onChange={(e) => {
-              if (e.target.value) {
-                setSelectedDateKey(e.target.value)
-              }
-            }}
-            className="w-auto px-2 py-1 text-xs font-medium shadow-sm"
-            aria-label="Pick schedule date"
-          />
-        </label>
         <SummaryMetricCard
           title="Pending"
           value={`${pending.length} · ${formatInr(pendingEmi)}`}

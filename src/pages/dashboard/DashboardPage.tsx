@@ -36,10 +36,7 @@ import {
   type DashboardScheduleLine,
 } from "@/components/dashboard/PendingPaidScheduleGrids"
 import { DateInput } from "@/components/date"
-import {
-  formatDashboardClock,
-  formatOrgModeDateHighlight,
-} from "@/lib/date-time"
+import { formatOrgModeDateHighlight } from "@/lib/date-time"
 
 const EMPTY_POCS: PocBranchReportRow[] = []
 
@@ -84,17 +81,6 @@ function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
 }
 
 /** Isolated so the rest of the dashboard does not re-render every minute tick. */
-function DashboardClock() {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(new Date()), 60_000)
-    return () => window.clearInterval(t)
-  }, [])
-  return (
-    <p className="mt-1 text-sm text-muted-foreground">{formatDashboardClock(now)}</p>
-  )
-}
-
 function DashboardSkeleton() {
   return (
     <div className="space-y-6 [caret-color:transparent]">
@@ -290,8 +276,13 @@ function OrgDashboardHome() {
   )
 }
 
-function MyViewBranchReportSection({ branchId }: { branchId: number }) {
-  const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey)
+function MyViewBranchReportSection({
+  branchId,
+  selectedDateKey,
+}: {
+  branchId: number
+  selectedDateKey: string
+}) {
   const activeScheduleDateKey = selectedDateKey
   const sessionUserId = getSession()?.userId ?? 0
 
@@ -382,19 +373,6 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="inline-flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Date</span>
-          <DateInput
-            value={selectedDateKey}
-            onChange={(e) => {
-              if (e.target.value) {
-                setSelectedDateKey(e.target.value)
-              }
-            }}
-            className="w-auto px-2 py-1 text-xs font-medium shadow-sm"
-            aria-label="Pick schedule date"
-          />
-        </label>
         <SummaryMetricCard
           title="Pending"
           value={`${pending.length} · ${formatInr(pendingEmi)}`}
@@ -456,6 +434,7 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
   const { role } = getNormalizedSessionMeta(getSession())
   const isOwner = role === "Owner"
   const [dashboardSection, setDashboardSection] = useState<BranchDashboardSection>("myView")
+  const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey)
 
   const myViewFetching =
     useIsFetching({ queryKey: ["reportMyCollectionSchedules", branchId] }) > 0
@@ -480,12 +459,6 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
     void queryClient.invalidateQueries({ queryKey: ["reportMyCollectionSchedules", branchId] })
   }, [queryClient, branchId, dashboardSection])
 
-  const dashboardTitle = useMemo(() => {
-    if (dashboardSection === "myLedger") return "My Ledger Dashboard"
-    if (!isOwner) return "My View Dashboard"
-    return "Dashboard"
-  }, [dashboardSection, isOwner])
-
   const branchDashboardToggleOptions = useMemo((): SegmentedToggleOption<BranchDashboardSection>[] => {
     if (isOwner) {
       return [
@@ -501,11 +474,9 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
   }, [isOwner])
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{dashboardTitle}</h1>
-          <DashboardClock />
+    <div className="space-y-4">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <div className="min-w-0 justify-self-start overflow-x-auto">
           <SegmentedToggle
             value={dashboardSection}
             onChange={(section) => {
@@ -513,30 +484,45 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
               setDashboardSection(section)
             }}
             ariaLabel="Dashboard section"
-            className="mt-3 max-w-full flex-wrap"
-            buttonClassName="sm:min-w-28"
+            className="max-w-full"
+            buttonClassName="min-w-0 sm:min-w-24"
             options={branchDashboardToggleOptions}
           />
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={handleRefreshAll}
-          disabled={refreshSpinning}
-        >
-          <RefreshCw className={cn("h-4 w-4", refreshSpinning && "animate-spin")} aria-hidden />
-          Refresh
-        </Button>
+        <label className="inline-flex items-center gap-2 justify-self-center">
+          <span className="text-xs font-medium text-muted-foreground">Date</span>
+          <DateInput
+            value={selectedDateKey}
+            onChange={(e) => {
+              if (e.target.value) {
+                setSelectedDateKey(e.target.value)
+              }
+            }}
+            className="w-auto px-2 py-1 text-xs font-medium shadow-sm"
+            aria-label="Pick date"
+          />
+        </label>
+        <div className="justify-self-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleRefreshAll}
+            disabled={refreshSpinning}
+          >
+            <RefreshCw className={cn("h-4 w-4", refreshSpinning && "animate-spin")} aria-hidden />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {dashboardSection === "staffSchedules" && isOwner ? (
-        <StaffSchedulesReportPanel branchId={branchId} />
+        <StaffSchedulesReportPanel branchId={branchId} selectedDateKey={selectedDateKey} />
       ) : dashboardSection === "myLedger" ? (
-        <UserLedgerDashboardPanel />
+        <UserLedgerDashboardPanel selectedDateKey={selectedDateKey} />
       ) : (
-        <MyViewBranchReportSection branchId={branchId} />
+        <MyViewBranchReportSection branchId={branchId} selectedDateKey={selectedDateKey} />
       )}
     </div>
   )
