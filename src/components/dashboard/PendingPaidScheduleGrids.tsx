@@ -19,6 +19,7 @@ export type DashboardScheduleLine = {
   pocName: string
   centerName: string
   staffName?: string
+  staffUserId?: number
   scheduleDate: string | null
   paymentDate: string | null
   emiAmount: number

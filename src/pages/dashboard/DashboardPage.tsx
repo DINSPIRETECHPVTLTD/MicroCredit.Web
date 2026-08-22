@@ -15,6 +15,9 @@ import {
   HandCoins,
   Landmark,
   AlertCircle,
+  UserCheck,
+  Users,
+  CalendarClock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -32,11 +35,11 @@ import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedules
 import { UserLedgerDashboardPanel } from "@/components/dashboard/UserLedgerDashboardPanel"
 import {
   PendingPaidScheduleGrids,
-  splitPendingAndPaid,
   type DashboardScheduleLine,
 } from "@/components/dashboard/PendingPaidScheduleGrids"
 import { DateInput } from "@/components/date"
 import { formatOrgModeDateHighlight } from "@/lib/date-time"
+import { summarizeScheduleAmounts } from "@/lib/dashboard/report-status-totals"
 
 const EMPTY_POCS: PocBranchReportRow[] = []
 
@@ -334,11 +337,14 @@ function MyViewBranchReportSection({
     })
   }, [filteredMembers, pocs])
 
-  const { pending, paid } = useMemo(() => splitPendingAndPaid(scheduleLines), [scheduleLines])
-  const pendingEmi = pending.reduce((s, r) => s + r.emiAmount, 0)
-  const paidCollected = paid.reduce(
-    (s, r) => s + (r.paidAmount > 0 ? r.paidAmount : r.emiAmount),
-    0
+  const amountSummary = useMemo(() => summarizeScheduleAmounts(scheduleLines), [scheduleLines])
+  const totalPocs = useMemo(
+    () => new Set(filteredMembers.map((m) => m.pocId)).size,
+    [filteredMembers]
+  )
+  const totalMembers = useMemo(
+    () => new Set(filteredMembers.map((m) => m.memberId)).size,
+    [filteredMembers]
   )
 
   useEffect(() => {
@@ -374,16 +380,44 @@ function MyViewBranchReportSection({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SummaryMetricCard
-          title="Pending"
-          value={`${pending.length} · ${formatInr(pendingEmi)}`}
+          title="Total POCs"
+          value={String(totalPocs)}
+          icon={UserCheck}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Total Members"
+          value={String(totalMembers)}
+          icon={Users}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Total schedule amount"
+          value={formatInr(amountSummary.scheduleTotal)}
+          icon={IndianRupee}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Total Pending Amount"
+          value={formatInr(amountSummary.pendingTotal)}
           icon={AlertCircle}
           loading={isLoading || isFetching}
           compact
         />
         <SummaryMetricCard
-          title="Paid"
-          value={`${paid.length} · ${formatInr(paidCollected)}`}
+          title="Total Collected Amount"
+          value={formatInr(amountSummary.collectedTotal)}
           icon={HandCoins}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Total Pre/Post collected amount"
+          value={`${formatInr(amountSummary.preCollected)} / ${formatInr(amountSummary.postCollected)}`}
+          icon={CalendarClock}
           loading={isLoading || isFetching}
           compact
         />

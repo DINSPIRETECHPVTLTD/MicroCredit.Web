@@ -1,16 +1,16 @@
 import { useEffect, useMemo } from "react"
 import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import toast from "react-hot-toast"
-import { AlertCircle, HandCoins } from "lucide-react"
+import { AlertCircle, CalendarClock, HandCoins, IndianRupee, UserCheck, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { reportService } from "@/services/report.service"
 import type { StaffSchedulesReport } from "@/types/report"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import {
   PendingPaidScheduleGrids,
-  splitPendingAndPaid,
   type DashboardScheduleLine,
 } from "@/components/dashboard/PendingPaidScheduleGrids"
+import { summarizeScheduleAmounts } from "@/lib/dashboard/report-status-totals"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -73,6 +73,7 @@ function flattenStaffScheduleLines(
           pocName: poc.pocFullName,
           centerName: poc.centerName || "—",
           staffName: staffNode.userFullName,
+          staffUserId: staffNode.userId,
           scheduleDate: member.scheduleDate,
           paymentDate: member.paymentDate,
           emiAmount: member.actualEmiAmount,
@@ -118,11 +119,11 @@ export function StaffSchedulesReportPanel({
     () => flattenStaffScheduleLines(staffNodes, activeScheduleDateKey, isFetching),
     [staffNodes, activeScheduleDateKey, isFetching]
   )
-  const { pending, paid } = useMemo(() => splitPendingAndPaid(scheduleLines), [scheduleLines])
-  const pendingEmi = pending.reduce((s, r) => s + r.emiAmount, 0)
-  const paidCollected = paid.reduce(
-    (s, r) => s + (r.paidAmount > 0 ? r.paidAmount : r.emiAmount),
-    0
+  const amountSummary = useMemo(() => summarizeScheduleAmounts(scheduleLines), [scheduleLines])
+  const collectingStaff = staffNodes.length
+  const staffWithSchedules = useMemo(
+    () => new Set(scheduleLines.map((r) => r.staffUserId).filter((id): id is number => id != null)).size,
+    [scheduleLines]
   )
 
   useEffect(() => {
@@ -150,16 +151,44 @@ export function StaffSchedulesReportPanel({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SummaryMetricCard
-          title="Pending"
-          value={`${pending.length} · ${formatInr(pendingEmi)}`}
+          title="Collecting staff (branch)"
+          value={String(collectingStaff)}
+          icon={UserCheck}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Staff with schedules"
+          value={String(staffWithSchedules)}
+          icon={Users}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Total schedule amount"
+          value={formatInr(amountSummary.scheduleTotal)}
+          icon={IndianRupee}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Total Pending Amount"
+          value={formatInr(amountSummary.pendingTotal)}
           icon={AlertCircle}
           loading={isLoading || isFetching}
           compact
         />
         <SummaryMetricCard
-          title="Paid"
-          value={`${paid.length} · ${formatInr(paidCollected)}`}
+          title="Total Collected Amount"
+          value={formatInr(amountSummary.collectedTotal)}
           icon={HandCoins}
+          loading={isLoading || isFetching}
+          compact
+        />
+        <SummaryMetricCard
+          title="Total Pre/Post collected amount"
+          value={`${formatInr(amountSummary.preCollected)} / ${formatInr(amountSummary.postCollected)}`}
+          icon={CalendarClock}
           loading={isLoading || isFetching}
           compact
         />
