@@ -408,7 +408,7 @@ export function PendingPaidScheduleGrids({
     : "dashboardPaidSchedules"
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="flex flex-col gap-4">
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">Pending schedules</h2>
