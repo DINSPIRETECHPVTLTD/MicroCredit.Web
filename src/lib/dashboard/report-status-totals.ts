@@ -13,10 +13,15 @@ export function normalizeSchedulerStatus(status: string | null | undefined): str
 }
 
 export type DashboardStatusTotals = {
-  /** Sum of Actual EMI where status is Not Paid or Overdue. */
+  /** Sum of EMI where status is Not Paid, Overdue, or Partial. */
   outstandingTotal: number
-  /** Sum of Actual EMI where status is Paid or Partial Paid. */
+  /** Sum of paid amounts where status is Paid or Claimed. */
   collectedTotal: number
+}
+
+export function isPaidSchedulerStatus(status: string | null | undefined): boolean {
+  const s = normalizeSchedulerStatus(status)
+  return s === "paid" || s === "claimed"
 }
 
 export function sumEmiByStatusGroups(
@@ -29,9 +34,9 @@ export function sumEmiByStatusGroups(
     const amount = typeof row.amount === "number" && Number.isFinite(row.amount) ? row.amount : 0
     const status = normalizeSchedulerStatus(row.loanSchedulerStatus)
 
-    if (status === "not_paid" || status === "overdue") {
+    if (status === "not_paid" || status === "overdue" || status === "partial_paid") {
       outstandingTotal += amount
-    } else if (status === "paid" || status === "partial_paid") {
+    } else if (status === "paid" || status === "claimed") {
       collectedTotal += amount
     }
   }

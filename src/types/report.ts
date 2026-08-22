@@ -15,10 +15,12 @@ export interface MemberByPocReportRow {
   memberId: string
   memberCode: string | null
   memberName: string
-  /** Scheduled due EMI amount (API field naming varies). */
+  /** Scheduled EMI amount. */
   due: number
-  /** Actual EMI amount paid/collected (API field naming varies). */
+  /** Actual EMI amount (scheduled EMI). */
   actualEmi: number
+  /** Amount collected on this installment. */
+  paidAmount: number
   /**
    * Back-compat alias for existing UI columns.
    * Prefer `actualEmi` for new logic.
@@ -45,6 +47,7 @@ export interface StaffReportMemberRow {
   scheduleDate: string | null
   paymentDate: string | null
   actualEmiAmount: number
+  paidAmount: number
   loanSchedulerStatus: string
 }
 

@@ -20,9 +20,13 @@ export type TableVisibilityKey =
   | "recoveryPosting"
   | "dashboardPoc"
   | "dashboardMemberDetail"
+  | "dashboardPendingSchedules"
+  | "dashboardPaidSchedules"
   | "staffScheduleStaff"
   | "staffSchedulePoc"
   | "staffScheduleMemberLines"
+  | "staffSchedulePendingLines"
+  | "staffSchedulePaidLines"
   | "userLedgerDashboard"
 
 type VisibilityMap = Record<string, boolean>
@@ -204,6 +208,16 @@ const TABLE_VISIBILITY: Record<
     tablet: { memberId: false },
     desktop: {},
   },
+  dashboardPendingSchedules: {
+    mobile: { pocName: false, centerName: false, paymentDate: false },
+    tablet: { centerName: false },
+    desktop: {},
+  },
+  dashboardPaidSchedules: {
+    mobile: { pocName: false, centerName: false, paymentDate: false },
+    tablet: { centerName: false },
+    desktop: {},
+  },
   staffScheduleStaff: {
     mobile: { userRole: false, scheduleCount: false },
     tablet: { scheduleCount: false },
@@ -217,6 +231,16 @@ const TABLE_VISIBILITY: Record<
   staffScheduleMemberLines: {
     mobile: { memberId: false, scheduleDate: false, paymentDate: false },
     tablet: { memberId: false },
+    desktop: {},
+  },
+  staffSchedulePendingLines: {
+    mobile: { staffName: false, pocName: false, centerName: false },
+    tablet: { staffName: false, centerName: false },
+    desktop: {},
+  },
+  staffSchedulePaidLines: {
+    mobile: { staffName: false, pocName: false, centerName: false },
+    tablet: { staffName: false, centerName: false },
     desktop: {},
   },
   userLedgerDashboard: {

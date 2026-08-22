@@ -141,9 +141,12 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
       raw.ActualEmi ??
       raw.actualEmiAmount ??
       raw.ActualEmiAmount ??
-      // Fallback: keep legacy behavior when the API doesn't separate due vs actual.
+      raw.emiAmount ??
+      raw.EmiAmount ??
       amountPaid
   )
+
+  const paidAmount = pickNum(raw.paymentAmount ?? raw.PaymentAmount)
 
   const statusRaw = (raw.status ?? raw.Status ?? raw.paymentStatus ?? raw.PaymentStatus) as
     | string
@@ -170,8 +173,9 @@ function normalizeMemberRow(raw: Record<string, unknown>): MemberByPocReportRow 
     memberId,
     memberCode,
     memberName: memberName || "—",
-    due,
+    due: due || actualEmi,
     actualEmi,
+    paidAmount,
     amountPaid: actualEmi,
     scheduleDate,
     paymentDate,
@@ -230,6 +234,7 @@ function normalizeStaffReportMember(raw: Record<string, unknown>): StaffReportMe
     scheduleDate,
     paymentDate,
     actualEmiAmount: pickNum(raw.actualEmiAmount ?? raw.ActualEmiAmount),
+    paidAmount: pickNum(raw.paymentAmount ?? raw.PaymentAmount ?? raw.paidAmount ?? raw.PaidAmount),
     loanSchedulerStatus: loanSchedulerStatus || "NotPaid",
   }
 }
@@ -492,6 +497,7 @@ function staffReportMemberToMemberByPocRow(m: StaffReportMemberRow): MemberByPoc
     memberName: m.memberFullName,
     due: m.actualEmiAmount,
     actualEmi: m.actualEmiAmount,
+    paidAmount: m.paidAmount,
     amountPaid: m.actualEmiAmount,
     scheduleDate: m.scheduleDate,
     paymentDate: m.paymentDate,

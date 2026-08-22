@@ -1,26 +1,15 @@
 import {
-  memo,
   useCallback,
   useEffect,
   useMemo,
   useState,
-  type MouseEvent,
 } from "react"
 import { Link } from "react-router-dom"
 import { useIsFetching, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query"
-import {
-  MaterialReactTable,
-  useMaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_Row,
-  type MRT_TableInstance,
-} from "material-react-table"
 import toast from "react-hot-toast"
 import {
   RefreshCw,
-  Users,
   IndianRupee,
-  UserCheck,
   Wallet,
   TrendingUp,
   HandCoins,
@@ -33,7 +22,7 @@ import { getBranch, getSession } from "@/services/auth.service"
 import { getNormalizedSessionMeta } from "@/lib/authz"
 import { reportService } from "@/services/report.service"
 import { dashboardService } from "@/services/dashboard.service"
-import type { MemberByPocReportRow, PocBranchReportRow } from "@/types/report"
+import type { PocBranchReportRow } from "@/types/report"
 import type { DashboardChartItem } from "@/types/dashboard"
 import { SummaryMetricCard } from "@/components/dashboard/SummaryMetricCard"
 import { HorizontalBarChart } from "@/components/dashboard/HorizontalBarChart"
@@ -42,46 +31,17 @@ import { SegmentedToggle, type SegmentedToggleOption } from "@/components/dashbo
 import { StaffSchedulesReportPanel } from "@/components/dashboard/StaffSchedulesReportPanel"
 import { UserLedgerDashboardPanel } from "@/components/dashboard/UserLedgerDashboardPanel"
 import {
-  STANDARD_TABLE_CONTAINER_PROPS,
-  useResponsiveTable,
-} from "@/lib/responsive/useResponsiveTable"
-import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
-import { formatMemberRef } from "@/lib/members/format-member-ref"
+  PendingPaidScheduleGrids,
+  splitPendingAndPaid,
+  type DashboardScheduleLine,
+} from "@/components/dashboard/PendingPaidScheduleGrids"
 import { DateInput } from "@/components/date"
 import {
   formatDashboardClock,
-  formatDisplayDate,
   formatOrgModeDateHighlight,
 } from "@/lib/date-time"
-import { sumEmiByStatusGroups } from "@/lib/dashboard/report-status-totals"
-
-/** POC row with counts/amounts derived from members-by-poc (POC API often omits memberCount/totalAmount). */
-type PocTableRow = PocBranchReportRow & {
-  resolvedMemberCount: number | null
-  resolvedTotalAmount: number | null
-}
-
-function countDistinctMemberIds(rows: MemberByPocReportRow[]): number {
-  return new Set(rows.map((m) => m.memberId)).size
-}
-
-function sumMemberEmi(members: MemberByPocReportRow[] | undefined): number {
-  if (!members?.length) return 0
-  return members.reduce((sum, m) => {
-    const n = m.amountPaid
-    return sum + (typeof n === "number" && Number.isFinite(n) ? n : 0)
-  }, 0)
-}
 
 const EMPTY_POCS: PocBranchReportRow[] = []
-const EMPTY_MEMBERS: MemberByPocReportRow[] = []
-
-const POC_TABLE_INITIAL_STATE = {
-  pagination: { pageSize: 10, pageIndex: 0 },
-  showColumnFilters: false,
-} as const
-
-const MUI_DETAIL_PANEL_SX = { sx: { backgroundColor: "transparent" } } as const
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -121,22 +81,6 @@ function scheduleDateKey(scheduleIsoOrKey: string | null): string | null {
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return null
   return localDateKey(d)
-}
-
-/** Label relative to local today / tomorrow, otherwise the display date. */
-function emiDueDayLabel(scheduleIsoOrKey: string | null): string | null {
-  const dueKey = scheduleDateKey(scheduleIsoOrKey)
-  if (!dueKey) return null
-  const todayKey = todayDateKey()
-  if (dueKey === todayKey) return "Today"
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  if (dueKey === localDateKey(tomorrow)) return "Tomorrow"
-  return formatDisplayDate(dueKey)
-}
-
-function formatScheduleDateDisplay(scheduleIso: string | null): string {
-  return formatDisplayDate(scheduleIso)
 }
 
 /** Isolated so the rest of the dashboard does not re-render every minute tick. */
@@ -346,182 +290,6 @@ function OrgDashboardHome() {
   )
 }
 
-const memberReportColumns: MRT_ColumnDef<MemberByPocReportRow>[] = [
-  {
-    id: "memberRef",
-    header: "Member Code/ID",
-    accessorFn: (row) => formatMemberRef(row.memberId, row.memberCode),
-    Cell: ({ row }) => (
-      <span className="tabular-nums font-mono text-xs">
-        {formatMemberRef(row.original.memberId, row.original.memberCode)}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "memberName",
-    header: "Member Name",
-  },
-  {
-    id: "dueDay",
-    header: "Due",
-    accessorFn: (row) => emiDueDayLabel(row.scheduleDate) ?? "",
-    Cell: ({ row }) => {
-      const label = emiDueDayLabel(row.original.scheduleDate)
-      if (label === "Today") {
-        return (
-          <span className="inline-flex rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
-            Today
-          </span>
-        )
-      }
-      if (label === "Tomorrow") {
-        return (
-          <span className="inline-flex rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-200">
-            Tomorrow
-          </span>
-        )
-      }
-      if (label) {
-        return (
-          <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {label}
-          </span>
-        )
-      }
-      return <span className="text-muted-foreground">—</span>
-    },
-    filterFn: "equals",
-  },
-  {
-    accessorKey: "scheduleDate",
-    header: "Schedule date",
-    Cell: ({ row }) => (
-      <span className="tabular-nums text-muted-foreground">
-        {formatScheduleDateDisplay(row.original.scheduleDate)}
-      </span>
-    ),
-    sortingFn: (rowA, rowB) => {
-      const a = rowA.original.scheduleDate
-      const b = rowB.original.scheduleDate
-      if (!a && !b) return 0
-      if (!a) return 1
-      if (!b) return -1
-      return new Date(a).getTime() - new Date(b).getTime()
-    },
-  },
-  {
-    accessorKey: "paymentDate",
-    header: "Payment date",
-    Cell: ({ row }) => (
-      <span className="tabular-nums text-muted-foreground">
-        {formatScheduleDateDisplay(row.original.paymentDate)}
-      </span>
-    ),
-    sortingFn: (rowA, rowB) => {
-      const a = rowA.original.paymentDate
-      const b = rowB.original.paymentDate
-      if (!a && !b) return 0
-      if (!a) return 1
-      if (!b) return -1
-      return new Date(a).getTime() - new Date(b).getTime()
-    },
-  },
-  {
-    accessorKey: "amountPaid",
-    header: "Actual EMI",
-    Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
-  },
-  {
-    accessorKey: "loanSchedulerStatus",
-    header: "Status",
-    Cell: ({ cell }) => {
-      const status = String(cell.getValue() ?? "")
-      const colorMap: Record<string, string> = {
-        Paid: "bg-green-500/15 text-green-800 dark:text-green-200",
-        "Not Paid": "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
-        NotPaid: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-200",
-        "Partial Paid": "bg-blue-500/15 text-blue-800 dark:text-blue-200",
-        Partial: "bg-blue-500/15 text-blue-800 dark:text-blue-200",
-        Overdue: "bg-red-500/15 text-red-800 dark:text-red-200",
-        Claimed: "bg-purple-500/15 text-purple-800 dark:text-purple-200",
-      }
-      const cls = colorMap[status] ?? "bg-muted text-muted-foreground"
-      return (
-        <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${cls}`}>
-          {status || "—"}
-        </span>
-      )
-    },
-    filterFn: "equals",
-  },
-]
-
-const PocMemberDetailPanel = memo(function PocMemberDetailPanel({
-  members,
-  isLoading,
-  isError,
-  activeScheduleDateKey,
-}: {
-  members: MemberByPocReportRow[]
-  isLoading: boolean
-  isError: boolean
-  activeScheduleDateKey: string
-}) {
-  const filteredMembers = useMemo(() => {
-    return members.filter((m) => {
-      const scheduleKey = scheduleDateKey(m.scheduleDate)
-      const paymentKey = scheduleDateKey(m.paymentDate)
-      return scheduleKey === activeScheduleDateKey || paymentKey === activeScheduleDateKey
-    })
-  }, [members, activeScheduleDateKey])
-
-  const memberTableResponsive = useResponsiveTable("dashboardMemberDetail")
-
-  const memberTable = useMaterialReactTable({
-    columns: memberReportColumns,
-    data: filteredMembers,
-    state: { isLoading, columnVisibility: memberTableResponsive.columnVisibility },
-    enableGlobalFilter: true,
-    enablePagination: true,
-    enableSorting: true,
-    enableColumnFilters: true,
-    enableTopToolbar: true,
-    enableFullScreenToggle: false,
-    enableStickyHeader: true,
-    enableExpanding: memberTableResponsive.enableExpanding,
-    renderDetailPanel: memberTableResponsive.enableExpanding
-      ? renderHiddenColumnsDetailPanel(memberReportColumns, memberTableResponsive.hiddenColumnIds)
-      : undefined,
-    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
-    muiTableBodyCellProps: () => ({
-      sx: {
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        caretColor: "transparent",
-      },
-    }),
-    initialState: {
-      pagination: { pageSize: 10, pageIndex: 0 },
-    },
-    muiSearchTextFieldProps: {
-      placeholder: "Search by name or ID…",
-    },
-  })
-
-  return (
-    <div
-      className="border-t border-border bg-muted/30 px-2 py-4 sm:px-4"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {isError ? (
-        <p className="text-sm text-destructive">Failed to load members.</p>
-      ) : (
-        <MaterialReactTable table={memberTable} />
-      )}
-    </div>
-  )
-})
-
 function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey)
   const activeScheduleDateKey = selectedDateKey
@@ -544,7 +312,7 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   })
 
   const pocs = collectionReport?.pocs ?? EMPTY_POCS
-  const members = collectionReport?.members ?? EMPTY_MEMBERS
+  const members = collectionReport?.members ?? []
 
   const filteredMembers = useMemo(() => {
     if (isFetching) return members
@@ -555,189 +323,38 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
     )
   }, [members, activeScheduleDateKey, isFetching])
 
-  const membersByPoc = useMemo(() => {
-    const map = new Map<number, MemberByPocReportRow[]>()
-    for (const row of filteredMembers) {
-      const existing = map.get(row.pocId)
-      if (existing) existing.push(row)
-      else map.set(row.pocId, [row])
-    }
-    return map
-  }, [filteredMembers])
-
-  const totalMembersInBranch = countDistinctMemberIds(filteredMembers)
-  const totalAmountInBranch = sumMemberEmi(filteredMembers)
-
-  const statusTotals = useMemo(
-    () =>
-      sumEmiByStatusGroups(
-        filteredMembers.map((m) => ({
-          loanSchedulerStatus: m.loanSchedulerStatus,
-          amount: m.amountPaid,
-        }))
-      ),
-    [filteredMembers]
-  )
-
-  const pocTableRows: PocTableRow[] = useMemo(() => {
-    return pocs.map((poc) => {
-      if (isLoading && collectionReport === undefined) {
-        return { ...poc, resolvedMemberCount: null, resolvedTotalAmount: null }
-      }
-
-      const pocMembers = membersByPoc.get(poc.pocId) ?? []
+  const scheduleLines = useMemo<DashboardScheduleLine[]>(() => {
+    const pocById = new Map(pocs.map((p) => [p.pocId, p]))
+    return filteredMembers.map((m, index) => {
+      const poc = pocById.get(m.pocId)
       return {
-        ...poc,
-        resolvedMemberCount: countDistinctMemberIds(pocMembers),
-        resolvedTotalAmount: sumMemberEmi(pocMembers),
+        id: `${m.memberId}-${m.scheduleDate ?? ""}-${m.paymentDate ?? ""}-${index}`,
+        memberId: m.memberId,
+        memberCode: m.memberCode,
+        memberName: m.memberName,
+        pocName: poc?.pocName || "—",
+        centerName: poc?.centerName || "—",
+        scheduleDate: m.scheduleDate,
+        paymentDate: m.paymentDate,
+        emiAmount: m.actualEmi,
+        paidAmount: m.paidAmount,
+        loanSchedulerStatus: m.loanSchedulerStatus,
       }
     })
-  }, [pocs, membersByPoc, isLoading, collectionReport])
+  }, [filteredMembers, pocs])
 
-  const visiblePocTableRows = useMemo(() => {
-    if (isLoading && collectionReport === undefined) {
-      return []
-    }
-    return pocTableRows.filter((row) => (row.resolvedMemberCount ?? 0) > 0)
-  }, [pocTableRows, isLoading, collectionReport])
-
-  const totalPocs = visiblePocTableRows.length
+  const { pending, paid } = useMemo(() => splitPendingAndPaid(scheduleLines), [scheduleLines])
+  const pendingEmi = pending.reduce((s, r) => s + r.emiAmount, 0)
+  const paidCollected = paid.reduce(
+    (s, r) => s + (r.paidAmount > 0 ? r.paidAmount : r.emiAmount),
+    0
+  )
 
   useEffect(() => {
     if (isError && error) {
       toast.error(getApiErrorMessage(error, "Failed to load your collection schedules"))
     }
   }, [isError, error])
-
-  const renderPocDetailPanel = useCallback(
-    ({ row }: { row: MRT_Row<PocTableRow> }) => (
-      <PocMemberDetailPanel
-        members={membersByPoc.get(row.original.pocId) ?? EMPTY_MEMBERS}
-        isLoading={isLoading || isFetching}
-        isError={isError}
-        activeScheduleDateKey={activeScheduleDateKey}
-      />
-    ),
-    [membersByPoc, isError, isFetching, isLoading, activeScheduleDateKey]
-  )
-
-  const getPocTableBodyRowProps = useCallback(
-    ({
-      row,
-      table,
-      isDetailPanel,
-    }: {
-      row: MRT_Row<PocTableRow>
-      table: MRT_TableInstance<PocTableRow>
-      isDetailPanel?: boolean
-    }) => {
-      if (isDetailPanel) {
-        return {}
-      }
-      return {
-        onClick: (e: MouseEvent<HTMLTableRowElement>) => {
-          if ((e.target as HTMLElement).closest("button")) return
-          const open = !row.getIsExpanded()
-          table.setExpanded(open ? { [row.id]: true } : {})
-        },
-        sx: {
-          cursor: "pointer",
-          userSelect: "none",
-          caretColor: "transparent",
-          "&:nth-of-type(even)": {
-            backgroundColor: "action.hover",
-          },
-          "&:hover": {
-            backgroundColor: "action.selected",
-          },
-        },
-      }
-    },
-    []
-  )
-
-  const pocColumns = useMemo<MRT_ColumnDef<PocTableRow>[]>(
-    () => [
-      {
-        accessorKey: "pocName",
-        header: "POC Name",
-      },
-      {
-        accessorKey: "centerName",
-        header: "Center Name",
-      },
-      {
-        accessorKey: "resolvedMemberCount",
-        header: "Total Members",
-        muiTableHeadCellProps: {
-          sx: { textAlign: "right" },
-        },
-        muiTableBodyCellProps: {
-          sx: { textAlign: "right" },
-        },
-        Cell: ({ cell }) => {
-          const v = cell.getValue<number | null>()
-          if (v === null) {
-            return <span className="text-muted-foreground">…</span>
-          }
-          return <span className="tabular-nums">{v}</span>
-        },
-      },
-      {
-        accessorKey: "resolvedTotalAmount",
-        header: "Total Amount",
-        muiTableHeadCellProps: {
-          sx: { textAlign: "right" },
-        },
-        muiTableBodyCellProps: {
-          sx: { textAlign: "right" },
-        },
-        Cell: ({ cell }) => {
-          const v = cell.getValue<number | null>()
-          if (v === null) {
-            return <span className="text-muted-foreground">…</span>
-          }
-          return formatInr(v)
-        },
-      },
-    ],
-    []
-  )
-
-  const pocTableResponsive = useResponsiveTable("dashboardPoc")
-
-  const pocTable = useMaterialReactTable({
-    columns: pocColumns,
-    data: visiblePocTableRows,
-    getRowId: (row) => String(row.pocId),
-    state: {
-      isLoading: isLoading && collectionReport === undefined,
-      showProgressBars: isFetching,
-      columnVisibility: pocTableResponsive.columnVisibility,
-    },
-    enableGlobalFilter: true,
-    enablePagination: true,
-    enableSorting: true,
-    enableColumnFilters: true,
-    enableStickyHeader: true,
-    enableKeyboardShortcuts: false,
-    enableExpandAll: false,
-    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
-    muiTableBodyCellProps: () => ({
-      sx: {
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        caretColor: "transparent",
-      },
-    }),
-    renderDetailPanel: renderPocDetailPanel,
-    initialState: { ...POC_TABLE_INITIAL_STATE },
-    muiTableBodyRowProps: getPocTableBodyRowProps,
-    muiDetailPanelProps: MUI_DETAIL_PANEL_SX,
-    muiSearchTextFieldProps: {
-      placeholder: "Search POCs…",
-    },
-  })
 
   if (sessionUserId <= 0) {
     return (
@@ -763,77 +380,41 @@ function MyViewBranchReportSection({ branchId }: { branchId: number }) {
   }
 
   return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Date</span>
+          <DateInput
+            value={selectedDateKey}
+            onChange={(e) => {
+              if (e.target.value) {
+                setSelectedDateKey(e.target.value)
+              }
+            }}
+            className="w-auto px-2 py-1 text-xs font-medium shadow-sm"
+            aria-label="Pick schedule date"
+          />
+        </label>
         <SummaryMetricCard
-          title="Total POCs"
-          value={String(totalPocs)}
-          icon={UserCheck}
-          loading={isLoading || isFetching}
-        />
-        <SummaryMetricCard
-          title="Total Members"
-          value={String(totalMembersInBranch)}
-          icon={Users}
-          loading={isLoading || isFetching}
-        />
-        <SummaryMetricCard
-          title="Total schedule amount"
-          value={formatInr(totalAmountInBranch)}
-          icon={IndianRupee}
-          loading={isLoading || isFetching}
-        />
-        <SummaryMetricCard
-          title="Total Pending Amount"
-          value={formatInr(statusTotals.outstandingTotal)}
+          title="Pending"
+          value={`${pending.length} · ${formatInr(pendingEmi)}`}
           icon={AlertCircle}
           loading={isLoading || isFetching}
+          compact
         />
         <SummaryMetricCard
-          title="Total Collected Amount"
-          value={formatInr(statusTotals.collectedTotal)}
+          title="Paid"
+          value={`${paid.length} · ${formatInr(paidCollected)}`}
           icon={HandCoins}
           loading={isLoading || isFetching}
+          compact
         />
       </div>
-
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 [caret-color:transparent]">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">My collection schedules</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              POCs assigned to you for collection
-              {collectionReport?.userFullName ? ` (${collectionReport.userFullName})` : ""}.
-              Pick a date, then expand a row to view member schedules.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 self-start">
-            <label className="inline-flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Date</span>
-              <DateInput
-                value={selectedDateKey}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedDateKey(e.target.value)
-                  }
-                }}
-                className="w-auto px-2 py-1.5 text-xs font-medium shadow-sm"
-                aria-label="Pick schedule date"
-              />
-            </label>
-          </div>
-        </div>
-        {visiblePocTableRows.length === 0 && !isLoading && collectionReport !== undefined ? (
-          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-            No schedules are assigned to you for the selected date.
-          </div>
-        ) : (
-          <div className="[caret-color:transparent]">
-            <MaterialReactTable table={pocTable} />
-          </div>
-        )}
-      </div>
-    </>
+      <PendingPaidScheduleGrids
+        rows={scheduleLines}
+        isLoading={isLoading || isFetching}
+      />
+    </div>
   )
 }
 
