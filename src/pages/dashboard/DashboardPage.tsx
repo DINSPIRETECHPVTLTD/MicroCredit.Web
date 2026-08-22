@@ -323,6 +323,7 @@ function MyViewBranchReportSection({
         memberId: m.memberId,
         memberCode: m.memberCode,
         memberName: m.memberName,
+        pocId: m.pocId,
         pocName: poc?.pocName || "—",
         centerName: poc?.centerName || "—",
         scheduleDate: m.scheduleDate,

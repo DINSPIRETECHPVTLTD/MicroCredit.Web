@@ -68,6 +68,7 @@ function flattenStaffScheduleLines(
           memberId: String(member.memberId),
           memberCode: member.memberCode,
           memberName: member.memberFullName,
+          pocId: member.pocId,
           pocName: poc.pocFullName,
           centerName: poc.centerName || "—",
           staffName: staffNode.userFullName,

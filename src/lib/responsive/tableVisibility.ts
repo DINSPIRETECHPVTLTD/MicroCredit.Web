@@ -22,11 +22,15 @@ export type TableVisibilityKey =
   | "dashboardMemberDetail"
   | "dashboardPendingSchedules"
   | "dashboardPaidSchedules"
+  | "dashboardPendingPoc"
+  | "dashboardPaidPoc"
   | "staffScheduleStaff"
   | "staffSchedulePoc"
   | "staffScheduleMemberLines"
   | "staffSchedulePendingLines"
   | "staffSchedulePaidLines"
+  | "staffSchedulePendingPoc"
+  | "staffSchedulePaidPoc"
   | "userLedgerDashboard"
 
 type VisibilityMap = Record<string, boolean>
@@ -209,13 +213,23 @@ const TABLE_VISIBILITY: Record<
     desktop: {},
   },
   dashboardPendingSchedules: {
-    mobile: { pocName: false, centerName: false, paymentDate: false },
-    tablet: { centerName: false },
+    mobile: { paymentDate: false },
+    tablet: {},
     desktop: {},
   },
   dashboardPaidSchedules: {
-    mobile: { pocName: false, centerName: false, paymentDate: false },
-    tablet: { centerName: false },
+    mobile: { paymentDate: false },
+    tablet: {},
+    desktop: {},
+  },
+  dashboardPendingPoc: {
+    mobile: {},
+    tablet: {},
+    desktop: {},
+  },
+  dashboardPaidPoc: {
+    mobile: {},
+    tablet: {},
     desktop: {},
   },
   staffScheduleStaff: {
@@ -234,13 +248,23 @@ const TABLE_VISIBILITY: Record<
     desktop: {},
   },
   staffSchedulePendingLines: {
-    mobile: { staffName: false, pocName: false, centerName: false, paymentDate: false },
-    tablet: { staffName: false, centerName: false },
+    mobile: { paymentDate: false },
+    tablet: {},
     desktop: {},
   },
   staffSchedulePaidLines: {
-    mobile: { staffName: false, pocName: false, centerName: false, paymentDate: false },
-    tablet: { staffName: false, centerName: false },
+    mobile: { paymentDate: false },
+    tablet: {},
+    desktop: {},
+  },
+  staffSchedulePendingPoc: {
+    mobile: { staffName: false, centerName: false },
+    tablet: { staffName: false },
+    desktop: {},
+  },
+  staffSchedulePaidPoc: {
+    mobile: { staffName: false, centerName: false },
+    tablet: { staffName: false },
     desktop: {},
   },
   userLedgerDashboard: {

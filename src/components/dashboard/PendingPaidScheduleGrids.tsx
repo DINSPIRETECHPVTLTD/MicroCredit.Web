@@ -1,13 +1,18 @@
-import { useMemo } from "react"
+import { memo, useCallback, useMemo, type MouseEvent } from "react"
 import {
   MaterialReactTable,
   useMaterialReactTable,
   type MRT_ColumnDef,
+  type MRT_Row,
+  type MRT_TableInstance,
 } from "material-react-table"
 import { formatDisplayDate } from "@/lib/date-time"
 import { formatMemberRef } from "@/lib/members/format-member-ref"
 import { isPaidSchedulerStatus } from "@/lib/dashboard/report-status-totals"
-import { useResponsiveTable } from "@/lib/responsive/useResponsiveTable"
+import {
+  STANDARD_TABLE_CONTAINER_PROPS,
+  useResponsiveTable,
+} from "@/lib/responsive/useResponsiveTable"
 import { renderHiddenColumnsDetailPanel } from "@/components/table/HiddenColumnsDetailPanel"
 import type { TableVisibilityKey } from "@/lib/responsive/tableVisibility"
 
@@ -16,6 +21,7 @@ export type DashboardScheduleLine = {
   memberId: string
   memberCode: string | null
   memberName: string
+  pocId?: number
   pocName: string
   centerName: string
   staffName?: string
@@ -26,6 +32,19 @@ export type DashboardScheduleLine = {
   paidAmount: number
   loanSchedulerStatus: string
 }
+
+type PocCenterGroup = {
+  id: string
+  pocName: string
+  centerName: string
+  staffName?: string
+  memberCount: number
+  scheduleAmount: number
+  paidAmount: number
+  members: DashboardScheduleLine[]
+}
+
+const MUI_DETAIL_PANEL_SX = { sx: { backgroundColor: "transparent" } } as const
 
 function formatInr(amount: number): string {
   return amount.toLocaleString("en-IN", {
@@ -84,8 +103,47 @@ export function splitPendingAndPaid(
   return { pending, paid }
 }
 
-function buildColumns(includeStaff: boolean): MRT_ColumnDef<DashboardScheduleLine>[] {
-  const cols: MRT_ColumnDef<DashboardScheduleLine>[] = [
+function groupByPocCenter(
+  rows: DashboardScheduleLine[],
+  includeStaff: boolean
+): PocCenterGroup[] {
+  const groups = new Map<string, PocCenterGroup>()
+
+  for (const row of rows) {
+    const id = includeStaff
+      ? `${row.staffUserId ?? row.staffName ?? ""}-${row.pocId ?? row.pocName}-${row.centerName}`
+      : `${row.pocId ?? row.pocName}-${row.centerName}`
+
+    const existing = groups.get(id)
+    if (existing) {
+      existing.members.push(row)
+      existing.memberCount += 1
+      existing.scheduleAmount += row.emiAmount
+      existing.paidAmount += resolvedPaidAmount(row)
+      continue
+    }
+
+    groups.set(id, {
+      id,
+      pocName: row.pocName,
+      centerName: row.centerName,
+      staffName: row.staffName,
+      memberCount: 1,
+      scheduleAmount: row.emiAmount,
+      paidAmount: resolvedPaidAmount(row),
+      members: [row],
+    })
+  }
+
+  return Array.from(groups.values()).sort((a, b) => {
+    const poc = a.pocName.localeCompare(b.pocName, undefined, { sensitivity: "base" })
+    if (poc !== 0) return poc
+    return a.centerName.localeCompare(b.centerName, undefined, { sensitivity: "base" })
+  })
+}
+
+function buildMemberColumns(): MRT_ColumnDef<DashboardScheduleLine>[] {
+  return [
     {
       id: "memberRef",
       header: "Member",
@@ -99,15 +157,6 @@ function buildColumns(includeStaff: boolean): MRT_ColumnDef<DashboardScheduleLin
         </div>
       ),
     },
-  ]
-
-  if (includeStaff) {
-    cols.push({ accessorKey: "staffName", header: "Staff" })
-  }
-
-  cols.push(
-    { accessorKey: "pocName", header: "POC" },
-    { accessorKey: "centerName", header: "Center" },
     {
       accessorKey: "scheduleDate",
       header: "Schedule date",
@@ -150,45 +199,70 @@ function buildColumns(includeStaff: boolean): MRT_ColumnDef<DashboardScheduleLin
       header: "Status",
       Cell: ({ cell }) => <StatusBadge status={String(cell.getValue() ?? "")} />,
       filterFn: "equals",
+    },
+  ]
+}
+
+function buildPocColumns(includeStaff: boolean): MRT_ColumnDef<PocCenterGroup>[] {
+  const cols: MRT_ColumnDef<PocCenterGroup>[] = [
+    { accessorKey: "pocName", header: "POC" },
+    { accessorKey: "centerName", header: "Center" },
+  ]
+
+  if (includeStaff) {
+    cols.push({ accessorKey: "staffName", header: "Staff" })
+  }
+
+  cols.push(
+    {
+      accessorKey: "memberCount",
+      header: "Members",
+      muiTableHeadCellProps: { sx: { textAlign: "right" } },
+      muiTableBodyCellProps: { sx: { textAlign: "right" } },
+    },
+    {
+      accessorKey: "scheduleAmount",
+      header: "Schedule amount",
+      muiTableHeadCellProps: { sx: { textAlign: "right" } },
+      muiTableBodyCellProps: { sx: { textAlign: "right" } },
+      Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
+    },
+    {
+      accessorKey: "paidAmount",
+      header: "Paid amount",
+      muiTableHeadCellProps: { sx: { textAlign: "right" } },
+      muiTableBodyCellProps: { sx: { textAlign: "right" } },
+      Cell: ({ cell }) => formatInr(Number(cell.getValue() ?? 0)),
     }
   )
 
   return cols
 }
 
-const TALL_TABLE_CONTAINER_PROPS = {
+const NESTED_TABLE_CONTAINER_PROPS = {
   sx: {
-    maxHeight: "min(58vh, 640px)",
+    maxHeight: "min(42vh, 420px)",
     overflowY: "auto" as const,
     overflowX: "auto" as const,
     overscrollBehavior: "contain" as const,
   },
 }
 
-function ScheduleLinesTable({
-  rows,
-  isLoading,
-  emptyMessage,
-  includeStaff,
+const MemberDetailTable = memo(function MemberDetailTable({
+  members,
   tableKey,
 }: {
-  rows: DashboardScheduleLine[]
-  isLoading: boolean
-  emptyMessage: string
-  includeStaff: boolean
+  members: DashboardScheduleLine[]
   tableKey: TableVisibilityKey
 }) {
-  const columns = useMemo(() => buildColumns(includeStaff), [includeStaff])
+  const columns = useMemo(() => buildMemberColumns(), [])
   const responsive = useResponsiveTable(tableKey)
 
   const table = useMaterialReactTable({
     columns,
-    data: rows,
+    data: members,
     getRowId: (r) => r.id,
-    state: {
-      isLoading,
-      columnVisibility: responsive.columnVisibility,
-    },
+    state: { columnVisibility: responsive.columnVisibility },
     enableGlobalFilter: true,
     enablePagination: true,
     enableSorting: true,
@@ -200,12 +274,93 @@ function ScheduleLinesTable({
     renderDetailPanel: responsive.enableExpanding
       ? renderHiddenColumnsDetailPanel(columns, responsive.hiddenColumnIds)
       : undefined,
-    muiTableContainerProps: TALL_TABLE_CONTAINER_PROPS,
-    initialState: { pagination: { pageSize: 15, pageIndex: 0 } },
-    muiSearchTextFieldProps: { placeholder: "Search schedules…" },
+    muiTableContainerProps: NESTED_TABLE_CONTAINER_PROPS,
+    initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
+    muiSearchTextFieldProps: { placeholder: "Search members…" },
   })
 
-  if (!isLoading && rows.length === 0) {
+  return (
+    <div
+      className="border-t border-border bg-muted/20 px-2 py-3 sm:px-4"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <MaterialReactTable table={table} />
+    </div>
+  )
+})
+
+function PocCenterTable({
+  groups,
+  isLoading,
+  emptyMessage,
+  includeStaff,
+  pocTableKey,
+  memberTableKey,
+}: {
+  groups: PocCenterGroup[]
+  isLoading: boolean
+  emptyMessage: string
+  includeStaff: boolean
+  pocTableKey: TableVisibilityKey
+  memberTableKey: TableVisibilityKey
+}) {
+  const columns = useMemo(() => buildPocColumns(includeStaff), [includeStaff])
+  const pocTableResponsive = useResponsiveTable(pocTableKey)
+
+  const renderDetail = useCallback(
+    ({ row }: { row: MRT_Row<PocCenterGroup> }) => (
+      <MemberDetailTable members={row.original.members} tableKey={memberTableKey} />
+    ),
+    [memberTableKey]
+  )
+
+  const getBodyRowProps = useCallback(
+    ({
+      row,
+      table,
+      isDetailPanel,
+    }: {
+      row: MRT_Row<PocCenterGroup>
+      table: MRT_TableInstance<PocCenterGroup>
+      isDetailPanel?: boolean
+    }) => {
+      if (isDetailPanel) return {}
+      return {
+        onClick: (e: MouseEvent<HTMLTableRowElement>) => {
+          if ((e.target as HTMLElement).closest("button")) return
+          const open = !row.getIsExpanded()
+          table.setExpanded(open ? { [row.id]: true } : {})
+        },
+        sx: { cursor: "pointer" },
+      }
+    },
+    []
+  )
+
+  const table = useMaterialReactTable({
+    columns,
+    data: groups,
+    getRowId: (r) => r.id,
+    state: {
+      isLoading,
+      columnVisibility: pocTableResponsive.columnVisibility,
+    },
+    enableGlobalFilter: true,
+    enablePagination: true,
+    enableSorting: true,
+    enableColumnFilters: true,
+    enableStickyHeader: true,
+    enableExpandAll: false,
+    enableKeyboardShortcuts: false,
+    renderDetailPanel: renderDetail,
+    muiTableBodyRowProps: getBodyRowProps,
+    muiDetailPanelProps: MUI_DETAIL_PANEL_SX,
+    muiTableContainerProps: STANDARD_TABLE_CONTAINER_PROPS,
+    initialState: { pagination: { pageSize: 10, pageIndex: 0 } },
+    muiSearchTextFieldProps: { placeholder: "Search POC / Center…" },
+  })
+
+  if (!isLoading && groups.length === 0) {
     return (
       <div className="rounded-lg border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
         {emptyMessage}
@@ -230,10 +385,25 @@ export function PendingPaidScheduleGrids({
   includeStaff?: boolean
 }) {
   const { pending, paid } = useMemo(() => splitPendingAndPaid(rows), [rows])
-  const pendingTableKey: TableVisibilityKey = includeStaff
+  const pendingGroups = useMemo(
+    () => groupByPocCenter(pending, includeStaff),
+    [pending, includeStaff]
+  )
+  const paidGroups = useMemo(
+    () => groupByPocCenter(paid, includeStaff),
+    [paid, includeStaff]
+  )
+
+  const pocPendingKey: TableVisibilityKey = includeStaff
+    ? "staffSchedulePendingPoc"
+    : "dashboardPendingPoc"
+  const pocPaidKey: TableVisibilityKey = includeStaff
+    ? "staffSchedulePaidPoc"
+    : "dashboardPaidPoc"
+  const memberPendingKey: TableVisibilityKey = includeStaff
     ? "staffSchedulePendingLines"
     : "dashboardPendingSchedules"
-  const paidTableKey: TableVisibilityKey = includeStaff
+  const memberPaidKey: TableVisibilityKey = includeStaff
     ? "staffSchedulePaidLines"
     : "dashboardPaidSchedules"
 
@@ -242,27 +412,33 @@ export function PendingPaidScheduleGrids({
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">Pending schedules</h2>
-          <span className="tabular-nums text-xs text-muted-foreground">{pending.length}</span>
+          <span className="tabular-nums text-xs text-muted-foreground">
+            {pendingGroups.length} POC · {pending.length} members
+          </span>
         </div>
-        <ScheduleLinesTable
-          rows={pending}
+        <PocCenterTable
+          groups={pendingGroups}
           isLoading={isLoading}
           emptyMessage="No pending schedules for the selected date."
           includeStaff={includeStaff}
-          tableKey={pendingTableKey}
+          pocTableKey={pocPendingKey}
+          memberTableKey={memberPendingKey}
         />
       </section>
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">Paid schedules</h2>
-          <span className="tabular-nums text-xs text-muted-foreground">{paid.length}</span>
+          <span className="tabular-nums text-xs text-muted-foreground">
+            {paidGroups.length} POC · {paid.length} members
+          </span>
         </div>
-        <ScheduleLinesTable
-          rows={paid}
+        <PocCenterTable
+          groups={paidGroups}
           isLoading={isLoading}
           emptyMessage="No paid schedules for the selected date."
           includeStaff={includeStaff}
-          tableKey={paidTableKey}
+          pocTableKey={pocPaidKey}
+          memberTableKey={memberPaidKey}
         />
       </section>
     </div>
