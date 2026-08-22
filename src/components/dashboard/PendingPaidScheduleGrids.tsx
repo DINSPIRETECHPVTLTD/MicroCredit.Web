@@ -120,6 +120,17 @@ function buildColumns(includeStaff: boolean): MRT_ColumnDef<DashboardScheduleLin
         dateSort(rowA.original.scheduleDate, rowB.original.scheduleDate),
     },
     {
+      accessorKey: "paymentDate",
+      header: "Payment date",
+      Cell: ({ row }) => (
+        <span className="tabular-nums">
+          {formatDisplayDate(row.original.paymentDate, { empty: "" })}
+        </span>
+      ),
+      sortingFn: (rowA, rowB) =>
+        dateSort(rowA.original.paymentDate, rowB.original.paymentDate),
+    },
+    {
       accessorKey: "emiAmount",
       header: "EMI amount",
       muiTableHeadCellProps: { sx: { textAlign: "right" } },

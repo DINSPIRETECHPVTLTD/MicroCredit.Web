@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react"
 import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import toast from "react-hot-toast"
-import { AlertCircle, CalendarClock, HandCoins, IndianRupee, UserCheck, Users } from "lucide-react"
+import { AlertCircle, CalendarClock, HandCoins, IndianRupee, UserCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { reportService } from "@/services/report.service"
 import type { StaffSchedulesReport } from "@/types/report"
@@ -59,9 +59,7 @@ function flattenStaffScheduleLines(
       const membersForDay = isFetching
         ? poc.members
         : poc.members.filter(
-            (m) =>
-              scheduleDateKey(m.scheduleDate) === activeScheduleDateKey ||
-              scheduleDateKey(m.paymentDate) === activeScheduleDateKey
+            (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
           )
 
       for (const member of membersForDay) {
@@ -151,29 +149,22 @@ export function StaffSchedulesReportPanel({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SummaryMetricCard
-          title="Collecting staff (branch)"
-          value={String(collectingStaff)}
+          title="Collecting staff / with schedules"
+          value={`${collectingStaff} / ${staffWithSchedules}`}
           icon={UserCheck}
           loading={isLoading || isFetching}
           compact
         />
         <SummaryMetricCard
-          title="Staff with schedules"
-          value={String(staffWithSchedules)}
-          icon={Users}
-          loading={isLoading || isFetching}
-          compact
-        />
-        <SummaryMetricCard
-          title="Total schedule amount"
-          value={formatInr(amountSummary.scheduleTotal)}
+          title="Total schedule amount / Pending Amount"
+          value={`${formatInr(amountSummary.scheduleTotal)} / ${formatInr(amountSummary.pendingTotal)}`}
           icon={IndianRupee}
           loading={isLoading || isFetching}
           compact
         />
         <SummaryMetricCard
-          title="Total Pending Amount"
-          value={formatInr(amountSummary.pendingTotal)}
+          title="Total overdue amount"
+          value={formatInr(amountSummary.overdueTotal)}
           icon={AlertCircle}
           loading={isLoading || isFetching}
           compact

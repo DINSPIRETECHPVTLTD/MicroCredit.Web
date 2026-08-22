@@ -61,6 +61,7 @@ export function pendingAmountForRow(row: ScheduleAmountRow): number {
 export type ScheduleAmountSummary = {
   scheduleTotal: number
   pendingTotal: number
+  overdueTotal: number
   collectedTotal: number
   preCollected: number
   postCollected: number
@@ -71,6 +72,7 @@ export type ScheduleAmountSummary = {
 export function summarizeScheduleAmounts(rows: ScheduleAmountRow[]): ScheduleAmountSummary {
   let scheduleTotal = 0
   let pendingTotal = 0
+  let overdueTotal = 0
   let collectedTotal = 0
   let preCollected = 0
   let postCollected = 0
@@ -78,7 +80,11 @@ export function summarizeScheduleAmounts(rows: ScheduleAmountRow[]): ScheduleAmo
   for (const row of rows) {
     const emi = typeof row.emiAmount === "number" && Number.isFinite(row.emiAmount) ? row.emiAmount : 0
     scheduleTotal += emi
-    pendingTotal += pendingAmountForRow(row)
+    const pending = pendingAmountForRow(row)
+    pendingTotal += pending
+    if (normalizeSchedulerStatus(row.loanSchedulerStatus) === "overdue") {
+      overdueTotal += pending
+    }
     const collected = collectedAmountForRow(row)
     collectedTotal += collected
 
@@ -93,6 +99,7 @@ export function summarizeScheduleAmounts(rows: ScheduleAmountRow[]): ScheduleAmo
   return {
     scheduleTotal,
     pendingTotal,
+    overdueTotal,
     collectedTotal,
     preCollected,
     postCollected,

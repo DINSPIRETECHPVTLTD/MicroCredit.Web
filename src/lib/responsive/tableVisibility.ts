@@ -234,12 +234,12 @@ const TABLE_VISIBILITY: Record<
     desktop: {},
   },
   staffSchedulePendingLines: {
-    mobile: { staffName: false, pocName: false, centerName: false },
+    mobile: { staffName: false, pocName: false, centerName: false, paymentDate: false },
     tablet: { staffName: false, centerName: false },
     desktop: {},
   },
   staffSchedulePaidLines: {
-    mobile: { staffName: false, pocName: false, centerName: false },
+    mobile: { staffName: false, pocName: false, centerName: false, paymentDate: false },
     tablet: { staffName: false, centerName: false },
     desktop: {},
   },

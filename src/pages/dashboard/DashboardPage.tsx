@@ -16,7 +16,6 @@ import {
   Landmark,
   AlertCircle,
   UserCheck,
-  Users,
   CalendarClock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -311,9 +310,7 @@ function MyViewBranchReportSection({
   const filteredMembers = useMemo(() => {
     if (isFetching) return members
     return members.filter(
-      (m) =>
-        scheduleDateKey(m.scheduleDate) === activeScheduleDateKey ||
-        scheduleDateKey(m.paymentDate) === activeScheduleDateKey
+      (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
     )
   }, [members, activeScheduleDateKey, isFetching])
 
@@ -380,29 +377,22 @@ function MyViewBranchReportSection({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SummaryMetricCard
-          title="Total POCs"
-          value={String(totalPocs)}
+          title="Total POCs / Members"
+          value={`${totalPocs} / ${totalMembers}`}
           icon={UserCheck}
           loading={isLoading || isFetching}
           compact
         />
         <SummaryMetricCard
-          title="Total Members"
-          value={String(totalMembers)}
-          icon={Users}
-          loading={isLoading || isFetching}
-          compact
-        />
-        <SummaryMetricCard
-          title="Total schedule amount"
-          value={formatInr(amountSummary.scheduleTotal)}
+          title="Total schedule amount / Pending Amount"
+          value={`${formatInr(amountSummary.scheduleTotal)} / ${formatInr(amountSummary.pendingTotal)}`}
           icon={IndianRupee}
           loading={isLoading || isFetching}
           compact
         />
         <SummaryMetricCard
-          title="Total Pending Amount"
-          value={formatInr(amountSummary.pendingTotal)}
+          title="Total overdue amount"
+          value={formatInr(amountSummary.overdueTotal)}
           icon={AlertCircle}
           loading={isLoading || isFetching}
           compact
