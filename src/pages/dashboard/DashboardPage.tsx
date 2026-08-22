@@ -475,8 +475,8 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <div className="min-w-0 justify-self-start overflow-x-auto">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
           <SegmentedToggle
             value={dashboardSection}
             onChange={(section) => {
@@ -484,13 +484,12 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
               setDashboardSection(section)
             }}
             ariaLabel="Dashboard section"
-            className="max-w-full"
-            buttonClassName="min-w-0 sm:min-w-24"
+            className="flex w-full"
+            buttonClassName="min-w-0 flex-1"
             options={branchDashboardToggleOptions}
           />
         </div>
-        <label className="inline-flex items-center gap-2 justify-self-center">
-          <span className="text-xs font-medium text-muted-foreground">Date</span>
+        <div className="flex shrink-0 items-center gap-1.5">
           <DateInput
             value={selectedDateKey}
             onChange={(e) => {
@@ -501,18 +500,16 @@ function BranchReportDashboardContent({ branchId }: { branchId: number }) {
             className="w-auto px-2 py-1 text-xs font-medium shadow-sm"
             aria-label="Pick date"
           />
-        </label>
-        <div className="justify-self-end">
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="gap-2"
+            size="icon"
+            className="h-8 w-8 shrink-0"
             onClick={handleRefreshAll}
             disabled={refreshSpinning}
+            aria-label="Refresh"
           >
             <RefreshCw className={cn("h-4 w-4", refreshSpinning && "animate-spin")} aria-hidden />
-            Refresh
           </Button>
         </div>
       </div>
