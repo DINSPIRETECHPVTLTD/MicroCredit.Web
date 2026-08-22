@@ -38,7 +38,10 @@ import {
 } from "@/components/dashboard/PendingPaidScheduleGrids"
 import { DateInput } from "@/components/date"
 import { formatOrgModeDateHighlight } from "@/lib/date-time"
-import { summarizeScheduleAmounts } from "@/lib/dashboard/report-status-totals"
+import {
+  isOverdueSchedulerStatus,
+  summarizeScheduleAmounts,
+} from "@/lib/dashboard/report-status-totals"
 
 const EMPTY_POCS: PocBranchReportRow[] = []
 
@@ -310,7 +313,9 @@ function MyViewBranchReportSection({
   const filteredMembers = useMemo(() => {
     if (isFetching) return members
     return members.filter(
-      (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
+      (m) =>
+        scheduleDateKey(m.scheduleDate) === activeScheduleDateKey ||
+        isOverdueSchedulerStatus(m.loanSchedulerStatus)
     )
   }, [members, activeScheduleDateKey, isFetching])
 
@@ -378,14 +383,14 @@ function MyViewBranchReportSection({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <SummaryMetricCard
-          title="Total POCs / Members"
+          title="POCs / Members"
           value={`${totalPocs} / ${totalMembers}`}
           icon={UserCheck}
           loading={isLoading || isFetching}
           compact
         />
         <SummaryMetricCard
-          title="Total schedule amount / Pending Amount"
+          title="Total schedule / Pending Amount"
           value={`${formatInr(amountSummary.scheduleTotal)} / ${formatInr(amountSummary.pendingTotal)}`}
           icon={IndianRupee}
           loading={isLoading || isFetching}

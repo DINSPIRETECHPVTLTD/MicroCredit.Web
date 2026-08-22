@@ -10,7 +10,10 @@ import {
   PendingPaidScheduleGrids,
   type DashboardScheduleLine,
 } from "@/components/dashboard/PendingPaidScheduleGrids"
-import { summarizeScheduleAmounts } from "@/lib/dashboard/report-status-totals"
+import {
+  isOverdueSchedulerStatus,
+  summarizeScheduleAmounts,
+} from "@/lib/dashboard/report-status-totals"
 
 function getApiErrorMessage(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: unknown } })?.response?.data
@@ -59,7 +62,9 @@ function flattenStaffScheduleLines(
       const membersForDay = isFetching
         ? poc.members
         : poc.members.filter(
-            (m) => scheduleDateKey(m.scheduleDate) === activeScheduleDateKey
+            (m) =>
+              scheduleDateKey(m.scheduleDate) === activeScheduleDateKey ||
+              isOverdueSchedulerStatus(m.loanSchedulerStatus)
           )
 
       for (const member of membersForDay) {
@@ -157,7 +162,7 @@ export function StaffSchedulesReportPanel({
           compact
         />
         <SummaryMetricCard
-          title="Total schedule amount / Pending Amount"
+          title="Total schedule / Pending Amount"
           value={`${formatInr(amountSummary.scheduleTotal)} / ${formatInr(amountSummary.pendingTotal)}`}
           icon={IndianRupee}
           loading={isLoading || isFetching}

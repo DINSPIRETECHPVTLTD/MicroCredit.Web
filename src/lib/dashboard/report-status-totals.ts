@@ -7,7 +7,7 @@ export function normalizeSchedulerStatus(status: string | null | undefined): str
   if (s === "not paid" || s === "notpaid") return "not_paid"
   if (s === "paid") return "paid"
   if (s === "partial" || s === "partial paid") return "partial_paid"
-  if (s === "overdue") return "overdue"
+  if (s === "overdue" || s === "over due") return "overdue"
   if (s === "claimed") return "claimed"
   return s
 }
@@ -22,6 +22,10 @@ export type DashboardStatusTotals = {
 export function isPaidSchedulerStatus(status: string | null | undefined): boolean {
   const s = normalizeSchedulerStatus(status)
   return s === "paid" || s === "claimed"
+}
+
+export function isOverdueSchedulerStatus(status: string | null | undefined): boolean {
+  return normalizeSchedulerStatus(status) === "overdue"
 }
 
 function toDayKey(isoOrKey: string | null | undefined): string | null {
@@ -52,6 +56,19 @@ export function collectedAmountForRow(row: ScheduleAmountRow): number {
   return Math.max(paid, 0)
 }
 
+/** Full EMI for rows whose scheduler status is Overdue. */
+export function overdueAmountForRow(row: ScheduleAmountRow): number {
+  if (normalizeSchedulerStatus(row.loanSchedulerStatus) !== "overdue") return 0
+  const emi = typeof row.emiAmount === "number" && Number.isFinite(row.emiAmount) ? row.emiAmount : 0
+  return Math.max(emi, 0)
+}
+
+export function sumOverdueAmount(rows: ScheduleAmountRow[]): number {
+  let total = 0
+  for (const row of rows) total += overdueAmountForRow(row)
+  return total
+}
+
 export function pendingAmountForRow(row: ScheduleAmountRow): number {
   const emi = typeof row.emiAmount === "number" && Number.isFinite(row.emiAmount) ? row.emiAmount : 0
   if (isPaidSchedulerStatus(row.loanSchedulerStatus)) return 0
@@ -80,10 +97,10 @@ export function summarizeScheduleAmounts(rows: ScheduleAmountRow[]): ScheduleAmo
   for (const row of rows) {
     const emi = typeof row.emiAmount === "number" && Number.isFinite(row.emiAmount) ? row.emiAmount : 0
     scheduleTotal += emi
-    const pending = pendingAmountForRow(row)
-    pendingTotal += pending
-    if (normalizeSchedulerStatus(row.loanSchedulerStatus) === "overdue") {
-      overdueTotal += pending
+    if (isOverdueSchedulerStatus(row.loanSchedulerStatus)) {
+      overdueTotal += overdueAmountForRow(row)
+    } else {
+      pendingTotal += pendingAmountForRow(row)
     }
     const collected = collectedAmountForRow(row)
     collectedTotal += collected
