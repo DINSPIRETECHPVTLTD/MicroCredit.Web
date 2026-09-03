@@ -902,7 +902,7 @@ function RecoveryPostingList() {
                   const nextStatus = normalizeStatusValue(e.target.value)
                   setStatusDraft((prev) => ({ ...prev, [key]: nextStatus }))
                   if (nextStatus === RECOVERY_STATUS.OVERDUE) {
-                    // Overdue must carry forward only, so payment split values are reset.
+                    // Overdue marks the installment late only; payment must be posted as Paid/Partial Paid.
                     setPaymentAmountDraft((prev) => ({ ...prev, [key]: "" }))
                     setPaymentModeDraft((prev) => ({ ...prev, [key]: "" }))
                     setRowEdits((prev) => ({

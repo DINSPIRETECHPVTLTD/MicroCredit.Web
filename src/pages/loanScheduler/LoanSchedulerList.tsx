@@ -80,9 +80,15 @@ export default function LoanSchedulerList() {
 
       if (isBase(r)) {
         totalAmount += emiNum
-        if (status === "not paid" || status === "notpaid") {
-          remainingBalance += emiNum
+        if (status === "paid" || status === "claimed") {
+          continue
         }
+        if (status === "partial" || status === "partial paid") {
+          const leftover = emiNum - paidNum
+          if (leftover > 0) remainingBalance += leftover
+          continue
+        }
+        remainingBalance += emiNum
       }
     }
 

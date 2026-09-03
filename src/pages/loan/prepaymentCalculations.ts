@@ -84,8 +84,8 @@ export function calculatePrepaymentSplit(row: {
 }
 
 /**
- * Earlier Overdue blocks only when untransferred: missing PaymentDate or no later installment.
- * Committed overdue posts set PaymentDate and carry in the same transaction.
+ * Earlier Overdue blocks only when it has not been marked yet (missing PaymentDate)
+ * or there is no later installment to collect against.
  */
 export function isUntransferredOverdueBlocking(options: {
   status: string

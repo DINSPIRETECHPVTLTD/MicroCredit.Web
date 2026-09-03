@@ -175,14 +175,14 @@ function isBaseScheduleRow(row: Pick<SequentialScheduleCandidate, "parentLoanSch
 
 /**
  * Earlier EMI blocks a later post when it still has Not Paid outstanding, or Overdue that
- * has not been carried. Committed Overdue rows set PaymentDate in the same transaction as
- * carry-forward, so Overdue + PaymentDate + a later base must not block.
+ * has no PaymentDate yet. Committed Overdue rows set PaymentDate when marked late (no
+ * carry-forward), so Overdue + PaymentDate must not block a later installment.
  */
 export function isEarlierInstallmentBlocking(options: {
   candidate: SequentialScheduleCandidate
   currentInstallmentNo: number
   allBases: SequentialScheduleCandidate[]
-  /** Status chosen for this post (same-batch overdue will carry before later lines). */
+  /** Status chosen for this post (same-batch overdue marks late only). */
   effectiveStatus: string
   postingAsOverdueInSameBatch?: boolean
 }): boolean {
@@ -198,7 +198,7 @@ export function isEarlierInstallmentBlocking(options: {
 
   if (effectiveStatus !== RECOVERY_STATUS.OVERDUE) return false
 
-  // Same request will ApplyOverdue + carry before later installments are processed.
+  // Same request marks the earlier row Overdue (late only, no carry).
   if (postingAsOverdueInSameBatch) return false
 
   const hasPaymentDate =
@@ -206,6 +206,6 @@ export function isEarlierInstallmentBlocking(options: {
   const hasLaterBase = allBases.some(
     (row) => isBaseScheduleRow(row) && row.installmentNo > candidate.installmentNo
   )
-  // Untransferred overdue: missing PaymentDate or no carry destination.
+  // Unmarked overdue: missing PaymentDate or no later installment.
   return !hasPaymentDate || !hasLaterBase
 }
