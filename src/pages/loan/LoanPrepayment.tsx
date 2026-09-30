@@ -13,6 +13,7 @@ import { Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { createClientRequestId } from "@/lib/uuid"
 import { getApiErrorDetails, DEFAULT_API_ERROR_MESSAGE } from "@/lib/apiErrorHandler"
 import { masterlookupService } from "@/services/masterLookup.service"
 import { getSession } from "@/services/auth.service"
@@ -699,7 +700,7 @@ export default function LoanPrepayment() {
       if (selectedRows.length > 0 && isFullClosureSelection) {
         const receivedAmount = items.reduce((sum, item) => sum + Number(item.paymentAmount || 0), 0)
         await postPrepaymentRecoveries({
-          clientRequestId: crypto.randomUUID(),
+          clientRequestId: createClientRequestId(),
           collectedBy: sessionUserId,
           items,
           skipLedgerTransaction: true,
@@ -730,7 +731,7 @@ export default function LoanPrepayment() {
         }
       } else if (selectedRows.length > 0) {
         const result = await postPrepaymentRecoveries({
-          clientRequestId: crypto.randomUUID(),
+          clientRequestId: createClientRequestId(),
           collectedBy: sessionUserId,
           items,
         })

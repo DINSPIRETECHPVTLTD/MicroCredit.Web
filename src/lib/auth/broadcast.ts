@@ -1,10 +1,8 @@
 import { AUTH_BROADCAST_CHANNEL, type AuthBroadcastMessage } from "@/lib/auth/constants"
+import { createClientRequestId } from "@/lib/uuid"
 
 /** Per-tab id so we do not handle our own broadcast (avoids double redirect on logout). */
-const AUTH_TAB_ID =
-  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`
+const AUTH_TAB_ID = createClientRequestId()
 
 /** Notify other tabs that auth state changed. */
 export function broadcastAuthEvent(

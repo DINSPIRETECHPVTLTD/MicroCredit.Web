@@ -16,6 +16,7 @@ import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { createClientRequestId } from "@/lib/uuid"
 import {
   getApiErrorDetails,
   DEFAULT_API_ERROR_MESSAGE,
@@ -631,7 +632,7 @@ function RecoveryPostingList() {
       }
 
       const result = await postRecoveryPosting({
-        clientRequestId: crypto.randomUUID(),
+        clientRequestId: createClientRequestId(),
         collectedBy: effectiveCollectedById,
         items: rowsToPost.map((r) => ({
           ...(normalizeStatusValue(r.status) === RECOVERY_STATUS.OVERDUE
